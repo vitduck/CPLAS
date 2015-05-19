@@ -52,10 +52,12 @@ GetOptions(
 ) or pod2usage(-verbose => 99, -section => \@usages);
 
 # help message 
-pod2usage(-verbose => 99, -section => \@usages) if ($help);  
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # potential from profile
-my %md = get_potential_file($profile); 
+my %md; 
+eval { %md = get_potential_file($profile) }; 
+if ( $@ ) { pod2usage(-verbose => 99, -section => \@usages, -message => $@) }; 
 
 # moving average 
 average_potential(\%md, $period, $output); 
