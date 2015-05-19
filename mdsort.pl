@@ -57,16 +57,20 @@ GetOptions(
     'p=s' => \$profile, 
     't=s' => \$trajectory, 
     'n=i' => \$period, 
-) or pod2usage(-verbose => 99, -section => \@usages); 
+) or pod2usage(-verbose => 1, -section => \@usages); 
 
 # help message
 pod2usage(-verbose => 99, -section => \@usages) if $help; 
 
 # ISTEP, T, F from profile.dat
-my %md = get_potential_file($profile); 
+my %md; 
+eval { %md = get_potential_file($profile) };  
+if ( $@ ) { pod2usage(-verbose => 1, -section => \@usages, -message => $@) }; 
 
 # xyz from trajectory
-my $r2xyz = retrieve_xyz($trajectory); 
+my $r2xyz; 
+eval { $r2xyz = retrieve_xyz($trajectory) };  
+if ( $@ ) { pod2usage(-verbose => 1, -section => \@usages, -message => $@) }; 
 
 # sort 
 my ($local_minima, $local_maxima) = sort_potential(\%md, $period); 
@@ -82,7 +86,7 @@ print "=> Local maxima with period of $period steps:\n";
 print_minmax(@$local_maxima); 
 
 # weired situation ? 
-die "Something weired is going on\n" unless @$local_minima == @$local_maxima; 
+unless ( @$local_minima == @$local_maxima ) { die "Something weired is going on\n" }
 
 # => minima, maxima 
 unlink ($output1, $output2, $output3); 
