@@ -35,8 +35,11 @@ our %EXPORT_TAGS = (
 ##############
 # VASP INPUT #
 ##############
-# arg    : file 
-# return : array of lines 
+# read lines of file to array 
+# arg : 
+#   - file 
+# return : 
+#   - array of lines 
 sub get_line { 
     my ($input) = @_; 
     open INPUT, '<', $input or die "Cannot open $input\n"; 
@@ -46,12 +49,14 @@ sub get_line {
     return @lines; 
 }
 
-# arg    : ref to array of lines 
+# read cell information block
+# arg : 
+#   - ref to array of lines (POSCAR/CONTCAR/XDATCAR)
 # return : 
-#  - ref to 2d array of lattice vectors
-#  - ref to array of atom
-#  - ref to array of number of atom
-#  - type of coordinate (direct/cartesian)
+#   - ref to 2d array of lattice vectors
+#   - ref to array of atom
+#   - ref to array of number of atom
+#   - type of coordinate (direct/cartesian)
 sub get_cell { 
     my ($r2line) = @_; 
     my $title    = shift @$r2line; 
@@ -74,8 +79,11 @@ sub get_cell {
     return ($scaling, \@lats, \@atoms, \@natoms, $type); 
 }
 
-# arg    : ref to array of lines 
-# return : 2d array of atomic coordinates 
+# read atomic coordinats block
+# arg : 
+#   - ref to array of lines 
+# return : 
+#   - 2d array of atomic coordinates 
 sub get_geometry { 
     my ($r2line) = @_; 
     my @coordinates; 
@@ -90,8 +98,11 @@ sub get_geometry {
 ###############
 # VASP OUTPUT #
 ###############
-# arg    : ref to array of lines 
-# return : array of coordinates of ionic steps 
+# read atomic coordinate blocks for each ionic step  
+# arg : 
+#   - ref to array of lines 
+# return : 
+#   - array of coordinates of each ionic steps 
 sub get_traj { 
     my ($r2line) = @_; 
     my (@trajs, @coordinates); 
@@ -109,8 +120,11 @@ sub get_traj {
     return @trajs;  
 }
 
-# arg    : ref to array of lines 
-# return : hash: step => [ T, E ]
+# read istep, T(K), F(eV) from OSZICAR 
+# arg : 
+#   - ref to array of lines 
+# return : 
+#   - potential hash (istep => [T, F])
 sub get_potential { 
     my ($r2line) = @_; 
     my %md; 
@@ -126,9 +140,11 @@ sub get_potential {
     return %md; 
 }
 
-
-# arg    : ref to array of lines 
-# return : array of max forces  
+# read total forces of each ion step 
+# arg : 
+#   - ref to array of lines 
+# return : 
+#   - array of max forces  
 sub get_force { 
     my ($r2line) = @_; 
     # linenr of NION, and force
@@ -154,7 +170,8 @@ sub get_force {
 #######
 # XYZ #
 #######
-# arg    : 
+# atomic label, total atom for xyz
+# arg : 
 #   - ref to array of atomic labels 
 #   - ref to array of numbers of atoms
 #   - ref to expansion array x,y,z
@@ -177,7 +194,8 @@ sub make_cell {
     return (\@label, \@natom, $ntotal); 
 }
 
-# arg    : 
+# convert POSCAR/CONTCAR/XDATCAR to xyz 
+# arg : 
 #   - output file handler 
 #   - scaling constant 
 #   - ref to 2d array of lattive vectors 
@@ -233,8 +251,10 @@ sub make_xyz {
 }
 
 # distance between two atom
-# arg    : ref to two cartesian vectors 
-# return : distance 
+# arg : 
+#   - ref to two cartesian vectors 
+# return : 
+#   - distance 
 sub get_distance { 
     my ($xyz1, $xyz2) = @_; 
     my $d = sqrt(($xyz1->[1]-$xyz2->[1])**2 + ($xyz1->[2]-$xyz2->[2])**2 + ($xyz1->[3]-$xyz2->[3])**2); 
@@ -243,9 +263,10 @@ sub get_distance {
 }
 
 # visualize xyz file 
-# arg   : xyz file 
-# arg   : launch xmakemol for visualization 
-# return: null
+# arg : 
+#   - xyz file 
+#   - quiet mode ? 
+# return : null
 sub view_xyz { 
     my ($file, $quiet) = @_; 
     unless ( $quiet ) { 
@@ -258,6 +279,11 @@ sub view_xyz {
 ######
 # MD 
 ######
+# istep, T(K) and F(eV) from output of get_potential 
+# arg : 
+#   - profile.dat 
+# return : 
+#   - potential hash (istep => [T,F])
 sub get_potential_file { 
     my ($input) = @_; 
     my %md; 
@@ -274,6 +300,13 @@ sub get_potential_file {
     return %md; 
 }
 
+# sort the potential profile for local minimum and maximum 
+# arg : 
+#   - ref to potential hash (istep => [T,F])
+#   - period of ionic steps for sorting  
+# return : 
+#   - ref to array of local minima
+#   - ref to array of local maxima
 sub sort_potential { 
     my ($md, $periodicity) = @_; 
     my (@minima, @maxima); 
@@ -292,6 +325,13 @@ sub sort_potential {
     return (\@minima, \@maxima); 
 }
 
+# moving averages of potential profile 
+# ref: http://mathworld.wolfram.com/MovingAverage.html
+# arg: 
+#   - ref to potential hash (istep => [T,F])
+#   - period of ionic step to be averaged 
+#   - output file 
+# return: null
 sub average_potential { 
     my ($r2md, $period, $output) = @_; 
     # extract array of potentials (last column)
@@ -317,6 +357,10 @@ sub average_potential {
 ####### 
 # PRINT
 ####### 
+# print local minima/maxima of potential profile 
+# arg: 
+#   - array of mimina/maxima
+# return : null 
 sub print_minmax { 
     my @indexes = @_; 
 
@@ -328,8 +372,12 @@ sub print_minmax {
     return; 
 }
 
-
 # print useful information into comment section of xyz file 
+# arg: 
+#   - file handler 
+#   - ref to 2d array of coordinate 
+#   - ionic step (istep) 
+#   - ref to potential hash (istep => [T,F])
 sub print_header { 
     my ($fh, $r2coor, $istep, $r2md) = @_; 
     printf $fh "%d\n#%d:  T= %.1f  F= %-10.5f\n", scalar(@$r2coor), $istep, @{$r2md->{$istep}}; 
@@ -337,7 +385,11 @@ sub print_header {
     return ; 
 }
 
-# args   : filehandler, atomic label, x, y, and z 
+# print atomic coordinate block
+# arg: 
+#   - filehandler 
+#   - atomic label 
+#   - x, y, and z 
 # return : null
 sub print_coordinate { 
     my ($fh, $label, $x, $y, $z) = @_; 
@@ -346,6 +398,10 @@ sub print_coordinate {
     return; 
 }
 
+# print potential profile to file 
+# arg: 
+#   - ref to potential hash (istep => [T,F])
+#   - output file 
 sub print_potential { 
     my ($md, $file) = @_; 
     open OUTPUT, '>', $file; 
@@ -360,8 +416,9 @@ sub print_potential {
 # STORE #
 #########
 # save trajectory to disk
-# arg   : ref to trajectory (array of ref to 2d coordinate) 
-# arg   : output 
+# arg : 
+#   - ref to trajectory (array of ref to 2d coordinate) 
+#   - stored output
 # return: null
 sub save_xyz { 
     my ($xyz, $output, $save) = @_; 
@@ -372,6 +429,10 @@ sub save_xyz {
     }
 }
 
+# retrieve trajectory to disk
+# arg : 
+#   - stored data 
+# return: null 
 sub retrieve_xyz { 
     my ($stored_xyz) = @_; 
     # trajectory is required 
@@ -388,8 +449,11 @@ sub retrieve_xyz {
 ########
 # MATH # 
 ########
-# args   : ref of two 2d matrices
-# return : product matrix
+# product of two matrices
+# arg : 
+#   - ref of two 2d matrices
+# return : 
+#   - product matrix
 sub matmul { 
 	my ($mat1, $mat2) = @_;
 	my @product = (); 
@@ -407,8 +471,10 @@ sub matmul {
 }
 
 # dimesnion of arbitrary matrix 
-# args   : ref to matrix
-# return :dimension of matrix
+# arg : 
+#   - ref to matrix
+# return :
+#   - dimension of matrix
 sub matdim { 
     my ($mat) = @_;  
     if (ref($mat->[0]) eq ARRAY) {  
@@ -424,8 +490,10 @@ sub matdim {
 }
 
 # triple vector product
-# args   : ref to three vectors 
-# return : volume of spanned by three vectors 
+# arg : 
+#   - ref to three vectors 
+# return : 
+#   - volume of spanned by three vectors 
 sub triple_product { 
     my ($a, $b, $c) = @_; 
     my $product =$a->[0] * $b->[1]*$c->[2] - $a->[0]*$b->[2]*$c->[1]
