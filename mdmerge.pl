@@ -43,17 +43,17 @@ my $help = 0;
 my (@trajectories, @profiles); 
 
 # default output 
-if ( @ARGV==0 ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( @ARGV==0 ) { pod2usage(-verbose => 1) }; 
 
 # parse optional arguments 
 GetOptions(
     'h'       => \$help, 
     't=s{1,}' => \@trajectories, 
     'p=s{1,}' => \@profiles
-) or pod2usage(-verbose => 99, -section => \@usages);
+) or pod2usage(-verbose => 1); 
 
 # help message 
-pod2usage(-verbose => 99, -section => \@usages) if $help; 
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # profile files
 if (@profiles) { 

@@ -49,7 +49,7 @@ GetOptions(
     'h'   => \$help, 
     'p=s' => \$profile, 
     'n=i' => \$period
-) or pod2usage(-verbose => 99, -section => \@usages);
+) or pod2usage(-verbose => 1);
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
@@ -57,7 +57,7 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 # potential from profile
 my %md; 
 eval { %md = get_potential_file($profile) }; 
-if ( $@ ) { pod2usage(-verbose => 99, -section => \@usages, -message => $@) }; 
+if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # moving average 
 average_potential(\%md, $period, $output); 

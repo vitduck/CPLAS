@@ -57,10 +57,10 @@ GetOptions(
     'p=s' => \$profile, 
     't=s' => \$trajectory, 
     'n=i' => \$period, 
-) or pod2usage(-verbose => 1, -section => \@usages); 
+) or pod2usage(-verbose => 1); 
 
 # help message
-pod2usage(-verbose => 99, -section => \@usages) if $help; 
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # ISTEP, T, F from profile.dat
 my %md; 

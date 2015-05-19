@@ -59,7 +59,7 @@ my @elements   = ();
 my @potcars; 
 
 # default output 
-if ( @ARGV==0 ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
 
 # optional args
 GetOptions(
@@ -67,14 +67,15 @@ GetOptions(
     'l'       => \$list, 
     't=s'     => \$potential,
     'e=s{1,}' => \@elements
-) or pod2usage(-verbose => 99, -section => \@usages); 
+) or pod2usage(-verbose => 1); 
 
 # help message 
-pod2usage(-verbose => 99, -section => \@usages) if $help; 
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # available potentials 
-pod2usage(-verbose => 1, -message => "Invalid potential type\n" ) 
-unless grep { $potential eq $_ } @potentials; 
+unless ( grep { $potential eq $_ } @potentials ) {  
+    pod2usage(-verbose => 1, -message => "Invalid potential type\n" ) 
+}
 
 # available elements 
 for my $element ( @elements ) { 

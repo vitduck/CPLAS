@@ -69,10 +69,10 @@ GetOptions(
     's'      => \$save, 
     'q'      => \$quiet, 
     'x=i{3}' => \@nxyz
-) or pod2useage(-verbose => 99, -section => \@usages);
+) or pod2useage(-verbose => 1); 
 
 # help message
-pod2usage(-verbose => 99, -section => \@usages)  if $help; 
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # XDATCAR lines
 my @lines = get_line($input); 
@@ -84,7 +84,7 @@ my ($scaling, $r2lat, $r2atom, $r2natom, $type) = get_cell(\@lines);
 my @trajs = get_traj(\@lines); 
 
 # default supercell expansion 
-@nxyz = (1, 1, 1) unless @nxyz == 3; 
+unless ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
 
 # scalar to array ref 
 my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 

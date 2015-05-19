@@ -55,13 +55,15 @@ GetOptions(
     'a=s' => \$atm1, 
     'b=s' => \$atm2, 
     'r=f' => \$radius
-) or pod2usage(-verbose => 99, -section => \@usages); 
+) or pod2usage(-verbose => 1); 
 
 # help message 
-pod2usage(-verbose => 99, -section => \@usages) if $help; 
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # default options to be defined
-pod2usage(-verbose => 99, -section => \@usages) unless defined $atm1 and defined $atm2 and defined $radius; 
+unless ( defined $atm1 and defined $atm2 and defined $radius ) {  
+    pod2usage(-verbose => 1); 
+}
 
 # input & output
 my $input     = 'CONTCAR'; 
@@ -78,7 +80,7 @@ my ($scaling, $r2lat, $r2atom, $r2natom, $type) = get_cell(\@lines);
 my @coordinates = get_geometry(\@lines);
 
 # reference unitcell
-my $centralized    = 1; 
+my $centralized = 1; 
 my @nxyz = (1,1,1); 
 
 # scalar -> array ref! 
