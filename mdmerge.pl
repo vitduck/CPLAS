@@ -42,6 +42,9 @@ List of trajectory  files to be merged
 my $help = 0; 
 my (@trajectories, @profiles); 
 
+# default output 
+if ( @ARGV==0 ) { pod2usage(-verbose => 99, -section => \@usages) }
+
 # parse optional arguments 
 GetOptions(
     'h'       => \$help, 
