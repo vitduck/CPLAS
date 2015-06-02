@@ -69,7 +69,7 @@ GetOptions(
     's'      => \$save, 
     'q'      => \$quiet, 
     'x=i{3}' => \@nxyz
-) or pod2useage(-verbose => 1); 
+) or pod2usage(-verbose => 1); 
 
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
