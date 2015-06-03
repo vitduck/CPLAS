@@ -7,19 +7,16 @@ use Exporter qw(import);
 use List::Util qw(sum max); 
 use Storable qw(store retrieve); 
 
-use constant ARRAY => ref []; 
-
 # symbol 
-our @input  = qw(get_line get_cell get_geometry); 
-our @output = qw(get_traj get_potential get_force); 
-our @xyz    = qw(make_cell make_xyz view_xyz get_distance); 
-our @md     = qw(get_potential_file sort_potential average_potential); 
-our @store  = qw(save_xyz retrieve_xyz); 
-our @print  = qw(print_minmax print_header print_coordinate print_potential); 
-our @math   = qw(matmul matdim triple_product); 
+our @input  = qw( get_line get_cell get_geometry ); 
+our @output = qw( get_traj get_potential get_force ); 
+our @xyz    = qw( make_cell make_xyz view_xyz get_distance ); 
+our @md     = qw( get_potential_file sort_potential average_potential ); 
+our @store  = qw( save_xyz retrieve_xyz ); 
+our @print  = qw( print_minmax print_header print_coordinate print_potential ); 
 
 # default import 
-our @EXPORT = ( @input, @output, @xyz, @md, @store, @math, @print );  
+our @EXPORT = ( @input, @output, @xyz, @md, @store, @print );  
 
 # tag import 
 our %EXPORT_TAGS = (
@@ -29,12 +26,11 @@ our %EXPORT_TAGS = (
     md     => \@md, 
     store  => \@store, 
     print  => \@print, 
-    math   => \@math, 
 ); 
 
-##############
-# VASP INPUT #
-##############
+#########
+# INPUT #
+#########
 # read lines of file to array 
 # arg : 
 #   - file 
@@ -95,9 +91,9 @@ sub get_geometry {
     return @coordinates; 
 }
 
-###############
-# VASP OUTPUT #
-###############
+##########
+# OUTPUT #
+##########
 # read atomic coordinate blocks for each ionic step  
 # arg : 
 #   - ref to array of lines 
@@ -277,7 +273,7 @@ sub view_xyz {
 }
 
 ######
-# MD 
+# MD #
 ######
 # istep, T(K) and F(eV) from output of get_potential 
 # arg : 
@@ -354,9 +350,9 @@ sub average_potential {
     return; 
 }
 
-####### 
-# PRINT
-####### 
+#########
+# PRINT #
+#########
 # print local minima/maxima of potential profile 
 # arg: 
 #   - array of mimina/maxima
@@ -443,64 +439,6 @@ sub retrieve_xyz {
     printf "=> Hash contains %d entries\n\n", scalar(keys %$r2xyz); 
 
     return $r2xyz; 
-}
-
-
-########
-# MATH # 
-########
-# product of two matrices
-# arg : 
-#   - ref of two 2d matrices
-# return : 
-#   - product matrix
-sub matmul { 
-	my ($mat1, $mat2) = @_;
-	my @product = (); 
-	my ($mat1_rows, $mat1_cols) = matdim($mat1);  
-	my ($mat2_rows, $mat2_cols) = matdim($mat2);  
-	die "IndexError: matrix dimensions are not compatible\n" unless $mat1_cols == $mat2_rows; 
-	for my $i (0..$mat1_rows-1) { 
-		for my $j (0..$mat2_cols-1) { 
-			for my $k (0..$mat1_cols-1) { 
-				$product[$i][$j] += $mat1->[$i][$k] * $mat2->[$k][$j]; 
-			}
-		}
-	}
-	return @product; 
-}
-
-# dimesnion of arbitrary matrix 
-# arg : 
-#   - ref to matrix
-# return :
-#   - dimension of matrix
-sub matdim { 
-    my ($mat) = @_;  
-    if (ref($mat->[0]) eq ARRAY) {  
-        my @shape; 
-        # recursive call 
-        push @shape, (scalar @$mat, matdim($mat->[0])); 
-        return @shape; 
-    } else { 
-        # halting condition 
-        # ref to 1d array is reached 
-        return scalar(@$mat); 
-    }
-}
-
-# triple vector product
-# arg : 
-#   - ref to three vectors 
-# return : 
-#   - volume of spanned by three vectors 
-sub triple_product { 
-    my ($a, $b, $c) = @_; 
-    my $product =$a->[0] * $b->[1]*$c->[2] - $a->[0]*$b->[2]*$c->[1]
-                - $a->[1]*$b->[0]*$c->[2] + $a->[1]*$c->[0]*$b->[2]
-                + $a->[2]*$b->[0]*$b->[1] - $a->[2]*$a->[2]*$b->[0]; 
-    
-    return $product; 
 }
 
 # last evaluated expression 

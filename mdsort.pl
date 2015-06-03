@@ -43,13 +43,13 @@ Number of ion steps for minima/maxima search (default: 1000)
 =cut
 
 # default optional arguments
-my $help        = 0; 
-my $profile     = 'profile.dat'; 
-my $trajectory  = 'traj.dat'; 
-my $output1      = 'minima.xyz'; 
-my $output2      = 'maxima.xyz'; 
-my $output3      = 'pes.xyz'; 
-my $period      = 1000; 
+my $help       = 0; 
+my $profile    = 'profile.dat'; 
+my $trajectory = 'traj.dat'; 
+my $output1    = 'minima.xyz'; 
+my $output2    = 'maxima.xyz'; 
+my $output3    = 'pes.xyz'; 
+my $period     = 1000; 
 
 # parse optional arguments 
 GetOptions(
@@ -65,12 +65,12 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 # ISTEP, T, F from profile.dat
 my %md; 
 eval { %md = get_potential_file($profile) };  
-if ( $@ ) { pod2usage(-verbose => 1, -section => \@usages, -message => $@) }; 
+if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # xyz from trajectory
 my $r2xyz; 
 eval { $r2xyz = retrieve_xyz($trajectory) };  
-if ( $@ ) { pod2usage(-verbose => 1, -section => \@usages, -message => $@) }; 
+if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # sort 
 my ($local_minima, $local_maxima) = sort_potential(\%md, $period); 
