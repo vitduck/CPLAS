@@ -267,8 +267,11 @@ sub view_xyz {
     my ($file, $quiet) = @_; 
     unless ( $quiet ) { 
         print "=> Launching xmakemol ...\n"; 
-        exec "xmakemol -c '#3F3F3F' -f $file >/dev/null 2>&1 &" 
-        #exec "xmakemol -f $file >/dev/null 2>&1 &" 
+        if ( $ENV{DARK} ) { 
+            exec "xmakemol -c '#3F3F3F' -f $file >/dev/null 2>&1 &" 
+        } else { 
+            exec "xmakemol -f $file >/dev/null 2>&1 &" 
+        }
     }
 }
 
