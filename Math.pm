@@ -3,8 +3,8 @@ package Math;
 use strict; 
 use warnings; 
 
-use Exporter   qw(import); 
-use List::Util qw(sum); 
+use Exporter   qw( import ); 
+use List::Util qw( sum ); 
 
 use constant ARRAY => ref []; 
 
