@@ -46,7 +46,7 @@ period of ionic step for taking snapshot
 my $help       = 0; 
 my $profile    = 'profile.dat'; 
 my $trajectory = 'traj.dat'; 
-my $output     = 'movie.dat'; 
+my $output     = 'movie.xyz'; 
 my $period     = 100; 
  
 # parse optional arguments 
