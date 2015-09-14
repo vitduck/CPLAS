@@ -3,11 +3,13 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(save_xyz retrieve_xyz get_potential_file); 
 use Getopt::Long; 
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use VASP qw( read_md ); 
+use XYZ  qw( save_xyz retrieve_xyz ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -16,7 +18,7 @@ mdmerge.pl: merge multiple trajectories and potential profiles
 
 =head1 SYNOPSIS
 
-mdmerge.pl [-h] [-p] <potential file> [-t] <trajectory files> 
+mdmerge.pl [-h] [-p] <profiles> [-t] <trajectories> 
 
 =head1 OPTIONS  
 
@@ -59,6 +61,7 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 if (@profiles) { 
     print "Merging profiles as:  "; 
     chomp (my $output = <STDIN>); 
+    print "\n"; 
 
     open OUTPUT, '>'. $output or die "Cannot write to $output\n"; 
     print OUTPUT "# global local T(K) Potental(eV)\n";
@@ -69,7 +72,7 @@ if (@profiles) {
         printf OUTPUT "# $profile\n"; 
         
         # potential from file 
-        my %md = get_potential_file($profile);     
+        my %md = read_md($profile);     
         
         # re-write with accumulated ionic step 
         for my $istep ( sort { $a <=> $b } keys %md ) { 
@@ -82,6 +85,8 @@ if (@profiles) {
 
     # flush
     close OUTPUT; 
+
+    print "=> Save trajectry as '$output'\n"; 
 }
 
 # trajectory files 
@@ -89,6 +94,8 @@ if (@trajectories) {
     my %xyz; 
     print "Merging trajectories as:  "; 
     chomp (my $output = <STDIN>); 
+    print "\n"; 
+    
     for my $traj ( @trajectories ) { 
         # hash size
         my $size = keys %xyz; 

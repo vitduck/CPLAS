@@ -3,12 +3,16 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(:input triple_product make_cell make_xyz get_distance); 
-use List::Util qw(min); 
-use Getopt::Long qw(:config);  
+use List::Util qw( min ); 
+use Getopt::Long;  
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use GenUtil qw( read_line ); 
+use Math    qw( triple_product ); 
+use VASP    qw( read_cell read_geometry ); 
+use XYZ     qw( make_supercell make_xyz atom_distance ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -17,7 +21,7 @@ rdf.pl: calculate pair correlation function from CONTCAR
 
 =head1 SYNOPSIS
 
-rdf.pl [-h] [-a Ca] [-b Ca] [-r 10] 
+rdf.pl [-h] [-a atm1] [-b atm2] [-r 10] 
 
 =head1 OPTIONS
 
@@ -71,13 +75,13 @@ my $unitcell  = 'unitcell.xyz';
 my $supercell = 'supercell.xyz'; 
 
 # CONTCAR lines 
-my @lines = get_line($input); 
+my @lines = read_line($input); 
 
 # cell parameters
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = get_cell(\@lines);
+my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines);
 
 # atomic positions
-my @coordinates = get_geometry(\@lines);
+my @coordinates = read_geometry(\@lines);
 
 # reference unitcell
 my $centralized = 1; 
@@ -87,7 +91,7 @@ my @nxyz = (1,1,1);
 my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
 
 # supercell parameters 
-my ($label, $natom, $ntotal) = make_cell($r2atom, $r2natom, $nx, $ny, $nz); 
+my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
 
 # unitcell.xyz
 open my $fh, '>', $unitcell; 
@@ -129,7 +133,7 @@ map { $gr{$_} = 0 } @radius;
 # pair distance 
 for my $atm1 ( @atm1 ) { 
     for my $atm2 ( @atm2 ) { 
-        my $d12 = get_distance($atm1, $atm2); 
+        my $d12 = atom_distance($atm1, $atm2); 
         # do not count itself 
         next if $d12 == 0 or $d12 > $radius; 
         # asign to approriate grid 

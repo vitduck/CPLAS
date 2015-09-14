@@ -3,11 +3,14 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(:input make_cell make_xyz view_xyz); 
 use Getopt::Long; 
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use GenUtil  qw ( read_line ); 
+use VASP     qw ( read_cell read_geometry ); 
+use XYZ      qw ( make_supercell make_xyz xmakemol );
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -69,13 +72,13 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # POSCAR lines
-my @lines = get_line($input); 
+my @lines = read_line($input); 
 
 # cell parameters 
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = get_cell(\@lines); 
+my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines); 
 
 # atomic positions 
-my @coordinates = get_geometry(\@lines); 
+my @coordinates = read_geometry(\@lines); 
 
 # poscar.xyz
 open my $fh, '>', $output; 
@@ -87,7 +90,7 @@ unless  ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
 my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
 
 # supercell parameters 
-my ($label, $natom, $ntotal) = make_cell($r2atom, $r2natom, $nx, $ny, $nz); 
+my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
 
 # poscar.xyz
 printf $fh "%d\n\n", $ntotal; 
@@ -98,4 +101,4 @@ my @xyz = make_xyz($fh, $scaling, $r2lat, $label, $type, \@coordinates, $central
 close $fh; 
 
 # xmakemol
-view_xyz($output, $quiet); 
+xmakemol($output, $quiet); 

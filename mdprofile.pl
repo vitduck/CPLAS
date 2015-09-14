@@ -3,11 +3,14 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(get_line get_potential print_potential :store); 
-use Getopt::Long qw(:config bundling);  
+use Getopt::Long;  
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS NOTE); 
+use GenUtil qw( read_line ); 
+use VASP    qw( read_profile write_md ); 
+use XYZ     qw( save_xyz retrieve_xyz ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS NOTE ); 
 
 # POD 
 =head1 NAME 
@@ -55,8 +58,8 @@ unless ( -f $trajectory ) {
 my $r2xyz = retrieve_xyz($trajectory);  
 
 # OSZICAR lines
-my @lines = get_line('OSZICAR'); 
-my %md = get_potential(\@lines); 
+my @lines = read_line('OSZICAR'); 
+my %md = read_profile(\@lines); 
 
 # synchronization two hashses 
 my $ntraj = keys %$r2xyz; 
@@ -80,4 +83,4 @@ unless ( $ntraj == $nmd ) {
 
 # profile.dat
 print "=> Potential profile is written to $profile\n"; 
-print_potential(\%md, $profile); 
+write_md(\%md, $profile); 

@@ -3,11 +3,14 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(get_line get_cell get_traj :xyz :store); 
 use Getopt::Long; 
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use GenUtil qw( read_line ); 
+use VASP    qw( read_cell read_traj );  
+use XYZ     qw( make_supercell make_xyz save_xyz xmakemol ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -75,13 +78,13 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # XDATCAR lines
-my @lines = get_line($input); 
+my @lines = read_line($input); 
 
 # cell parameters 
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = get_cell(\@lines); 
+my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines); 
 
 # read atomic positions 
-my @trajs = get_traj(\@lines); 
+my @trajs = read_traj(\@lines); 
 
 # default supercell expansion 
 unless ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
@@ -90,7 +93,7 @@ unless ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
 my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
 
 # supercell parameters
-my ($label, $natom, $ntotal) = make_cell($r2atom, $r2natom, $nx, $ny, $nz); 
+my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
 
 # xdatcar.xyz
 open my $fh, '>', $output; 
@@ -112,5 +115,5 @@ close $fh;
 if ( $save ) { 
     save_xyz(\%traj, 'traj.dat', $save);  
 } else { 
-    view_xyz($output, $quiet); 
+    xmakemol($output, $quiet); 
 }

@@ -7,10 +7,10 @@ use Exporter   qw( import );
 use List::Util qw( sum max ); 
 
 # symbol 
-our @poscar  = qw ( get_cell get_geometry ); 
-our @xdatcar = qw ( get_traj ); 
-our @oszicar = qw ( get_md ); 
-our @outcar  = qw ( get_force ); 
+our @poscar  = qw ( read_cell read_geometry ); 
+our @xdatcar = qw ( read_traj ); 
+our @oszicar = qw ( read_profile ); 
+our @outcar  = qw ( read_force ); 
 our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
 
 # default import 
@@ -36,7 +36,7 @@ our %EXPORT_TAGS = (
 #   - ref to array of atom
 #   - ref to array of number of atom
 #   - type of coordinate (direct/cartesian)
-sub get_cell { 
+sub read_cell { 
     my ($r2line) = @_; 
     my $title    = shift @$r2line; 
 	# scaling constant
@@ -63,7 +63,7 @@ sub get_cell {
 #   - ref to array of lines 
 # return : 
 #   - 2d array of atomic coordinates 
-sub get_geometry { 
+sub read_geometry { 
     my ($r2line) = @_; 
     my @coordinates; 
     while ( my $line = shift @$r2line ) { 
@@ -83,7 +83,7 @@ sub get_geometry {
 #   - ref to array of lines 
 # return : 
 #   - array of coordinates of each ionic steps 
-sub get_traj { 
+sub read_traj { 
     my ($r2line) = @_; 
     my (@trajs, @coordinates); 
     while ( my $line = shift @$r2line ) { 
@@ -109,7 +109,7 @@ sub get_traj {
 #   - ref to array of lines 
 # return : 
 #   - potential hash (istep => [T, F])
-sub get_md { 
+sub read_profile { 
     my ($r2line) = @_; 
     my %md; 
     my @md = map {[(split)[0,2,6]]} grep {/T=/} @$r2line;
@@ -134,7 +134,7 @@ sub get_md {
 #   - ref to array of lines 
 # return : 
 #   - array of max forces  
-sub get_force { 
+sub read_force { 
     my ($r2line) = @_; 
     # linenr of NION, and force
     my ($lion, @lforces) = grep { $r2line->[$_] =~ /number of ions|TOTAL-FORCE/ } 0..$#$r2line; 

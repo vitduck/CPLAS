@@ -8,7 +8,7 @@ use List::Util qw( sum );
 use Storable   qw( store retrieve ); 
 
 # symbol 
-our @geom  = qw ( make_cell make_xyz save_xyz retrieve_xyz atom_distance ); 
+our @geom  = qw ( make_supercell make_xyz read_xyz save_xyz retrieve_xyz atom_distance ); 
 our @view  = qw ( xmakemol ); 
 our @print = qw ( print_header print_coordinate ); 
 
@@ -31,7 +31,7 @@ our %EXPORT_TAGS = (
 #   - ref to array of expanded atomic label 
 #   - ref to array of expaned numbers of atoms 
 #   - total number of atom in supercell 
-sub make_cell { 
+sub make_supercell { 
     my ($r2atom, $r2natom, $nx, $ny, $nz) = @_; 
     # ex: sx = 2 if $nx = [1..2] 
     # ex: ex = 3 if $nx = [-1..1] (for pair correlation)
@@ -45,7 +45,6 @@ sub make_cell {
 
     return (\@label, \@natom, $ntotal); 
 }
-
 
 # convert POSCAR/CONTCAR/XDATCAR to xyz 
 # arg : 
@@ -101,6 +100,17 @@ sub make_xyz {
     }
 
     return @xyz; 
+}
+
+sub read_xyz { 
+    my ($r2line) = @_; 
+    my @coordinates; 
+    while ( my $atom = shift @$r2line ) { 
+        if ( $atom =~ /^\s+$/ ) { last } 
+        push @coordinates, [ (split ' ', $atom)[1..3] ];  
+    }
+
+    return @coordinates; 
 }
 
 # print useful information into comment section of xyz file 

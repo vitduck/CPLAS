@@ -3,11 +3,12 @@
 use strict; 
 use warnings; 
 
-use Vasp qw( get_potential_file average_potential); 
-use Getopt::Long qw(:config bundling);  
+use Getopt::Long;  
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use VASP qw( read_md average_md ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -56,8 +57,8 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # potential from profile
 my %md; 
-eval { %md = get_potential_file($profile) }; 
+eval { %md = read_md($profile) }; 
 if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # moving average 
-average_potential(\%md, $period, $output); 
+average_md(\%md, $period, $output); 

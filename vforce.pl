@@ -3,11 +3,13 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(get_line get_force); 
 use Getopt::Long; 
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use GenUtil qw( get_line ); 
+use VASP    qw( get_force); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -16,7 +18,7 @@ vforce.pl: total Hellmann-Feynman forces (VASP 5)
 
 =head1 SYNOPSIS
 
-vforce.pl [-h] 
+vforce.pl [-h] [-s]
 
 =head1 OPTIONS
 
@@ -26,15 +28,22 @@ vforce.pl [-h]
 
 Print the help message and exit.
 
+=item B<-s> 
+
+Save forces to forces.dat
+
 =back 
 
 =cut
 
 # default optional arguments 
 my $help   = 0; 
+my $save   = 0; 
+my $output = 'forces.dat'; 
 
 GetOptions(
-    'h'      => \$help, 
+    'h'  => \$help, 
+    's'  => \$save, 
 ) or pod2usage(-verbose => 1); 
 
 # help message 
@@ -43,14 +52,6 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 # collect forces 
 my @lines  = get_line('OUTCAR'); 
 my @forces = get_force(\@lines); 
-
-# print max forces 
-#my $count = 0; 
-#my $digit = length(scalar(@forces)); 
-#while (my @sub_forces = splice @forces, 0, 5) { 
-    #map { printf "%${digit}d: f = %7.3e  ", ++$count, $_ } @sub_forces; 
-    #print "\n"; 
-#}
 
 # maximum of 5 column 
 my $ncol = 5; 
@@ -69,4 +70,11 @@ for my $i ( 0..$#indices ) {
     if ( $indices[$i] > $indices[$i+1] ) { 
         print "\n"; 
     } 
+}
+
+# save force to file 
+if ( $save ) { 
+    open my $fh, '>', $output; 
+    printf $fh "%d\t%7.3e\n", $_+1, $forces[$_] for 0..$#forces; 
+    close $fh; 
 }

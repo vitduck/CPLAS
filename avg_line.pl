@@ -2,7 +2,8 @@
 
 use strict; 
 use warnings; 
-use List::Util qw(sum max min); 
+
+use List::Util qw( sum max min ); 
 
 my $index = 2; 
 

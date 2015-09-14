@@ -3,13 +3,14 @@
 use strict; 
 use warnings; 
 
-use Periodic; 
 use Getopt::Long; 
 use Pod::Usage; 
 use File::Basename; 
-use File::Spec::Functions qw(catfile); 
+use File::Spec::Functions qw( catfile ); 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use Periodic; 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -54,7 +55,7 @@ my $dir = '/opt/VASP/POTCAR';
 my $help       = 0; 
 my $list       = 0; 
 my $potential  = 'PAW_PBE'; 
-my @potentials = qw(PAW_PBE PAW_GGA PAW_LDA USP_GGA USP_LDA);  
+my @potentials = qw( PAW_PBE PAW_GGA PAW_LDA USP_GGA USP_LDA );  
 my @elements   = (); 
 my @potcars; 
 

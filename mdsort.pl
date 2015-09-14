@@ -3,11 +3,14 @@
 use strict; 
 use warnings; 
 
-use Vasp qw(get_line get_potential_file :md :store :print); 
-use Getopt::Long qw(:config bundling);  
+use Getopt::Long; 
 use Pod::Usage; 
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+use GenUtil qw( print_table ); 
+use VASP    qw( read_md sort_md ); 
+use XYZ     qw( retrieve_xyz print_header print_coordinate ); 
+
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -16,7 +19,7 @@ mdsort.pl: find local minima/maxima within periods of ionic step
 
 =head1 SYNOPSIS
 
-mdsort.pl [-h] [-p] <potential file> [-t] <trajectory file> [-n 1000]
+mdsort.pl [-h] [-p] <profile> [-t] <trajectory> [-n 1000]
 
 =head1 OPTIONS
 
@@ -64,7 +67,7 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # ISTEP, T, F from profile.dat
 my %md; 
-eval { %md = get_potential_file($profile) };  
+eval { %md = read_md($profile) };  
 if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # xyz from trajectory
@@ -73,22 +76,22 @@ eval { $r2xyz = retrieve_xyz($trajectory) };
 if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
 
 # sort 
-my ($local_minima, $local_maxima) = sort_potential(\%md, $period); 
+my ($local_minima, $local_maxima) = sort_md(\%md, $period); 
 my @pes = sort { $a <=> $b } (@$local_minima, @$local_maxima); 
 
 # local minima/maxima
 print "=> Local minimum with period of $period steps:\n"; 
-print_minmax(@$local_minima); 
+print_table(@$local_minima); 
 
 print "\n"; 
 
 print "=> Local maxima with period of $period steps:\n"; 
-print_minmax(@$local_maxima); 
+print_table(@$local_maxima); 
 
 # weired situation ? 
 unless ( @$local_minima == @$local_maxima ) { die "Something weired is going on\n" }
 
-# => minima, maxima 
+# remove minima, maxima files 
 unlink ($output1, $output2, $output3); 
 unlink < minimum-* >; 
 

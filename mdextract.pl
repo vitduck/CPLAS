@@ -5,6 +5,7 @@ use warnings;
 
 use Getopt::Long; 
 use Pod::Usage; 
+use IO::File; 
 
 use GenUtil qw( print_table ); 
 use VASP    qw( read_md ); 
@@ -15,11 +16,11 @@ my @usages = qw( NAME SYSNOPSIS OPTIONS );
 # POD 
 =head1 NAME 
 
-mdsnapshot.pl: take snapshot every period of inonic step 
+mdextract.pl: extract specific geometries along MD trajectry 
 
 =head1 SYNOPSIS
 
-mdsnapshot.pl [-h] [-p] <profile> [-t] <trajectory> [-n 100]
+mdextract.pl [-h] [-p] <profile> [-t] <trajectory> [ionic steps] 
 
 =head1 OPTIONS  
 
@@ -37,10 +38,6 @@ Potential energy file  (default: profile.dat)
 
 Trajectory file (default: traj.dat)
 
-=item B<-n>
-
-period of ionic step for taking snapshot
-
 =back
 
 =cut
@@ -49,19 +46,16 @@ period of ionic step for taking snapshot
 my $help       = 0; 
 my $profile    = 'profile.dat'; 
 my $trajectory = 'traj.dat'; 
-my $output     = 'movie.xyz'; 
-my $period     = 100; 
- 
+
 # parse optional arguments 
 GetOptions( 
     'h'   => \$help, 
     'p=s' => \$profile, 
     't=s' => \$trajectory, 
-    'n=i' => \$period
 ) or pod2usage(-verbose => 1); 
 
 # help message
-if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( $help or @ARGV == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # ISTEP, T, F from profile.dat 
 my %md = read_md($profile); 
@@ -69,24 +63,19 @@ my %md = read_md($profile);
 # geometry from trajectory
 my $r2xyz = retrieve_xyz($trajectory); 
 
-# extraction every $periodicity of ionic steps 
-my @snapshots = grep { $_ % $period == 1  } (sort {$a <=> $b} keys %$r2xyz); 
+# extract geometry from @ARGV 
+for my $istep (@ARGV) { 
+    # fail-safe
+    unless ( exists $md{$istep} )      { die "=> $istep.xyz does not exist in MD profile\n" } 
+    unless ( exists $r2xyz->{$istep} ) { die "=> $istep.xyz does not exist in MD trajectory\n" } 
 
-print "=> Snapshot with period of $period ionic steps: $output\n"; 
-
-# movie.xyz
-open my $fh, '>', $output or die "Cannot write to $output\n"; 
-
-print_table(@snapshots); 
-# split snapshots into bath of 5
-for my $istep (@snapshots) { 
-    # coordinate from hash table 
+    # write xyz file  
+    print "=> Extracting $istep.xyz\n";  
+    my $fh = IO::File->new("$istep.xyz", 'w'); 
     my $coordinate = $r2xyz->{$istep}; 
     print_header($fh, $coordinate, $istep, \%md); 
     for my $atom ( @$coordinate ) { 
         print_coordinate($fh, @$atom); 
     }        
+    $fh->close; 
 }
-
-# flush
-close $fh; 
