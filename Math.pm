@@ -9,7 +9,7 @@ use List::Util qw( sum );
 use constant ARRAY => ref []; 
 
 # symbol 
-our @math   = qw( scalar_product triple_product matmul matdim ); 
+our @math   = qw( scalar_product triple_product matmul matdim det inverse ); 
 
 # default import 
 our @EXPORT = ( @math ); 
@@ -25,6 +25,7 @@ our %EXPORT_TAGS = (
 # scalar vector product
 sub scalar_product { 
     my ($vec1, $vec2) = @_; 
+
     my $scalar = 0; 
     # dimension check
     unless ( @$vec1 == @$vec2 ) { die "IndexError: vector dimensions are not compatible\n" }
@@ -54,6 +55,7 @@ sub triple_product {
 #   - dimension of matrix
 sub matdim { 
     my ($mat) = @_;  
+    
     if (ref($mat->[0]) eq ARRAY) {  
         my @shape; 
         # recursive call 
@@ -73,7 +75,8 @@ sub matdim {
 #   - product matrix
 sub matmul { 
 	my ($mat1, $mat2) = @_;
-	my @product = (); 
+	
+    my @product = (); 
 	my ($mat1_rows, $mat1_cols) = matdim($mat1);  
 	my ($mat2_rows, $mat2_cols) = matdim($mat2);  
     # dimension check
@@ -85,7 +88,51 @@ sub matmul {
 			}
 		}
 	}
+
 	return @product; 
+}
+
+# hardcoded determinant of a 3x3 matrix 
+# args: 
+#    - ref to a 3x3 matrix
+# return: 
+#    - det of matrix 
+sub det { 
+    my ($mat) = @_ ; 
+    
+    my $det =  $mat->[0][0]*$mat->[1][1]*$mat->[2][2] + 
+               $mat->[0][1]*$mat->[1][2]*$mat->[2][0] + 
+               $mat->[2][0]*$mat->[1][0]*$mat->[2][1] -
+               $mat->[0][2]*$mat->[1][1]*$mat->[2][0] - 
+               $mat->[0][1]*$mat->[1][0]*$mat->[2][2] - 
+               $mat->[0][0]*$mat->[1][2]*$mat->[2][1]; 
+
+    return $det; 
+}
+
+# hardcoded inversion of a 3x3 matrix
+# args: 
+#    - ref to a 3x3 matrix
+# return: 
+#    - inverse matrix 
+sub inverse { 
+    my ($mat) = @_; 
+    
+    my $det = det($mat); 
+    my @inverse; 
+    $inverse[0][0] =  ($mat->[1][1]*$mat->[2][2] - $mat->[1][2]*$mat->[2][1])/$det; 
+    $inverse[0][1] = -($mat->[0][1]*$mat->[2][2] - $mat->[0][2]*$mat->[2][1])/$det; 
+    $inverse[0][2] =  ($mat->[0][1]*$mat->[1][2] - $mat->[0][2]*$mat->[1][1])/$det; 
+
+    $inverse[1][0] = -($mat->[1][0]*$mat->[2][2] - $mat->[1][2]*$mat->[2][0])/$det; 
+    $inverse[1][1] =  ($mat->[0][0]*$mat->[2][2] - $mat->[0][2]*$mat->[2][0])/$det; 
+    $inverse[1][2] = -($mat->[0][0]*$mat->[1][2] - $mat->[0][2]*$mat->[1][0])/$det; 
+
+    $inverse[2][0] =  ($mat->[1][0]*$mat->[2][1] - $mat->[1][1]*$mat->[2][0])/$det; 
+    $inverse[2][1] = -($mat->[0][0]*$mat->[2][1] - $mat->[0][1]*$mat->[2][0])/$det; 
+    $inverse[2][2] =  ($mat->[0][0]*$mat->[1][1] - $mat->[0][1]*$mat->[1][0])/$det; 
+    
+    return @inverse; 
 }
 
 # last evaluated expression 
