@@ -6,32 +6,45 @@ use warnings;
 use Exporter   qw( import ); 
 use List::Util qw( sum ); 
 
-use constant ARRAY => ref []; 
+use constant ARRAY  => ref []; 
+use constant SCALAR => ref \0; 
 
 # symbol 
-our @math   = qw( scalar_product triple_product matmul matdim det inverse ); 
+our @vector = qw( dot_product triple_product ); 
+our @matrix = qw( mat_print mat_dim mat_mul det inverse ); 
 
 # default import 
-our @EXPORT = ( @math ); 
+our @EXPORT = ( @vector, @matrix ); 
 
 # tag import 
 our %EXPORT_TAGS = ( 
-    math => \@math, 
+    vector => \@vector, 
+    matrix => \@matrix, 
 ); 
 
-######## 
-# MATH # 
-######## 
-# scalar vector product
-sub scalar_product { 
-    my ($vec1, $vec2) = @_; 
+##########
+# VECTOR # 
+##########
+#  dot vector product
+#  arg: 
+#    - ref to scalar, vectors 
+#   return: 
+#    - scaled vector (scalar) or scalar (vectors) 
+sub dot_product { 
+    my @scalars = grep { ref $_ eq SCALAR } @_; 
+    my @vectors = grep { ref $_ eq ARRAY  } @_; 
 
-    my $scalar = 0; 
-    # dimension check
-    unless ( @$vec1 == @$vec2 ) { die "IndexError: vector dimensions are not compatible\n" }
-    $scalar = sum(map { $vec1->[$_]*$vec2->[$_] } 0..$#$vec1); 
-   
-    return $scalar; 
+    if ( @scalars == 1 ) { 
+        # scale vector by a scalar 
+        my $scalar  = shift @scalars; 
+        my $vector  = shift @vectors;  
+        return map $$scalar*$_, @$vector; 
+    } else {  
+        # dot product of two vector 
+        my ($vec1, $vec2) = @vectors; 
+        unless ( @$vec1 == @$vec2 ) { die "IndexError: incompatible dimension\n" }
+        return sum(map { $vec1->[$_]*$vec2->[$_] } 0..$#$vec1); 
+    } 
 }
 
 # triple vector product
@@ -48,18 +61,38 @@ sub triple_product {
     return $product; 
 }
 
+##########
+# MATRIX #
+##########
+# print 2D matrix  
+# arg : 
+#   - ref to matrix
+# return: 
+#   - null 
+sub mat_print { 
+    my ($matrix) = @_; 
+    
+    my ($nrow, $ncol) = mat_dim($matrix); 
+    my $format = "%15.8f" x $ncol; 
+    for my $i (0..$nrow-1) { 
+        printf "$format\n", @{$matrix->[$i]}; 
+    }
+
+    return; 
+}
+
 # dimesnion of arbitrary matrix 
 # arg : 
 #   - ref to matrix
 # return :
 #   - dimension of matrix
-sub matdim { 
+sub mat_dim { 
     my ($mat) = @_;  
     
     if (ref($mat->[0]) eq ARRAY) {  
         my @shape; 
         # recursive call 
-        push @shape, (scalar @$mat, matdim($mat->[0])); 
+        push @shape, (scalar @$mat, mat_dim($mat->[0])); 
         return @shape; 
     } else { 
         # halting condition 
@@ -73,21 +106,36 @@ sub matdim {
 #   - ref of two 2d matrices
 # return : 
 #   - product matrix
-sub matmul { 
-	my ($mat1, $mat2) = @_;
-	
+sub mat_mul { 
     my @product = (); 
-	my ($mat1_rows, $mat1_cols) = matdim($mat1);  
-	my ($mat2_rows, $mat2_cols) = matdim($mat2);  
-    # dimension check
-    unless ( $mat1_cols == $mat2_rows ) { die "IndexError: matrix dimensions are not compatible\n" }
-	for my $i (0..$mat1_rows-1) { 
-		for my $j (0..$mat2_cols-1) { 
-			for my $k (0..$mat1_cols-1) { 
-				$product[$i][$j] += $mat1->[$i][$k] * $mat2->[$k][$j]; 
-			}
-		}
-	}
+    my @scalars  = grep { ref $_ eq SCALAR } @_; 
+    my @matrices = grep { ref $_ eq ARRAY  } @_; 
+
+    if ( @scalars == 1 ) { 
+        # scale the 2D matrix by a scalar 
+        my $scalar = shift @scalars; 
+        my $matrix = shift @matrices; 
+        my ($nrow, $ncol) = mat_dim($matrix); 
+        for my $i (0..$nrow-1) { 
+            for my $j ( 0..$ncol-1) { 
+                $product[$i][$j] = $$scalar*$matrix->[$i][$j]; 
+            }
+        } 
+    } else { 
+        # 2D matrix multiplication 
+        my ($mat1, $mat2) = @matrices; 
+        my ($mat1_rows, $mat1_cols) = mat_dim($mat1);  
+        my ($mat2_rows, $mat2_cols) = mat_dim($mat2);  
+        # dimension check
+        unless ( $mat1_cols == $mat2_rows ) { die "IndexError: incompatible dimension\n" }
+        for my $i (0..$mat1_rows-1) { 
+            for my $j (0..$mat2_cols-1) { 
+                for my $k (0..$mat1_cols-1) { 
+                    $product[$i][$j] += $mat1->[$i][$k] * $mat2->[$k][$j]; 
+                }
+            }
+        }
+    }
 
 	return @product; 
 }
