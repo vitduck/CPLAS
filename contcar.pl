@@ -20,7 +20,7 @@ contcar.pl: convert CONTCAR to contcar.xyz
 
 =head1 SYNOPSIS
 
-contcar.pl [-h] [-i] <CONTCAR> [-c] [-q] [-x nx ny nz]
+contcar.pl [-h] [-i] <CONTCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-q] 
 
 =head1 OPTIONS
 
@@ -38,13 +38,17 @@ Input file (default: CONTCAR)
 
 Centralize the coordinate (default: no) 
 
-=item B<-q> 
+=item B<-d> 
 
-Quiet mode, i.e. do not launch xmakemol (default: no) 
+PBC shifting (default [1.0, 1.0. 1.0])
 
 =item B<-x> 
 
 Generate nx x ny x nz supercell (default: 1 1 1)
+
+=item B<-q> 
+
+Quiet mode, i.e. do not launch xmakemol (default: no) 
 
 =back
 
@@ -55,6 +59,7 @@ my $help   = 0;
 my $center = 0; 
 my $quiet  = 0; 
 my @nxyz   = (1,1,1); 
+my @dxyz   = (1.0,1.0,1.0); 
 
 # input & output
 my $input  = 'CONTCAR'; 
@@ -64,13 +69,20 @@ my $output = 'contcar.xyz';
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input,
-    'c'      => \$center,
-    'q'      => \$quiet, 
+    'c'      => sub { 
+        @dxyz = (0.5,0.5,0.5) 
+    }, 
+    'd=f{3}' => sub { 
+        my ($opt, $arg) = @_; 
+        shift @dxyz; 
+        push @dxyz, $arg;  
+    }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
         shift @nxyz; 
         push @nxyz, $arg; 
-    }
+    }, 
+    'q'      => \$quiet, 
 ) or pod2usage(-verbose => 1); 
 
 # help message 
@@ -95,7 +107,7 @@ my $label = make_label($atom, $natom, @nxyz);
 my $fh = IO::File->new($output, 'w'); 
 
 printf $fh "%d\n\n", $ntotal; 
-my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz); 
+my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, \@dxyz, $nx, $ny, $nz); 
 
 # flush
 $fh->close;  

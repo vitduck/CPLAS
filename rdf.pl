@@ -84,15 +84,17 @@ my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line);
 my $coordinate = read_geometry($line);
 
 # reference unitcell
-my $center = 1; 
 my @nxyz   = (1,1,1); 
 my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
 my $label = make_label($atom, $natom, @nxyz); 
 
+# center = 0
+my @dxyz   = (1.0, 1.0, 1.0); 
+
 # unitcell.xyz
 my $fh = IO::File->new($unitcell, 'w') or die "Cannot write to $unitcell\n";  
 printf $fh "%d\n\n", $ntotal;
-my @ref_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz); 
+my @ref_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 
 # Fake PBC 
@@ -111,7 +113,7 @@ $nz = [-$fz..$fz];
 $fh = IO::File->new($supercell, 'w') or die "Cannot write to $supercell\n";  
 
 printf $fh "%d\n\n", $ntotal; 
-my @sup_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz);  
+my @sup_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, \@dxyz, $nx, $ny, $nz);  
 
 # close file handler 
 $fh->close; 

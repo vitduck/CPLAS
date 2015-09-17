@@ -14,7 +14,7 @@ my @usages = qw( NAME SYSNOPSIS OPTIONS );
 # POD 
 =head1 NAME 
  
-vforce.pl: total Hellmann-Feynman forces (VASP 5) 
+wtf.pl: what the (Hellmann-Feynman) forces (VASP 5) 
 
 =head1 SYNOPSIS
 

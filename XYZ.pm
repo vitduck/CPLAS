@@ -67,23 +67,20 @@ sub make_label {
 #   - ref to 1d array of expanded atomic labels 
 #   - coordinate type (direct of cartesian) 
 #   - ref to 2d array of atomic coordinates
-#   - shift coordinate to center of cell ? 
+#   - ref to coordinate shifting array
 #   - ref to expansion array x,y,z
 # return: 
 #   - 2d array of cartesian coordinates
 sub make_xyz { 
-    my ($fh, $scaling, $r2lat, $r2label, $type, $r2coor, $centralized, $nx, $ny, $nz) = @_; 
+    my ($fh, $scaling, $lat, $label, $type, $coor, $dxyz, $nx, $ny, $nz) = @_; 
     my ($x, $y, $z, @xyz);  
 
     # loop trough all ionic steps 
     my $index = 0; 
-    for my $atom ( @$r2coor ) { 
-        # centralize coordinate 
-        if ( $centralized ) {  
-            $atom->[0] -= 1.0 if $atom->[0] > 0.5; 
-            $atom->[1] -= 1.0 if $atom->[1] > 0.5; 
-            $atom->[2] -= 1.0 if $atom->[2] > 0.5; 
-        }
+    for my $atom ( @$coor ) { 
+        # coordinate shift
+        map { $atom->[$_] -= 1.0 if $atom->[$_] > $dxyz->[$_] } 0..2; 
+
         # expand the supercell
         for my $ix (@$nx) { 
             for my $iy (@$ny) { 
@@ -91,22 +88,22 @@ sub make_xyz {
                     # write xyz
                     if ( $type =~ /D/i ) { 
                         # convert to cartesian
-                        $x = $r2lat->[0][0]*$atom->[0] + $r2lat->[1][0]*$atom->[1] + $r2lat->[2][0]*$atom->[2]; 
-                        $y = $r2lat->[0][1]*$atom->[0] + $r2lat->[1][1]*$atom->[1] + $r2lat->[2][1]*$atom->[2]; 
-                        $z = $r2lat->[0][2]*$atom->[0] + $r2lat->[1][2]*$atom->[1] + $r2lat->[2][2]*$atom->[2]; 
+                        $x = $lat->[0][0]*$atom->[0] + $lat->[1][0]*$atom->[1] + $lat->[2][0]*$atom->[2]; 
+                        $y = $lat->[0][1]*$atom->[0] + $lat->[1][1]*$atom->[1] + $lat->[2][1]*$atom->[2]; 
+                        $z = $lat->[0][2]*$atom->[0] + $lat->[1][2]*$atom->[1] + $lat->[2][2]*$atom->[2]; 
                         # super cell 
-                        $x += $scaling*($ix*$r2lat->[0][0] + $iy*$r2lat->[1][0] + $iz*$r2lat->[2][0]); 
-                        $y += $scaling*($ix*$r2lat->[0][1] + $iy*$r2lat->[1][1] + $iz*$r2lat->[2][1]); 
-                        $z += $scaling*($ix*$r2lat->[0][2] + $iy*$r2lat->[1][2] + $iz*$r2lat->[2][2]); 
+                        $x += $scaling*($ix*$lat->[0][0] + $iy*$lat->[1][0] + $iz*$lat->[2][0]); 
+                        $y += $scaling*($ix*$lat->[0][1] + $iy*$lat->[1][1] + $iz*$lat->[2][1]); 
+                        $z += $scaling*($ix*$lat->[0][2] + $iy*$lat->[1][2] + $iz*$lat->[2][2]); 
                     } else { 
                         # super cell 
-                        $x = $scaling*$atom->[0] + $ix*$r2lat->[0][0] + $iy*$r2lat->[1][0] + $iz*$r2lat->[2][0]; 
-                        $y = $scaling*$atom->[1] + $ix*$r2lat->[0][1] + $iy*$r2lat->[1][1] + $iz*$r2lat->[2][1]; 
-                        $z = $scaling*$atom->[2] + $ix*$r2lat->[0][2] + $iy*$r2lat->[1][2] + $iz*$r2lat->[2][2]; 
+                        $x = $scaling*$atom->[0] + $ix*$lat->[0][0] + $iy*$lat->[1][0] + $iz*$lat->[2][0]; 
+                        $y = $scaling*$atom->[1] + $ix*$lat->[0][1] + $iy*$lat->[1][1] + $iz*$lat->[2][1]; 
+                        $z = $scaling*$atom->[2] + $ix*$lat->[0][2] + $iy*$lat->[1][2] + $iz*$lat->[2][2]; 
                     }
                     # print to output file via $fh 
-                    print_coordinate($fh, $r2label->[$index], $x, $y, $z); 
-                    push @xyz, [ $r2label->[$index++], $x, $y, $z ]; 
+                    print_coordinate($fh, $label->[$index], $x, $y, $z); 
+                    push @xyz, [ $label->[$index++], $x, $y, $z ]; 
                 }
             }
         }

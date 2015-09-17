@@ -35,9 +35,12 @@ our %EXPORT_TAGS = (
 # arg : 
 #   - ref to array of lines (POSCAR/CONTCAR/XDATCAR)
 # return : 
+#   - structure name 
+#   - scaling 
 #   - ref to 2d array of lattice vectors
 #   - ref to array of atom
 #   - ref to array of number of atom
+#   - selective dynamic (0 or 1)
 #   - type of coordinate (direct/cartesian)
 sub read_cell { 
     my ($line) = @_; 
@@ -58,8 +61,8 @@ sub read_cell {
     # direct or cartesian coordinate 
     #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
     my $type; 
-    if ( $dynamics =~ /[selective]/i ) { 
-        $type = shift @$line;  
+    if ( $dynamics =~ /selective/i ) { 
+        $type = shift @$line 
     } else { 
         $type     = $dynamics; 
         $dynamics = 0; 
@@ -88,6 +91,16 @@ sub read_geometry {
     return \@coordinates; 
 }
 
+# arg : 
+#   - file handler 
+#   - structure name 
+#   - scaling 
+#   - ref to 2d array of lattice vectors
+#   - ref to array of atom
+#   - ref to array of number of atom
+#   - selective dynamic (0 or 1)
+#   - type of coordinate (direct/cartesian)
+#   - ref to 2d array of coordinates 
 sub write_poscar { 
     my ($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate) = @_; 
 
@@ -133,7 +146,7 @@ sub read_traj {
             push @coordinates, [ split ' ', $line ]; 
         }
     }
-    # final coordinates; 
+    # include coordinates of last ionic step! 
     push @trajs, [ @coordinates ]; 
 
     return @trajs;  

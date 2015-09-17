@@ -20,7 +20,7 @@ my @usages = qw( NAME SYSNOPSIS OPTIONS );
 
 =head1 SYNOPSIS
 
-xdatcar.pl [-h] [-c] [-q] [-s] [-x nx ny nz]
+xdatcar.pl [-h] [-i] <POSCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-s] [-q] 
 
 =head1 OPTIONS
 
@@ -38,28 +38,33 @@ Input file (default: XDATCAR)
 
 Centralize the coordinate (default: no) 
 
-=item B<-q> 
+=item B<-d> 
 
-Quiet mode, i.e. do not launch xmakemol (default: no) 
+PBC shifting (default [1.0, 1.0. 1.0])
+
+=item B<-x> 
+
+Generate nx x ny x nz supercell (default: 1 1 1)
 
 =item B<-s> 
 
 Save trajectory to disk in quiet mode (default: no) 
 
-=item B<-x> 
+=item B<-q> 
 
-Generate nx x ny x nz supercell (default: 1 1 1)
+Quiet mode, i.e. do not launch xmakemol (default: no) 
 
 =back
 
 =cut
 
 # default optional arguments 
-my $help        = 0; 
-my $centralized = 0; 
-my $quiet       = 0; 
-my $save        = 0; 
-my @nxyz        = (1,1,1); 
+my $help   = 0; 
+my $center = 0; 
+my $quiet  = 0; 
+my $save   = 0; 
+my @nxyz   = (1,1,1); 
+my @dxyz   = (1.0,1.0,1.0); 
 
 # input & output
 my $input  = 'XDATCAR'; 
@@ -69,14 +74,21 @@ my $output = 'ion.xyz';
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input,
-    'c'      => \$centralized, 
-    's'      => \$save, 
-    'q'      => \$quiet, 
+    'c'      => sub { 
+        @dxyz = (0.5,0.5,0.5) 
+    }, 
+    'd=f{3}' => sub { 
+        my ($opt, $arg) = @_; 
+        shift @dxyz; 
+        push @dxyz, $arg;  
+    }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
         shift @nxyz; 
         push @nxyz, $arg; 
-    }
+    }, 
+    's'      => \$save, 
+    'q'      => \$quiet
 ) or pod2usage(-verbose => 1); 
 
 # help message
@@ -106,7 +118,7 @@ my %traj  = ();
 for my $traj ( @trajs ) { 
     $count++; 
     printf $fh "%d\n# Step: %d\n", $ntotal, $count; 
-    my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $traj, $centralized, $nx, $ny, $nz); 
+    my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $traj, \@dxyz, $nx, $ny, $nz); 
     $traj{$count} = [@xyz]; 
 }
 
