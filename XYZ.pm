@@ -7,7 +7,7 @@ use Exporter   qw( import );
 use List::Util qw( sum ); 
 use Storable   qw( store retrieve ); 
 
-use Math       qw( dot_product ); 
+use Math       qw( dot_product mat_mul inverse ); 
 
 # symbol 
 our @geom  = qw ( make_box make_label make_xyz read_xyz save_xyz retrieve_xyz atom_distance ); 
@@ -75,40 +75,44 @@ sub make_xyz {
     my ($fh, $scaling, $lat, $label, $type, $coor, $dxyz, $nx, $ny, $nz) = @_; 
     my ($x, $y, $z, @xyz);  
 
-    # loop trough all ionic steps 
+    # convert cartesian to direct 
+    if ( $type =~ /^\s*c/i ) {  
+        # scale the coordinate 
+        $coor = mat_mul($scaling, $coor); 
+        # direct = cart x lat-1
+        $coor = mat_mul($coor, inverse($lat)); 
+        # undo any centering 
+        for my $atom (@$coor) { 
+            map { $atom->[$_] += 1.0 if $atom->[$_] < 0 } 0..2; 
+        }
+    }
+
+    # atom index 
     my $index = 0; 
     for my $atom ( @$coor ) { 
         # coordinate shift
         map { $atom->[$_] -= 1.0 if $atom->[$_] > $dxyz->[$_] } 0..2; 
-
         # expand the supercell
         for my $ix (@$nx) { 
             for my $iy (@$ny) { 
                 for my $iz (@$nz) { 
-                    # write xyz
-                    if ( $type =~ /D/i ) { 
-                        # convert to cartesian
-                        $x = $lat->[0][0]*$atom->[0] + $lat->[1][0]*$atom->[1] + $lat->[2][0]*$atom->[2]; 
-                        $y = $lat->[0][1]*$atom->[0] + $lat->[1][1]*$atom->[1] + $lat->[2][1]*$atom->[2]; 
-                        $z = $lat->[0][2]*$atom->[0] + $lat->[1][2]*$atom->[1] + $lat->[2][2]*$atom->[2]; 
-                        # super cell 
-                        $x += $scaling*($ix*$lat->[0][0] + $iy*$lat->[1][0] + $iz*$lat->[2][0]); 
-                        $y += $scaling*($ix*$lat->[0][1] + $iy*$lat->[1][1] + $iz*$lat->[2][1]); 
-                        $z += $scaling*($ix*$lat->[0][2] + $iy*$lat->[1][2] + $iz*$lat->[2][2]); 
-                    } else { 
-                        # super cell 
-                        $x = $scaling*$atom->[0] + $ix*$lat->[0][0] + $iy*$lat->[1][0] + $iz*$lat->[2][0]; 
-                        $y = $scaling*$atom->[1] + $ix*$lat->[0][1] + $iy*$lat->[1][1] + $iz*$lat->[2][1]; 
-                        $z = $scaling*$atom->[2] + $ix*$lat->[0][2] + $iy*$lat->[1][2] + $iz*$lat->[2][2]; 
-                    }
-                    # print to output file via $fh 
-                    print_coordinate($fh, $label->[$index], $x, $y, $z); 
-                    push @xyz, [ $label->[$index++], $x, $y, $z ]; 
+                    # convert to cartesian
+                    $x = $lat->[0][0]*$atom->[0] + $lat->[1][0]*$atom->[1] + $lat->[2][0]*$atom->[2]; 
+                    $y = $lat->[0][1]*$atom->[0] + $lat->[1][1]*$atom->[1] + $lat->[2][1]*$atom->[2]; 
+                    $z = $lat->[0][2]*$atom->[0] + $lat->[1][2]*$atom->[1] + $lat->[2][2]*$atom->[2]; 
+                    # super cell 
+                    $x += $ix*$lat->[0][0] + $iy*$lat->[1][0] + $iz*$lat->[2][0]; 
+                    $y += $ix*$lat->[0][1] + $iy*$lat->[1][1] + $iz*$lat->[2][1];  
+                    $z += $ix*$lat->[0][2] + $iy*$lat->[1][2] + $iz*$lat->[2][2]; 
                 }
             }
         }
+        
+        # print to output file via $fh 
+        print_coordinate($fh, $label->[$index], $x, $y, $z); 
+        push @xyz, [ $label->[$index++], $x, $y, $z ]; 
     }
-
+    
     return @xyz; 
 }
 

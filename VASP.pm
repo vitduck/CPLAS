@@ -7,7 +7,7 @@ use IO::File;
 use Exporter   qw( import ); 
 use List::Util qw( sum max ); 
 
-use Math       qw( print_vec print_mat );
+use Math       qw( print_vec print_mat mat_mul );
 
 # symbol 
 our @poscar  = qw ( read_cell read_geometry write_poscar ); 
@@ -45,22 +45,23 @@ our %EXPORT_TAGS = (
 sub read_cell { 
     my ($line) = @_; 
 
-    my $title    = shift @$line; 
+    my  ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
+
+    $title   = shift @$line; 
 	# scaling constant
-	my $scaling  = shift @$line; 
+	$scaling = shift @$line; 
     # lattice vectors with scaling contants
-    my @lats     = map { [split ' ', shift @$line] } 1..3; 
+    $lat     = [ map { [split ' ', shift @$line] } 1..3 ]; 
     # scaled lattice vector
-    @lats        = map { [map { $scaling*$_ } @$_] } @lats; 
+    $lat     = mat_mul($scaling, $lat);  
     # array of element 
-	my @atoms    = split ' ', shift @$line; 
+	$atom    = [ split ' ', shift @$line ]; 
     # array of number of atoms per element
-	my @natoms   = split ' ', shift @$line; 
+	$natom   = [ split ' ', shift @$line ]; 
     # selective dynamics ? 
-    my $dynamics = shift @$line; 
+    $dynamics = shift @$line; 
     # direct or cartesian coordinate 
     #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
-    my $type; 
     if ( $dynamics =~ /selective/i ) { 
         $type = shift @$line 
     } else { 
@@ -70,7 +71,7 @@ sub read_cell {
     # backward compatability for XDATCAR produced by vasp 5.2.x 
     if ($type =~ //) { $type = 'direct' }; 
 
-    return ($title, $scaling, \@lats, \@atoms, \@natoms, $dynamics, $type); 
+    return ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
 }
 
 # read atomic coordinats block
@@ -81,14 +82,14 @@ sub read_cell {
 sub read_geometry { 
     my ($line) = @_; 
 
-    my @coordinates; 
+    my $coordinate; 
     while ( my $atom = shift @$line ) { 
         last if $atom =~ /^\s+$/; 
         # ignore the selective dynamic tag
-        push @coordinates, [ (split ' ', $atom)[0..2] ]; 
+        push @$coordinate, [ (split ' ', $atom)[0..2] ]; 
     }
 
-    return \@coordinates; 
+    return $coordinate; 
 }
 
 # arg : 
