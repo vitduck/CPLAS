@@ -4,9 +4,11 @@ use strict;
 use warnings; 
 
 use IO::File; 
-use Exporter  qw( import ); 
+use Exporter qw( import ); 
 
-our @EXPORT = qw ( read_line print_table ); 
+use Math     qw( max_length print_vec );  
+
+our @EXPORT = qw ( read_line print_table print_array ); 
 
 # read lines of file to array 
 # arg : 
@@ -28,16 +30,13 @@ sub read_line {
 # return: 
 #   - null
 sub print_table { 
-    my @list = @_; 
-    
-    my $ncol    = 5; 
+    my $list   = shift @_; 
+    my $format = shift @_ || sprintf "%ds", max_length($list);  
+    my $fh     = shift @_ || *STDOUT; 
 
-    # max digit length 
-    my $dlength = ( sort {$b <=> $a} map length($_), @list )[0]; 
-    
-    while ( my @sublist = splice @list, 0, $ncol ) { 
-        map { printf "%${dlength}d ", $_ } @sublist; 
-        print "\n"; 
+    my $ncol = 5; 
+    while ( my @sublist = splice @$list, 0, $ncol ) { 
+        print_vec(\@sublist, $format, $fh); 
     }
 
     return; 

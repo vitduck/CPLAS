@@ -9,8 +9,8 @@ use List::Util qw( sum );
 use constant ARRAY  => ref []; 
 
 # symbol 
-our @vector = qw( dot_product triple_product vec_print ); 
-our @matrix = qw( mat_print mat_dim det mat_add mat_mul hstack vstack transpose inverse ); 
+our @vector = qw( max_length print_vec  dot_product triple_product ); 
+our @matrix = qw( print_mat mat_dim det mat_add mat_mul hstack vstack transpose inverse ); 
 
 # default import 
 our @EXPORT = ( @vector, @matrix ); 
@@ -24,19 +24,33 @@ our %EXPORT_TAGS = (
 ##########
 # VECTOR # 
 ##########
+# arg: 
+#   - array of value 
+# return: 
+#   - digit/character length 
+sub max_length { 
+    my ($list) = @_; 
+    
+    # max digit length 
+    my $length = ( sort {$b <=> $a} map length($_), @$list )[0]; 
+    
+    return $length; 
+}
+
 # print vector 
 # arg: 
 #   - ref of vector 
 # return: 
 #   - null 
-sub vec_print { 
-    my ($vec) = @_; 
-    
-    # vector format
-    my $format = "%15.8f" x @$vec; 
-    printf "$format\n", @$vec; 
+sub print_vec { 
+    my ($vec)  = shift @_; 
+    my $format = shift @_ || sprintf "%ds", max_length($vec);  
+    my $fh     = shift @_ || *STDOUT; 
+    # repeated format     
+    $format = "%$format " x @$vec; 
+    printf $fh "$format\n", @$vec; 
 
-    return; 
+    return;  
 }
 
 #  dot vector product
@@ -87,16 +101,13 @@ sub triple_product {
 #   - ref of matrix
 # return: 
 #   - null 
-sub mat_print { 
-    my ($mat) = @_; 
+sub print_mat { 
+    my $mat    = shift @_; 
+    my $format = shift @_ || '15.8f'; 
+    my $fh     = shift @_ || *STDOUT; 
     
-    my ($nrow, $ncol) = mat_dim($mat); 
-    
-    # column format 
-    my $format = "%15.8f" x $ncol; 
-
-    for my $i (0..$nrow-1) { 
-        printf "$format\n", @{$mat->[$i]}; 
+    for my $row (@$mat) { 
+        print_vec($row, $format, $fh); 
     }
 
     return; 

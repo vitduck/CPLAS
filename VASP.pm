@@ -7,8 +7,10 @@ use IO::File;
 use Exporter   qw( import ); 
 use List::Util qw( sum max ); 
 
+use Math       qw( print_vec print_mat );
+
 # symbol 
-our @poscar  = qw ( read_cell read_geometry ); 
+our @poscar  = qw ( read_cell read_geometry write_poscar ); 
 our @xdatcar = qw ( read_traj ); 
 our @oszicar = qw ( read_profile ); 
 our @outcar  = qw ( read_force ); 
@@ -58,7 +60,7 @@ sub read_cell {
     # backward compatability for XDATCAR produced by vasp 5.2.x 
     if ($type =~ //) { $type = 'direct' }; 
 
-    return ($scaling, \@lats, \@atoms, \@natoms, $type); 
+    return ($title, $scaling, \@lats, \@atoms, \@natoms, $type); 
 }
 
 # read atomic coordinats block
@@ -77,6 +79,30 @@ sub read_geometry {
     }
 
     return \@coordinates; 
+}
+
+sub write_poscar { 
+    my ($fh, $title, $scaling, $lat, $atom, $natom, $type, $coordinate) = @_; 
+
+    my %format = ( 
+        string  => '5s', 
+        integer => '6d', 
+        real    => '22.16f', 
+    ); 
+
+    # print POSCAR header 
+    printf $fh "%s\n", $title; 
+    printf $fh "%f\n", $scaling; 
+    print_mat($lat, $format{real}, $fh); 
+    print_vec($atom, $format{string}, $fh); 
+    print_vec($natom, $format{integer}, $fh); 
+    printf $fh "%s\n", "Selective Dynamics"; 
+    printf $fh "%s\n" , $type; 
+
+    # print POSCAR geometry 
+    print_mat($coordinate, $format{real}, $fh); 
+    
+    return; 
 }
 
 ###########
