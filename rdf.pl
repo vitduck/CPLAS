@@ -78,7 +78,7 @@ my $supercell = 'supercell.xyz';
 my $line = read_line($input); 
 
 # cell parameters
-my ($scaling, $lat, $atom, $natom, $type) = read_cell($line);
+my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line);
 
 # atomic positions
 my $coordinate = read_geometry($line);

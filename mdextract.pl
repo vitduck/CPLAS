@@ -7,7 +7,6 @@ use Getopt::Long;
 use Pod::Usage; 
 use IO::File; 
 
-use GenUtil qw( print_table ); 
 use VASP    qw( read_md ); 
 use XYZ     qw( retrieve_xyz print_header print_coordinate ); 
 

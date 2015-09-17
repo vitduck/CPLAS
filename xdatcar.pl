@@ -86,7 +86,7 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 my $line = read_line($input); 
 
 # cell parameters 
-my ($scaling, $lat, $atom, $natom, $type) = read_cell($line); 
+my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
 
 # read ionic trajectories
 my @trajs = read_traj($line); 

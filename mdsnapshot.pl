@@ -77,7 +77,7 @@ print "=> Snapshot with period of $period ionic steps: $output\n";
 # movie.xyz
 open my $fh, '>', $output or die "Cannot write to $output\n"; 
 
-print_table(@snapshots); 
+print_table(\@snapshots); 
 # split snapshots into bath of 5
 for my $istep (@snapshots) { 
     # coordinate from hash table 

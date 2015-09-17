@@ -56,11 +56,18 @@ sub read_cell {
     # selective dynamics ? 
     my $dynamics = shift @$line; 
     # direct or cartesian coordinate 
-    my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
+    #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
+    my $type; 
+    if ( $dynamics =~ /[selective]/i ) { 
+        $type = shift @$line;  
+    } else { 
+        $type     = $dynamics; 
+        $dynamics = 0; 
+    }
     # backward compatability for XDATCAR produced by vasp 5.2.x 
     if ($type =~ //) { $type = 'direct' }; 
 
-    return ($title, $scaling, \@lats, \@atoms, \@natoms, $type); 
+    return ($title, $scaling, \@lats, \@atoms, \@natoms, $dynamics, $type); 
 }
 
 # read atomic coordinats block
@@ -82,7 +89,7 @@ sub read_geometry {
 }
 
 sub write_poscar { 
-    my ($fh, $title, $scaling, $lat, $atom, $natom, $type, $coordinate) = @_; 
+    my ($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate) = @_; 
 
     my %format = ( 
         string  => '5s', 
@@ -96,7 +103,7 @@ sub write_poscar {
     print_mat($lat, $format{real}, $fh); 
     print_vec($atom, $format{string}, $fh); 
     print_vec($natom, $format{integer}, $fh); 
-    printf $fh "%s\n", "Selective Dynamics"; 
+    printf $fh "%s\n", $dynamics if $dynamics; 
     printf $fh "%s\n" , $type; 
 
     # print POSCAR geometry 

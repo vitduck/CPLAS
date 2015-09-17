@@ -77,12 +77,12 @@ my @pes = sort { $a <=> $b } (@$local_minima, @$local_maxima);
 
 # local minima/maxima
 print "=> Local minimum with period of $period steps:\n"; 
-print_table(@$local_minima); 
+print_table($local_minima); 
 
 print "\n"; 
 
 print "=> Local maxima with period of $period steps:\n"; 
-print_table(@$local_maxima); 
+print_table($local_maxima); 
 
 # weired situation ? 
 unless ( @$local_minima == @$local_maxima ) { die "Something weired is going on\n" }
