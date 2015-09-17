@@ -3,12 +3,13 @@
 use strict; 
 use warnings; 
 
+use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
 
 use GenUtil  qw ( read_line ); 
 use VASP     qw ( read_cell read_geometry ); 
-use XYZ      qw ( make_supercell make_xyz xmakemol );
+use XYZ      qw ( make_box make_label make_xyz xmakemol );
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -50,10 +51,10 @@ Generate nx x ny x nz supercell (default: 1 1 1)
 =cut
 
 # default optional arguments 
-my @nxyz        = (); 
-my $help        = 0; 
-my $centralized = 0; 
-my $quiet       = 0; 
+my $help   = 0; 
+my $center = 0; 
+my $quiet  = 0; 
+my @nxyz   = (1,1,1); 
 
 # input & output
 my $input  = 'POSCAR'; 
@@ -63,42 +64,41 @@ my $output = 'poscar.xyz';
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input, 
-    'c'      => \$centralized, 
+    'c'      => \$center, 
     'q'      => \$quiet, 
-    'x=i{3}' => \@nxyz, 
+    'x=i{3}' => sub { 
+        my ($opt, $arg) = @_; 
+        shift @nxyz; 
+        push @nxyz, $arg; 
+    }
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # POSCAR lines
-my @lines = read_line($input); 
+my $line = read_line($input); 
 
 # cell parameters 
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines); 
+my ($scaling, $lat, $atom, $natom, $type) = read_cell($line); 
 
 # atomic positions 
-my @coordinates = read_geometry(\@lines); 
+my $coordinate = read_geometry($line); 
+
+# supercell box
+my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
+
+# xyz label 
+my $label = make_label($atom, $natom, @nxyz); 
 
 # poscar.xyz
-open my $fh, '>', $output; 
+my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
 
-# default supercell expansion 
-unless  ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
-
-# scalar to array ref 
-my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
-
-# supercell parameters 
-my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
-
-# poscar.xyz
 printf $fh "%d\n\n", $ntotal; 
-
-my @xyz = make_xyz($fh, $scaling, $r2lat, $label, $type, \@coordinates, $centralized, $nx, $ny, $nz); 
+my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz); 
 
 # flush
-close $fh; 
+$fh->close; 
 
 # xmakemol
 xmakemol($output, $quiet); 

@@ -10,7 +10,7 @@ use Pod::Usage;
 use GenUtil qw( read_line ); 
 use Math    qw( triple_product ); 
 use VASP    qw( read_cell read_geometry ); 
-use XYZ     qw( make_supercell make_xyz atom_distance ); 
+use XYZ     qw( make_box make_label make_xyz atom_distance ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -75,48 +75,46 @@ my $unitcell  = 'unitcell.xyz';
 my $supercell = 'supercell.xyz'; 
 
 # CONTCAR lines 
-my @lines = read_line($input); 
+my $line = read_line($input); 
 
 # cell parameters
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines);
+my ($scaling, $lat, $atom, $natom, $type) = read_cell($line);
 
 # atomic positions
-my @coordinates = read_geometry(\@lines);
+my $coordinate = read_geometry($line);
 
 # reference unitcell
-my $centralized = 1; 
-my @nxyz = (1,1,1); 
-
-# scalar -> array ref! 
-my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
-
-# supercell parameters 
-my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
+my $center = 1; 
+my @nxyz   = (1,1,1); 
+my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
+my $label = make_label($atom, $natom, @nxyz); 
 
 # unitcell.xyz
-open my $fh, '>', $unitcell; 
+my $fh = IO::File->new($unitcell, 'w') or die "Cannot write to $unitcell\n";  
 printf $fh "%d\n\n", $ntotal;
-my @ref_xyz = make_xyz($fh, $scaling, $r2lat, $label, $type, \@coordinates, $centralized, $nx, $ny, $nz); 
-close $fh; 
+my @ref_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz); 
+$fh->close; 
 
 # Fake PBC 
-$nx = $radius/sqrt($r2lat->[0][0]**2 + $r2lat->[0][1]**2 + $r2lat->[0][2]**2) + 1; 
-$ny = $radius/sqrt($r2lat->[1][0]**2 + $r2lat->[1][1]**2 + $r2lat->[1][2]**2) + 1; 
-$nz = $radius/sqrt($r2lat->[2][0]**2 + $r2lat->[2][1]**2 + $r2lat->[2][2]**2) + 1; 
+my $fx = $radius/sqrt($lat->[0][0]**2 + $lat->[0][1]**2 + $lat->[0][2]**2) + 1; 
+my $fy = $radius/sqrt($lat->[1][0]**2 + $lat->[1][1]**2 + $lat->[1][2]**2) + 1; 
+my $fz = $radius/sqrt($lat->[2][0]**2 + $lat->[2][1]**2 + $lat->[2][2]**2) + 1; 
 
-my $px = [-$nx..$nx]; 
-my $py = [-$ny..$ny]; 
-my $pz = [-$nz..$nz]; 
+# duplicate the box
+($nx, $ny, $nz, $ntotal) = make_box($natom, 2*$fx+1, 2*$fy+1, 2*$fz+1); 
+$label = make_label($atom, $natom, 2*$fx+1,2*$fy+1,2*$fz+1); 
+$nx = [-$fx..$fx]; 
+$ny = [-$fy..$fy]; 
+$nz = [-$fz..$fz]; 
 
-# supercell parameters 
-my ($slabel, $snatom, $sntotal) = make_cell($r2atom, $r2natom, $px, $py, $pz); 
+# supercell.xyz
+$fh = IO::File->new($supercell, 'w') or die "Cannot write to $supercell\n";  
 
-# supercell.xyz 
-open $fh, '>', $supercell; 
-printf $fh "%d\n\n", $sntotal;
-my @sup_xyz = make_xyz($fh, $scaling, $r2lat, $slabel, $type, \@coordinates, $centralized, $px, $py, $pz); 
+printf $fh "%d\n\n", $ntotal; 
+my @sup_xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, $center, $nx, $ny, $nz);  
+
 # close file handler 
-close $fh; 
+$fh->close; 
 
 # list grep
 my @atm1 = grep { $_->[0] =~ /$atm1/i } @ref_xyz; 
@@ -161,7 +159,7 @@ my $ncoord = 0;
 # number of reference particle
 my $N1     = scalar(@atm1); 
 my $N2     = scalar(grep { $_->[0] =~ /$atm2/i } @ref_xyz); 
-my $vcell  = triple_product($r2lat->[0], $r2lat->[1], $r2lat->[2]); 
+my $vcell  = triple_product($lat->[0], $lat->[1], $lat->[2]); 
 
 # output 
 my $output    = "$atm1-$atm2.dat"; 

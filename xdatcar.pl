@@ -3,12 +3,13 @@
 use strict; 
 use warnings; 
 
+use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
 
 use GenUtil qw( read_line ); 
 use VASP    qw( read_cell read_traj );  
-use XYZ     qw( make_supercell make_xyz save_xyz xmakemol ); 
+use XYZ     qw( make_box make_label make_xyz save_xyz xmakemol ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -54,11 +55,11 @@ Generate nx x ny x nz supercell (default: 1 1 1)
 =cut
 
 # default optional arguments 
-my @nxyz        = (); 
 my $help        = 0; 
 my $centralized = 0; 
 my $quiet       = 0; 
 my $save        = 0; 
+my @nxyz        = (1,1,1); 
 
 # input & output
 my $input  = 'XDATCAR'; 
@@ -71,49 +72,46 @@ GetOptions(
     'c'      => \$centralized, 
     's'      => \$save, 
     'q'      => \$quiet, 
-    'x=i{3}' => \@nxyz
+    'x=i{3}' => sub { 
+        my ($opt, $arg) = @_; 
+        shift @nxyz; 
+        push @nxyz, $arg; 
+    }
 ) or pod2usage(-verbose => 1); 
 
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # XDATCAR lines
-my @lines = read_line($input); 
+my $line = read_line($input); 
 
 # cell parameters 
-my ($scaling, $r2lat, $r2atom, $r2natom, $type) = read_cell(\@lines); 
+my ($scaling, $lat, $atom, $natom, $type) = read_cell($line); 
 
-# read atomic positions 
-my @trajs = read_traj(\@lines); 
+# read ionic trajectories
+my @trajs = read_traj($line); 
 
-# default supercell expansion 
-unless ( @nxyz == 3 ) { @nxyz = (1, 1, 1) }
+# supercell box
+my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
 
-# scalar to array ref 
-my ($nx, $ny, $nz) = map { [0..$_-1] } @nxyz; 
-
-# supercell parameters
-my ($label, $natom, $ntotal) = make_supercell($r2atom, $r2natom, $nx, $ny, $nz); 
+# xyz label 
+my $label = make_label($atom, $natom, @nxyz); 
 
 # xdatcar.xyz
-open my $fh, '>', $output; 
+my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n"; 
 
 # loop of all ionic steps
 my $count = 0;  
 my %traj  = (); 
 for my $traj ( @trajs ) { 
     $count++; 
-    printf $fh "%d\n#%d\n", $ntotal, $count; 
-    my @xyz = make_xyz($fh, $scaling, $r2lat, $label, $type, $traj, $centralized, $nx, $ny, $nz); 
+    printf $fh "%d\n# Step: %d\n", $ntotal, $count; 
+    my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $traj, $centralized, $nx, $ny, $nz); 
     $traj{$count} = [@xyz]; 
 }
 
 # flush
-close $fh; 
+$fh->close; 
 
 # store trajectory
-if ( $save ) { 
-    save_xyz(\%traj, 'traj.dat', $save);  
-} else { 
-    xmakemol($output, $quiet); 
-}
+$save ? save_xyz(\%traj, 'traj.dat', $save) : xmakemol($output, $quiet); 
