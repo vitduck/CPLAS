@@ -66,14 +66,10 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # ISTEP, T, F from profile.dat
-my %md; 
-eval { %md = read_md($profile) };  
-if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
+my %md = read_md($profile); 
 
 # xyz from trajectory
-my $r2xyz; 
-eval { $r2xyz = retrieve_xyz($trajectory) };  
-if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
+my %xyz = retrieve_xyz($trajectory);  
 
 # sort 
 my ($local_minima, $local_maxima) = sort_md(\%md, $period); 
@@ -96,41 +92,42 @@ unlink ($output1, $output2, $output3);
 unlink < minimum-* >; 
 
 # minima.xyz, maxima.xyz
-open my $min, '>', $output1 or die "Cannot write to $output1\n";  
-open my $max, '>', $output2 or die "Cannot write to $output2\n";  
+my $fh1 = IO::File->new($output1, 'w') or die "Cannot write to $output1\n"; 
+my $fh2 = IO::File->new($output2, 'w') or die "Cannot write to $output2\n"; 
 
 for my $index (0..$#$local_minima) { 
-    my $minxyz = $r2xyz->{$local_minima->[$index]}; 
-    my $maxxyz = $r2xyz->{$local_maxima->[$index]}; 
+    my $minxyz = $xyz{$local_minima->[$index]}; 
+    my $maxxyz = $xyz{$local_maxima->[$index]}; 
     
     # print coordinate to minima.xyz
-    print_header($min, $minxyz, $local_minima->[$index], \%md); 
+    print_header($fh1, $minxyz, $local_minima->[$index], \%md); 
     for my $atom (@$minxyz) { 
-        print_coordinate($min, @$atom); 
+        print_coordinate($fh1, @$atom); 
     }
+
     # print coordinate to maxima.xyz
-    print_header($max, $maxxyz, $local_maxima->[$index], \%md); 
+    print_header($fh2, $maxxyz, $local_maxima->[$index], \%md); 
     for my $atom (@$maxxyz) { 
-        print_coordinate($max, @$atom); 
+        print_coordinate($fh2, @$atom); 
     }
 }
 
 # flush
-close $min; 
-close $max; 
+$fh1->close; 
+$fh2->close; 
 
 # => pes .xyz
-open my $pes, '>', $output3 or die "Cannot write to $output3\n";  
+my $fh3 = IO::File->new($output3, 'w') or die "Cannot write to $output3\n"; 
 for my $istep ( @pes ) { 
-    my $xyz = $r2xyz->{$istep}; 
+    my $xyz = $xyz{$istep}; 
     
     # print coordinate to pes.xyz
-    print_header($pes, $xyz, $istep, \%md); 
+    print_header($fh3, $xyz, $istep, \%md); 
     
     for my $atom (@$xyz) { 
-        print_coordinate($pes, @$atom); 
+        print_coordinate($fh3, @$atom); 
     }
 }
 
 # flush
-close $pes; 
+$fh3->close; 

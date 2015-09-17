@@ -56,9 +56,7 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # potential from profile
-my %md; 
-eval { %md = read_md($profile) }; 
-if ( $@ ) { pod2usage(-verbose => 1, -message => $@) }; 
+my %md = read_md($profile); 
 
 # moving average 
 average_md(\%md, $period, $output); 

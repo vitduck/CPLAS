@@ -46,38 +46,35 @@ GetOptions('h' => \$help) or pod2usage(-verbose => 1);
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
-# previously generated trajectory 
+# default 
 my $trajectory = 'traj.dat'; 
 my $profile    = 'profile.dat'; 
 
-# xyz from traj.dat 
-unless ( -f $trajectory ) {  
-    die("Previously generated $trajectory is required for consistency\n")
-}
+# pre-generated trajectory
+my %xyz = retrieve_xyz($trajectory);  
 
-my $r2xyz = retrieve_xyz($trajectory);  
-
-# OSZICAR lines
-my @lines = read_line('OSZICAR'); 
-my %md = read_profile(\@lines); 
+# profile
+my $line = read_line('OSZICAR'); 
+my %md = read_profile($line); 
 
 # synchronization two hashses 
-my $ntraj = keys %$r2xyz; 
+my $ntraj = keys %xyz; 
 my $nmd   = keys %md; 
+
 if ( $ntraj > $nmd  ) { 
-    for my $istep ( keys %$r2xyz ) { 
-        delete $r2xyz->{$istep} unless exists $md{$istep}; 
+    for my $istep ( keys %xyz ) { 
+        delete $xyz{$istep} unless exists $md{$istep}; 
     } 
 } elsif ( $ntraj < $nmd ) { 
     for my $istep ( keys %md ) { 
-        delete $md{$istep} unless exists $r2xyz->{$istep}; 
+        delete $md{$istep} unless exists $xyz{$istep}; 
     } 
 }
 
 # store trajectory to disk 
 unless ( $ntraj == $nmd ) { 
     print "=> Mismatch between XDATCAR and OSZICAR\n\n"; 
-    save_xyz($r2xyz, $trajectory, 1); 
+    save_xyz(\%xyz, $trajectory, 1); 
     print "\n"; 
 }
 

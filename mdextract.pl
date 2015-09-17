@@ -61,21 +61,23 @@ if ( $help or @ARGV == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }
 my %md = read_md($profile); 
 
 # geometry from trajectory
-my $r2xyz = retrieve_xyz($trajectory); 
+my %xyz = retrieve_xyz($trajectory); 
 
 # extract geometry from @ARGV 
 for my $istep (@ARGV) { 
     # fail-safe
-    unless ( exists $md{$istep} )      { die "=> $istep.xyz does not exist in MD profile\n" } 
-    unless ( exists $r2xyz->{$istep} ) { die "=> $istep.xyz does not exist in MD trajectory\n" } 
+    unless ( exists $md{$istep} )    { die "=> $istep.xyz does not exist in MD profile\n" } 
+    unless ( exists $xyz{$istep} ) { die "=> $istep.xyz does not exist in MD trajectory\n" } 
 
     # write xyz file  
     print "=> Extracting $istep.xyz\n";  
-    my $fh = IO::File->new("$istep.xyz", 'w'); 
-    my $coordinate = $r2xyz->{$istep}; 
+    my $fh = IO::File->new("$istep.xyz", 'w') or die "Cannot write to $istep.xyz\n";  
+    
+    my $coordinate = $xyz{$istep}; 
     print_header($fh, $coordinate, $istep, \%md); 
     for my $atom ( @$coordinate ) { 
         print_coordinate($fh, @$atom); 
     }        
+
     $fh->close; 
 }

@@ -67,10 +67,10 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 my %md = read_md($profile); 
 
 # geometry from trajectory
-my $r2xyz = retrieve_xyz($trajectory); 
+my %xyz = retrieve_xyz($trajectory); 
 
 # extraction every $periodicity of ionic steps 
-my @snapshots = grep { $_ % $period == 1  } (sort {$a <=> $b} keys %$r2xyz); 
+my @snapshots = grep { $_ % $period == 1  } (sort {$a <=> $b} keys %xyz); 
 
 print "=> Snapshot with period of $period ionic steps: $output\n"; 
 
@@ -81,7 +81,7 @@ print_table(@snapshots);
 # split snapshots into bath of 5
 for my $istep (@snapshots) { 
     # coordinate from hash table 
-    my $coordinate = $r2xyz->{$istep}; 
+    my $coordinate = $xyz{$istep}; 
     print_header($fh, $coordinate, $istep, \%md); 
     for my $atom ( @$coordinate ) { 
         print_coordinate($fh, @$atom); 
