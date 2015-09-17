@@ -50,8 +50,8 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # collect forces 
-my @lines  = read_line('OUTCAR'); 
-my @forces = read_force(\@lines); 
+my $line  = read_line('OUTCAR'); 
+my @forces = read_force($line); 
 
 # maximum of 5 column 
 my $ncol = 5; 
