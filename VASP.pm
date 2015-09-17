@@ -3,6 +3,7 @@ package VASP;
 use strict; 
 use warnings; 
 
+use IO::File; 
 use Exporter   qw( import ); 
 use List::Util qw( sum max ); 
 
@@ -37,21 +38,23 @@ our %EXPORT_TAGS = (
 #   - ref to array of number of atom
 #   - type of coordinate (direct/cartesian)
 sub read_cell { 
-    my ($r2line) = @_; 
-    my $title    = shift @$r2line; 
+    my ($line) = @_; 
+
+    my $title    = shift @$line; 
 	# scaling constant
-	my $scaling  = shift @$r2line; 
+	my $scaling  = shift @$line; 
     # lattice vectors with scaling contants
-    my @lats     = map { [split ' ', shift @$r2line] } 1..3; 
+    my @lats     = map { [split ' ', shift @$line] } 1..3; 
+    # scaled lattice vector
     @lats        = map { [map { $scaling*$_ } @$_] } @lats; 
-    # list of element 
-	my @atoms    = split ' ', shift @$r2line; 
-    # list of number of atoms per element
-	my @natoms   = split ' ', shift @$r2line; 
+    # array of element 
+	my @atoms    = split ' ', shift @$line; 
+    # array of number of atoms per element
+	my @natoms   = split ' ', shift @$line; 
     # selective dynamics ? 
-    my $dynamics = shift @$r2line; 
+    my $dynamics = shift @$line; 
     # direct or cartesian coordinate 
-    my $type     = ($dynamics =~ /selective/i) ? shift @$r2line : $dynamics; 
+    my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
     # backward compatability for XDATCAR produced by vasp 5.2.x 
     if ($type =~ //) { $type = 'direct' }; 
 
@@ -64,14 +67,16 @@ sub read_cell {
 # return : 
 #   - 2d array of atomic coordinates 
 sub read_geometry { 
-    my ($r2line) = @_; 
+    my ($line) = @_; 
+
     my @coordinates; 
-    while ( my $line = shift @$r2line ) { 
-        last if $line =~ /^\s+$/; 
-        push @coordinates, [ split ' ', $line ]; 
+    while ( my $atom = shift @$line ) { 
+        last if $atom =~ /^\s+$/; 
+        # ignore the selective dynamic tag
+        push @coordinates, [ (split ' ', $atom)[0..2] ]; 
     }
 
-    return @coordinates; 
+    return \@coordinates; 
 }
 
 ###########
@@ -84,9 +89,10 @@ sub read_geometry {
 # return : 
 #   - array of coordinates of each ionic steps 
 sub read_traj { 
-    my ($r2line) = @_; 
+    my ($line) = @_; 
+
     my (@trajs, @coordinates); 
-    while ( my $line = shift @$r2line ) { 
+    while ( my $line = shift @$line ) { 
         if ( $line =~ /Direct configuration=|^\s+$/ ) { 
             push @trajs, [@coordinates]; 
             @coordinates = (); 
@@ -110,9 +116,10 @@ sub read_traj {
 # return : 
 #   - potential hash (istep => [T, F])
 sub read_profile { 
-    my ($r2line) = @_; 
+    my ($line) = @_; 
+
     my %md; 
-    my @md = map {[(split)[0,2,6]]} grep {/T=/} @$r2line;
+    my @md = map {[(split)[0,2,6]]} grep {/T=/} @$line;
 
     # convert array to hash for easier index tracking 
     map { $md{$_->[0]} = [$_->[1], $_->[2]] } @md; 
@@ -124,7 +131,6 @@ sub read_profile {
     return %md; 
 }
 
-
 ##########
 # OUTCAR #
 ##########
@@ -135,11 +141,12 @@ sub read_profile {
 # return : 
 #   - array of max forces  
 sub read_force { 
-    my ($r2line) = @_; 
+    my ($line) = @_; 
+
     # linenr of NION, and force
-    my ($lion, @lforces) = grep { $r2line->[$_] =~ /number of ions|TOTAL-FORCE/ } 0..$#$r2line; 
+    my ($lion, @lforces) = grep { $line->[$_] =~ /number of ions|TOTAL-FORCE/ } 0..$#$line; 
     # number of ion 
-    my $nion = (split ' ', $r2line->[$lion])[-1];
+    my $nion = (split ' ', $line->[$lion])[-1];
     
     # max forces 
     my @max_forces; 
@@ -147,7 +154,7 @@ sub read_force {
         # move forward 2 lines 
         $lforce = $lforce+2; 
         # slice $nion from @lines 
-        my @forces = map { [(split)[3,4,5]] } @{$r2line}[$lforce .. $lforce+$nion-1]; 
+        my @forces = map { [(split)[3,4,5]] } @{$line}[$lforce .. $lforce+$nion-1]; 
         # max forces 
         my $max_force = max(map {sqrt($_->[0]**2+$_->[1]**2+$_->[2]**2) } @forces); 
         push @max_forces, $max_force; 
@@ -167,17 +174,21 @@ sub read_force {
 #   - potential hash (istep => [T,F])
 sub read_md { 
     my ($input) = @_; 
+   
     my %md; 
     print "=> Retrieve potential profile from $input\n"; 
-    open PROFILE, '<', $input or die "Cannot open $input\n"; 
-    while ( <PROFILE> ) { 
+    
+    my $fh = IO::File->new($input, 'r') or die "Cannot open $input\n";  
+    while ( <$fh> ) { 
         next if /#/; 
         next if /^\s+/; 
         my ($istep, $temp, $pot) = (split)[0,-2,-1]; 
         $md{$istep} = [ $temp, $pot ]; 
     }
+    $fh->close; 
 
     printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
+
     return %md; 
 }
 
@@ -190,15 +201,19 @@ sub read_md {
 #   - ref to array of local maxima
 sub sort_md { 
     my ($md, $periodicity) = @_; 
+
     my (@minima, @maxima); 
+
     # enumerate ionic steps
     my @nsteps = sort { $a <=> $b } keys %$md; 
+
     # split according to periodicity
     while ( my @period = splice @nsteps, 0, $periodicity ) { 
         # copy the sub hash (not optimal)
         my %sub_md; 
         @sub_md{@period} = @{$md}{@period}; 
         my ($local_minimum, $local_maximum) = (sort { $md->{$a}[1] <=> $md->{$b}[1] } keys %sub_md)[0,-1];  
+
         push @minima, $local_minimum; 
         push @maxima, $local_maximum;  
     }
@@ -214,9 +229,10 @@ sub sort_md {
 #   - output file 
 # return: null
 sub average_md { 
-    my ($r2md, $period, $output) = @_; 
+    my ($md, $period, $output) = @_; 
+
     # extract array of potentials (last column)
-    my @potentials = map { $r2md->{$_}[-1] } sort{ $a <=> $b } keys %$r2md; 
+    my @potentials = map { $md->{$_}[-1] } sort{ $a <=> $b } keys %$md; 
     
     # total number of averages point
     my $naverage = scalar(@potentials) - $period + 1; 
@@ -224,13 +240,13 @@ sub average_md {
     # calculating moving average 
     print "=> $output: Short-time averages of potential energy over period of $period steps\n"; 
 
-    open OUTPUT, '>', $output or die "Cannot write to $output\n"; 
     my $index = 0; 
+    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
     for (1..$naverage) { 
         my $average = (sum(@potentials[$index..($index+$period-1)]))/$period; 
-        printf OUTPUT "%d\t%10.5f\n", ++$index, $average; 
+        printf $fh "%d\t%10.5f\n", ++$index, $average; 
     }
-    close OUTPUT; 
+    $fh->close; 
 
     return; 
 }
@@ -240,11 +256,12 @@ sub average_md {
 #   - ref to potential hash (istep => [T,F])
 #   - output file 
 sub write_md { 
-    my ($md, $file) = @_; 
-    open OUTPUT, '>', $file; 
-    print OUTPUT "# Step  T(K)   F(eV)\n"; 
-    map { printf OUTPUT "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
-    close OUTPUT; 
+    my ($md, $output) = @_; 
+
+    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+    print $fh "# Step  T(K)   F(eV)\n"; 
+    map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
+    $fh->close; 
 
     return; 
 }
