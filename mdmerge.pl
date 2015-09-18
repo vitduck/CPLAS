@@ -7,8 +7,7 @@ use IO::File;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use VASP qw( read_md ); 
-use XYZ  qw( save_xyz retrieve_xyz ); 
+use VASP qw( read_md save_traj retrieve_traj ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -93,26 +92,26 @@ if (@profiles) {
 
 # trajectory files 
 if (@trajectories) { 
-    my %traj; 
+    my %total_traj; 
 
     print "Merging trajectories as:  "; 
     chomp (my $output = <STDIN>); 
     print "\n"; 
     
-    for my $traj ( @trajectories ) { 
+    for my $traj_file ( @trajectories ) { 
         # inital hash size
-        my $size = keys %traj; 
+        my $size = keys %total_traj; 
 
         # trajectory from previous MD 
-        my %xyz  = retrieve_xyz($traj); 
-        my @keys = keys  (%xyz); 
+        my %traj  = retrieve_traj($traj_file); 
+        my @keys = keys  (%traj); 
 
         # shift of hash key 
         @keys = map { $_ + $size } @keys; 
         
         # new hash 
-        @traj{@keys} = values(%xyz);
+        @total_traj{@keys} = values(%traj);
             }
     # store joined hash to output 
-    save_xyz(\%traj, $output, 1); 
+    save_traj(\%total_traj, $output, 1); 
 }

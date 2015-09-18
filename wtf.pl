@@ -6,8 +6,8 @@ use warnings;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use GenUtil qw( read_line ); 
-use VASP    qw( read_force); 
+use GenUtil  qw( read_line ); 
+use VASP     qw( read_force); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -50,8 +50,7 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # collect forces 
-my $line  = read_line('OUTCAR'); 
-my @forces = read_force($line); 
+my @forces = read_force(read_line('OUTCAR'));
 
 # maximum of 5 column 
 my $ncol = 5; 

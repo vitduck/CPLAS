@@ -7,8 +7,7 @@ use Getopt::Long;
 use Pod::Usage; 
 
 use GenUtil qw( read_line ); 
-use VASP    qw( read_profile write_md ); 
-use XYZ     qw( save_xyz retrieve_xyz ); 
+use VASP    qw( read_profile write_md save_traj retrieve_traj ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS NOTE ); 
 
@@ -51,30 +50,29 @@ my $trajectory = 'traj.dat';
 my $profile    = 'profile.dat'; 
 
 # pre-generated trajectory
-my %xyz = retrieve_xyz($trajectory);  
+my %traj = retrieve_traj($trajectory);  
 
 # profile
-my $line = read_line('OSZICAR'); 
-my %md = read_profile($line); 
+my %md   = read_profile(read_line('OSZICAR')); 
 
 # synchronization two hashses 
-my $ntraj = keys %xyz; 
+my $ntraj = keys %traj; 
 my $nmd   = keys %md; 
 
 if ( $ntraj > $nmd  ) { 
-    for my $istep ( keys %xyz ) { 
-        delete $xyz{$istep} unless exists $md{$istep}; 
+    for my $istep ( keys %traj ) { 
+        delete $traj{$istep} unless exists $md{$istep}; 
     } 
 } elsif ( $ntraj < $nmd ) { 
     for my $istep ( keys %md ) { 
-        delete $md{$istep} unless exists $xyz{$istep}; 
+        delete $md{$istep} unless exists $traj{$istep}; 
     } 
 }
 
 # store trajectory to disk 
 unless ( $ntraj == $nmd ) { 
     print "=> Mismatch between XDATCAR and OSZICAR\n\n"; 
-    save_xyz(\%xyz, $trajectory, 1); 
+    save_traj(\%traj, $trajectory, 1); 
     print "\n"; 
 }
 
