@@ -6,12 +6,13 @@ use warnings;
 use IO::File; 
 use Exporter   qw( import ); 
 use List::Util qw( sum max ); 
+use Storable   qw( store retrieve ); 
 
 use Math       qw( print_vec print_mat mat_mul );
 
 # symbol 
 our @poscar  = qw ( read_cell read_geometry write_poscar ); 
-our @xdatcar = qw ( read_traj ); 
+our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
 our @oszicar = qw ( read_profile ); 
 our @outcar  = qw ( read_force ); 
 our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
@@ -43,10 +44,9 @@ our %EXPORT_TAGS = (
 #   - selective dynamic (0 or 1)
 #   - type of coordinate (direct/cartesian)
 sub read_cell { 
-    my ($line) = @_; 
+    my ($line) = @_;  
 
     my  ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
-
     $title   = shift @$line; 
 	# scaling constant
 	$scaling = shift @$line; 
@@ -62,7 +62,7 @@ sub read_cell {
     $dynamics = shift @$line; 
     # direct or cartesian coordinate 
     #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
-    if ( $dynamics =~ /selective/i ) { 
+    if ( $dynamics =~ /^\s*s/i ) { 
         $type = shift @$line 
     } else { 
         $type     = $dynamics; 
@@ -132,25 +132,60 @@ sub write_poscar {
 
 # read atomic coordinate blocks for each ionic step  
 # arg : 
-#   - ref to array of lines 
+#   - slurped XDATCAR lines  
 # return : 
 #   - array of coordinates of each ionic steps 
 sub read_traj { 
     my ($line) = @_; 
 
-    my (@trajs, @coordinates); 
-    while ( my $line = shift @$line ) { 
-        if ( $line =~ /Direct configuration=|^\s+$/ ) { 
-            push @trajs, [@coordinates]; 
-            @coordinates = (); 
-        } else { 
-            push @coordinates, [ split ' ', $line ]; 
-        }
-    }
-    # include coordinates of last ionic step! 
-    push @trajs, [ @coordinates ]; 
+    my ($title, $scaling, $lat, $atom, $natom); 
+    my ($cell, @trajs) = split /Direct configuration=.*\d+\n/, $line; 
+    
+    # cell
+    ($title, $scaling, @$lat[0..2], $atom, $natom) = split /\n/, $cell;  
+    # 1d array -> 2d array 
+    $lat   = [ map [split ' ', $_], @$lat ]; 
+    # string -> 1d array 
+	$atom  = [ split ' ', $atom ]; 
+	$natom = [ split ' ', $natom ]; 
 
-    return @trajs;  
+    return ($title, $scaling, $lat, $atom, $natom, \@trajs);  
+}
+
+# save trajectory to disk
+# arg : 
+#   - ref to trajectory (array of ref to 2d coordinate) 
+#   - stored output
+# return: 
+#   - null
+sub save_traj { 
+    my ($traj, $output, $save) = @_; 
+
+    if ( $save ) { 
+        print  "=> Save trajectory as '$output'\n"; 
+        printf "=> Hash contains %d entries\n", scalar(keys %$traj); 
+        store $traj => $output;  
+    }
+
+    return; 
+}
+
+# retrieve trajectory to disk
+# arg : 
+#   - stored data 
+# return: 
+#   - traj hash 
+sub retrieve_traj { 
+    my ($stored_traj) = @_; 
+
+    # trajectory is required 
+    die "$stored_traj does not exists\n" unless -e $stored_traj; 
+    # retored traj as hash reference 
+    my $traj = retrieve($stored_traj); 
+    print  "=> Retrieve trajectory from '$stored_traj'\n"; 
+    printf "=> Hash contains %d entries\n\n", scalar(keys %$traj); 
+
+    return %$traj; 
 }
 
 ###########
