@@ -63,7 +63,7 @@ my @dxyz   = (1.0,1.0,1.0);
 
 # input & output
 my $input  = 'CONTCAR'; 
-my $xyz    = 'poscar.xyz'; 
+my $xyz    = 'contcar.xyz'; 
 
 # parse optional arguments 
 GetOptions(
