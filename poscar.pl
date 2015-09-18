@@ -3,19 +3,20 @@
 use strict; 
 use warnings; 
 
-use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
+use IO::File; 
+use List::Util qw(sum);  
 
-use GenUtil  qw ( read_line ); 
-use VASP     qw ( read_cell read_geometry ); 
-use XYZ      qw ( make_box make_label make_xyz xmakemol );
+use GenUtil qw ( read_line ); 
+use VASP    qw ( read_cell read_geometry ); 
+use XYZ     qw ( cart_to_direct print_header print_xyz xmakemol );
+use Math    qw ( elem_product dot_product);   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
- 
 poscar.pl: convert POSCAR to poscar.xyz
 
 =head1 SYNOPSIS
@@ -54,16 +55,16 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 
 =cut
 
-# default optional arguments 
+# default optional arguments
 my $help   = 0; 
-my $center = 0; 
 my $quiet  = 0; 
+
 my @nxyz   = (1,1,1); 
 my @dxyz   = (1.0,1.0,1.0); 
 
 # input & output
 my $input  = 'POSCAR'; 
-my $output = 'poscar.xyz'; 
+my $xyz    = 'poscar.xyz'; 
 
 # parse optional arguments 
 GetOptions(
@@ -88,29 +89,27 @@ GetOptions(
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
-# POSCAR lines
+# read POSCAR 
 my $line = read_line($input); 
-
-# cell parameters 
 my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
-
-# atomic positions 
-my $coordinate = read_geometry($line); 
+my $geometry = read_geometry($line); 
 
 # supercell box
-my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
+my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
 
-# xyz label 
-my $label = make_label($atom, $natom, @nxyz); 
+# total number of atom in supercell 
+$natom = dot_product(elem_product(\@nxyz), $natom); 
+my $ntotal = sum(@$natom);  
+my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
 
-# poscar.xyz
-my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+# convert to direct coordinate
+$geometry = cart_to_direct($scaling, $lat, $geometry, $type); 
 
-printf $fh "%d\n\n", $ntotal; 
-my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $coordinate, \@dxyz, $nx, $ny, $nz); 
-
-# flush
+# write poscar.xyz
+my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
+print_header($fh, "%d\n%s\n", $ntotal, ''); 
+print_xyz($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 
 # xmakemol
-xmakemol($output, $quiet); 
+xmakemol($xyz, $quiet); 

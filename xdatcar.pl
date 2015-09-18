@@ -6,17 +6,19 @@ use warnings;
 use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
+use List::Util qw(sum);  
 
 use GenUtil qw( read_line ); 
-use VASP    qw( read_cell read_traj );  
-use XYZ     qw( make_box make_label make_xyz save_xyz xmakemol ); 
+use VASP    qw( read_cell read_traj save_traj );  
+use XYZ     qw( print_header print_xyz xmakemol ); 
+use Math    qw( elem_product dot_product );   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
  
- xdatcar.pl: convert XDATCAR to ion.xyz
+xdatcar.pl: convert XDATCAR to ion.xyz
 
 =head1 SYNOPSIS
 
@@ -60,20 +62,19 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 
 # default optional arguments 
 my $help   = 0; 
-my $center = 0; 
 my $quiet  = 0; 
 my $save   = 0; 
 my @nxyz   = (1,1,1); 
 my @dxyz   = (1.0,1.0,1.0); 
 
 # input & output
-my $input  = 'XDATCAR'; 
-my $output = 'ion.xyz'; 
+my $xdatcar = 'XDATCAR'; 
+my $xyz     = 'ion.xyz'; 
 
 # parse optional arguments 
 GetOptions(
     'h'      => \$help, 
-    'i=s'    => \$input,
+    'i=s'    => \$xdatcar,
     'c'      => sub { 
         @dxyz = (0.5,0.5,0.5) 
     }, 
@@ -85,7 +86,7 @@ GetOptions(
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
         shift @nxyz; 
-        push @nxyz, $arg; 
+        push @nxyz, $arg-1; 
     }, 
     's'      => \$save, 
     'q'      => \$quiet
@@ -95,35 +96,33 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # XDATCAR lines
-my $line = read_line($input); 
-
-# cell parameters 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
-
-# read ionic trajectories
-my @trajs = read_traj($line); 
+my $line = read_line($xdatcar, 'slurp'); 
+my ($title, $scaling, $lat, $atom, $natom, $traj) = read_traj($line); 
 
 # supercell box
-my ($nx, $ny, $nz, $ntotal) = make_box($natom, @nxyz); 
+my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
 
-# xyz label 
-my $label = make_label($atom, $natom, @nxyz); 
+# total number of atom in supercell 
+$natom = dot_product(elem_product(\@nxyz), $natom); 
+my $ntotal = sum(@$natom);  
+my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
 
-# xdatcar.xyz
-my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n"; 
-
-# loop of all ionic steps
+# save direct coordinate to hash for lookup
 my $count = 0;  
 my %traj  = (); 
-for my $traj ( @trajs ) { 
+
+# write to xdatcar.xyz
+my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
+for ( @$traj ) { 
     $count++; 
-    printf $fh "%d\n# Step: %d\n", $ntotal, $count; 
-    my @xyz = make_xyz($fh, $scaling, $lat, $label, $type, $traj, \@dxyz, $nx, $ny, $nz); 
-    $traj{$count} = [@xyz]; 
+    my $geometry = [ map [ split  ], split /\n/ ]; 
+    $traj{$count} = $geometry; 
+    print_header($fh, "%d\n# Step: %d\n", $ntotal, $count); 
+    print_xyz($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 }
 
-# flush
+## flush
 $fh->close; 
 
 # store trajectory
-$save ? save_xyz(\%traj, 'traj.dat', $save) : xmakemol($output, $quiet); 
+$save ? save_traj(\%traj, 'traj.dat', $save) : xmakemol($xyz, $quiet); 
