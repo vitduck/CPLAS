@@ -6,10 +6,10 @@ use warnings;
 use Exporter   qw( import ); 
 use List::Util qw( sum ); 
 
-use constant ARRAY  => ref []; 
+use constant ARRAY => ref []; 
 
 # symbol 
-our @vector = qw( max_length print_vec  dot_product triple_product ); 
+our @vector = qw( max_length print_vec elem_product dot_product triple_product ); 
 our @matrix = qw( print_mat mat_dim det mat_add mat_mul hstack vstack transpose inverse ); 
 
 # default import 
@@ -24,8 +24,9 @@ our %EXPORT_TAGS = (
 ##########
 # VECTOR # 
 ##########
+# largest character length of vector's elements 
 # arg: 
-#   - array of value 
+#   - $ref of vector 
 # return: 
 #   - digit/character length 
 sub max_length { 
@@ -51,6 +52,22 @@ sub print_vec {
     printf $fh "$format\n", @$vec; 
 
     return;  
+}
+
+# numerical product of all vector's elements 
+# arg: 
+#   - ref of vector 
+# return 
+#   - product 
+sub elem_product { 
+    my ($vec) = @_; 
+
+    my $product = 1;  
+    for my $element (@$vec) { 
+        $product *= $element; 
+    }
+
+    return $product; 
 }
 
 #  dot vector product
