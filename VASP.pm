@@ -69,7 +69,7 @@ sub read_cell {
         $dynamics = 0; 
     }
     # backward compatability for XDATCAR produced by vasp 5.2.x 
-    if ($type =~ //) { $type = 'direct' }; 
+    #if ($type =~ //) { $type = 'direct' }; 
 
     return ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
 }

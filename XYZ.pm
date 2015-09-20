@@ -46,9 +46,9 @@ sub cart_to_direct {
         # direct = cart x lat-1
         $geometry = mat_mul($geometry, inverse($lat)); 
         # undo any centering 
-        for my $atom (@$geometry) { 
-            map { $atom->[$_] += 1.0 if $atom->[$_] < 0 } 0..2; 
-        }
+        #for my $atom (@$geometry) { 
+            #map { $atom->[$_] += 1.0 if $atom->[$_] < 0 } 0..2; 
+        #}
     }
     
     return $geometry;  
