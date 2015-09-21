@@ -9,7 +9,7 @@ use IO::File;
 use List::Util qw( sum );  
 
 use GenUtil qw( read_line ); 
-use VASP    qw( read_cell read_geometry read_md retrieve_traj ); 
+use VASP    qw( read_cell read_geometry read_md retrieve_traj write_poscar ); 
 use XYZ     qw( print_header print_xyz xmakemol); 
 use Math    qw ( elem_product dot_product);   
 
@@ -96,9 +96,27 @@ if ( $help or @ARGV == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }
 my ($ref) = grep -e $_, qw( POSCAR CONTCAR ); 
 unless ( $ref ) { die "POSCAR/CONTCAR is required for cell parameters\n" } 
 
+# extract geometry from @ARGV 
+my $config = shift @ARGV;  
+
+# ISTEP, T, F from profile.dat 
+my %md = read_md($profile); 
+
+# geometry from trajectory
+my %traj = retrieve_traj($trajectory); 
+
+# sanity check
+unless ( exists $md{$config} )   { die "=> #$config does not exist in MD profile\n" } 
+unless ( exists $traj{$config} ) { die "=> #$config does not exist in MD trajectory\n" } 
+
 # read POSCAR/CONTCAR 
 my $line = read_line($ref); 
 my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
+
+# write POSCAR.#config 
+my $fh = IO::File->new("POSCAR.$config", 'w') or die "Cannot write to POSCAR.$config\n";  
+write_poscar($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $traj{$config}); 
+$fh->close; 
 
 # supercell box
 my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
@@ -108,24 +126,11 @@ $natom = dot_product(elem_product(\@nxyz), $natom);
 my $ntotal = sum(@$natom);  
 my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
 
-# extract geometry from @ARGV 
-my $config = shift @ARGV;  
-my $output = "$config.xyz"; 
-
-# ISTEP, T, F from profile.dat 
-my %md = read_md($profile); 
-
-# geometry from trajectory
-my %traj = retrieve_traj($trajectory); 
-
-# sanity check
-unless ( exists $md{$config} )   { die "=> $output does not exist in MD profile\n" } 
-unless ( exists $traj{$config} ) { die "=> $output does not exist in MD trajectory\n" } 
-
-# write xyz file  
-print "=> Extracting $output\n";  
+print "=> Extracting #$config\n";  
     
-my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+# write xyz file  
+my $output = "$config.xyz"; 
+$fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
 print_header($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}); 
 print_xyz($fh, $scaling, $lat, $label, $traj{$config}, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 

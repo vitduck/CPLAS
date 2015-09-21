@@ -4,17 +4,33 @@ use strict;
 use warnings; 
 
 use IO::File; 
+use IO::Dir; 
+use File::Basename; 
+use File::Spec::Functions; 
+use Data::Dumper; 
 use Exporter qw( import ); 
+
+use constant ARRAY => ref []; 
 
 use Math qw( max_length print_vec );  
 
-our @EXPORT = qw ( read_line print_table print_array ); 
+# symbolic 
+our @read  = qw( read_line ); 
+our @print = qw( print_table ); 
+our @dir   = qw( read_dir_tree );  
+
+# default import 
+our @EXPORT = ( @read, @print, @dir ); 
+
+######## 
+# READ # 
+######## 
 
 # read lines of file: line by line or slurp mode 
-# arg : 
-#   - file 
-# return : 
-#   - ref of array of lines 
+# args
+#   -> file 
+# return
+#   ->  ref of array of lines 
 sub read_line { 
     my $input = shift @_;  
     my $mode  = shift @_ || '';  
@@ -23,14 +39,21 @@ sub read_line {
     my $line = $mode eq 'slurp' ? do { local $/=undef; <$fh> } : [<$fh>];  
     $fh->close;  
     
+    # remove trailing \n 
+    if ( ref $line eq ARRAY ) { chomp @$line }; 
+    
     return $line; 
 }
 
+#########
+# PRINT # 
+#########
+
 # print list using table format 
-# arg : 
-#   - array of value
-# return: 
-#   - null
+# args 
+#   -> array of value
+# return 
+#   -> null
 sub print_table { 
     my $list   = shift @_; 
     my $format = shift @_ || sprintf "%ds", max_length($list);  
@@ -45,6 +68,39 @@ sub print_table {
 
     return; 
 }
+
+#############
+# DIRECTORY #
+#############
+
+# construct directory tree 
+# args 
+#   -> directory 
+# return 
+#   -> hash contains directory and sub directory 
+sub read_dir_tree { 
+    my $root   = shift; 
+    my $tree   = {}; 
+    my @queue  = ( [ $root, $tree ] ); 
+
+    while ( my $next = shift @queue ) { 
+        my ( $path, $ref ) = @$next; 
+        my $basename = basename($path); 
+
+        $ref->{$basename} = do { 
+            if ( -f $path or -l $path ) { undef } 
+            else { 
+                my $sub_ref = {}; 
+                my $dirfh = IO::Dir->new($path); 
+                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
+                $dirfh->close; 
+                push @queue, map { [ $_, $sub_ref ] } @sub_paths; 
+                $sub_ref;
+            }
+        }; 
+    }
+    return $tree; 
+} 
 
 # last evaluated expression 
 1; 
