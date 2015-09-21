@@ -10,7 +10,7 @@ use List::Util qw( sum );
 
 use GenUtil qw( read_line ); 
 use VASP    qw( read_cell read_geometry read_md retrieve_traj write_poscar ); 
-use XYZ     qw( print_header print_xyz xmakemol); 
+use XYZ     qw( print_header direct_to_cart xmakemol); 
 use Math    qw ( elem_product dot_product);   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -132,7 +132,7 @@ print "=> Extracting #$config\n";
 my $output = "$config.xyz"; 
 $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
 print_header($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}); 
-print_xyz($fh, $scaling, $lat, $label, $traj{$config}, \@dxyz, $nx, $ny, $nz); 
+direct_to_cart($fh, $scaling, $lat, $label, $traj{$config}, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 
 # xmakemol

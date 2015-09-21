@@ -9,7 +9,7 @@ use List::Util qw( sum );
 
 use GenUtil qw( read_line print_table ); 
 use VASP    qw( read_cell read_md sort_md retrieve_traj ); 
-use XYZ     qw( print_header print_xyz xmakemol ); 
+use XYZ     qw( print_header direct_to_cart xmakemol ); 
 use Math    qw( elem_product dot_product ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -137,11 +137,11 @@ for my $index (0..$#$local_minima) {
     
     # print coordinate to minima.xyz
     print_header($fh1, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_minima->[$index], @{$md{$local_minima->[$index]}}); 
-    print_xyz($fh1, $scaling, $lat, $label, $minxyz, \@dxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh1, $scaling, $lat, $label, $minxyz, \@dxyz, $nx, $ny, $nz); 
     
     # print coordinate to maxima.xyz
     print_header($fh2, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_maxima->[$index], @{$md{$local_maxima->[$index]}}); 
-    print_xyz($fh2, $scaling, $lat, $label, $maxxyz, \@dxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh2, $scaling, $lat, $label, $maxxyz, \@dxyz, $nx, $ny, $nz); 
 }
 
 # flush
@@ -153,7 +153,7 @@ my $fh3 = IO::File->new($output3, 'w') or die "Cannot write to $output3\n";
 for my $index ( @pes ) { 
     my $geometry = $traj{$index}; 
     print_header($fh3, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $index, @{$md{$index}}); 
-    print_xyz($fh3, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh3, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 }
 
 # flush

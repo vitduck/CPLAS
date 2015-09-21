@@ -11,9 +11,9 @@ use constant ARRAY  => ref [];
 use Math       qw( dot_product mat_mul inverse ); 
 
 # symbol 
-our @geometry  = qw( cart_to_direct atom_distance ); 
+our @geometry  = qw( cart_to_direct direct_to_cart atom_distance ); 
 our @visualize = qw( xmakemol ); 
-our @print     = qw( print_header print_xyz ); 
+our @print     = qw( print_header print_coordinate ); 
 
 # default import 
 our @EXPORT = ( @geometry, @print, @visualize ); 
@@ -30,13 +30,13 @@ our %EXPORT_TAGS = (
 ############
 
 # convert cartesian to direct coordinate 
-# args: 
-#       - scaling constant 
-#       - ref to 2d array of lattice vectors 
-#       - ref to 2d array of direct coordinates 
-#       - coordinate type; 
-# return: 
-#       - direct coordinates   
+# args 
+# -< scaling constant 
+# -< ref to 2d array of lattice vectors 
+# -< ref to 2d array of direct coordinates 
+# -< coordinate type; 
+# return
+# -> direct coordinates   
 sub cart_to_direct { 
     my ($scaling, $lat, $geometry, $type) = @_; 
     
@@ -54,47 +54,18 @@ sub cart_to_direct {
     return $geometry;  
 }
 
-# distance between two atom
-# arg : 
-#   - ref to two cartesian vectors 
-# return : 
-#   - distance 
-sub atom_distance { 
-    my ($xyz1, $xyz2) = @_; 
-    my $d12 = sqrt(($xyz1->[1]-$xyz2->[1])**2 + ($xyz1->[2]-$xyz2->[2])**2 + ($xyz1->[3]-$xyz2->[3])**2); 
-
-    return $d12; 
-}
-
-#########
-# PRINT #
-#########
-
-# print useful information into comment section of xyz file 
-# arg: 
-#   - file handler 
-#   - header format
-#   - total number of atom 
-#   - commnent 
-sub print_header { 
-    my ($fh, $format, $ntotal, @info) = @_; 
-    printf $fh $format, $ntotal, @info;  
-
-    return ; 
-}
-
 # convert POSCAR/CONTCAR/XDATCAR to xyz 
-# args: 
-#       - output file handler 
-#       - scaling constant 
-#       - ref to 2d array of lattive vectors 
-#       - ref to 1d array of expanded atomic labels 
-#       - ref to 2d array of atomic coordinates
-#       - ref to coordinate shifting array
-#       - ref to expansion array x,y,z
-# return: 
-#       - null 
-sub print_xyz { 
+# args
+# -< output file handler 
+# -< scaling constant 
+# -< ref to 2d array of lattive vectors 
+# -< ref to 1d array of expanded atomic labels 
+# -< ref to 2d array of atomic coordinates
+# -< ref to coordinate shifting array
+# -< ref to expansion array x,y,z
+# return 
+# -> null 
+sub direct_to_cart { 
     my ($fh, $scaling, $lat, $label, $coor, $dxyz, $nx, $ny, $nz) = @_; 
     my ($x, $y, $z, @xyz);  
 
@@ -122,13 +93,44 @@ sub print_xyz {
     return; 
 }
 
+# distance between two atom
+# args 
+# -< ref to two cartesian vectors 
+# return
+# -> distance 
+sub atom_distance { 
+    my ($xyz1, $xyz2) = @_; 
+    my $d12 = sqrt(($xyz1->[1]-$xyz2->[1])**2 + ($xyz1->[2]-$xyz2->[2])**2 + ($xyz1->[3]-$xyz2->[3])**2); 
+
+    return $d12; 
+}
+
+#########
+# PRINT #
+#########
+
+# print useful information into comment section of xyz file 
+# args 
+# -< file handler 
+# -< header format
+# -< total number of atom 
+# -< commnent 
+# return 
+# -> null
+sub print_header { 
+    my ($fh, $format, $ntotal, @info) = @_; 
+    printf $fh $format, $ntotal, @info;  
+
+    return ; 
+}
+
 # print atomic coordinate block
-# arg: 
-#   - filehandler 
-#   - atomic label 
-#   - x, y, and z 
+# args 
+# -< filehandler 
+# -< atomic label 
+# -< x, y, and z 
 # return : 
-#   - null
+# -> null
 sub print_coordinate { 
     my ($fh, $label, $x, $y, $z) = @_; 
     printf $fh "%-2s  %7.3f  %7.3f  %7.3f\n", $label, $x, $y, $z; 
@@ -141,11 +143,11 @@ sub print_coordinate {
 #############
 
 # visualize xyz file 
-# arg : 
-#   - xyz file 
-#   - quiet mode ? 
+# args 
+# -< xyz file 
+# -< quiet mode ? 
 # return : 
-#   - null
+# -> null
 sub xmakemol { 
     my ($file, $quiet) = @_; 
     unless ( $quiet ) { 
@@ -156,7 +158,6 @@ sub xmakemol {
     
     return; 
 }
-
 
 # last evaluated expression 
 1; 

@@ -10,7 +10,7 @@ use List::Util qw( sum );
 
 use GenUtil qw( read_line print_table ); 
 use VASP    qw( read_cell read_md retrieve_traj ); 
-use XYZ     qw( print_header print_xyz xmakemol); 
+use XYZ     qw( print_header direct_to_cart xmakemol); 
 use Math    qw( elem_product dot_product ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -135,7 +135,7 @@ print_table(\@snapshots);
 
 for my $istep (@snapshots) { 
     print_header($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $istep, @{$md{$istep}}); 
-    print_xyz($fh, $scaling, $lat, $label, $traj{$istep}, \@dxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh, $scaling, $lat, $label, $traj{$istep}, \@dxyz, $nx, $ny, $nz); 
 }
 
 # flush

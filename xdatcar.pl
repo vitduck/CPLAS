@@ -10,7 +10,7 @@ use List::Util qw(sum);
 
 use GenUtil qw( read_line ); 
 use VASP    qw( read_cell read_traj save_traj );  
-use XYZ     qw( print_header print_xyz xmakemol ); 
+use XYZ     qw( print_header direct_to_cart xmakemol ); 
 use Math    qw( elem_product dot_product );   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -118,7 +118,7 @@ for ( @$traj ) {
     my $geometry = [ map [ split  ], split /\n/ ]; 
     $traj{$count} = $geometry; 
     print_header($fh, "%d\n# Step: %d\n", $ntotal, $count); 
-    print_xyz($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 }
 
 ## flush

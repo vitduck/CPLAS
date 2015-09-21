@@ -10,7 +10,7 @@ use List::Util qw(sum);
 
 use GenUtil qw ( read_line ); 
 use VASP    qw ( read_cell read_geometry ); 
-use XYZ     qw ( cart_to_direct print_header print_xyz xmakemol );
+use XYZ     qw ( direct_to_cart print_header xmakemol );
 use Math    qw ( elem_product dot_product);   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -101,13 +101,10 @@ $natom = dot_product(elem_product(\@nxyz), $natom);
 my $ntotal = sum(@$natom);  
 my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
 
-# convert to direct coordinate
-$geometry = cart_to_direct($scaling, $lat, $geometry, $type); 
-
 # write contcar.xyz
 my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
 print_header($fh, "%d\n%s\n", $ntotal, ''); 
-print_xyz($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 
 # xmakemol
