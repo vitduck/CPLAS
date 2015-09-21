@@ -4,21 +4,25 @@ use strict;
 use warnings; 
 
 use IO::File; 
-use Exporter   qw( import ); 
 use List::Util qw( sum max ); 
-use Storable   qw( store retrieve ); 
+use File::Basename; 
+use File::Spec::Functions qw( catfile ); 
+use Storable qw( store retrieve ); 
+use Exporter qw( import ); 
 
-use Math       qw( print_vec print_mat mat_mul );
+use Math qw( print_vec print_mat mat_mul );
+use Periodic; 
 
 # symbol 
 our @poscar  = qw ( read_cell read_geometry write_poscar ); 
+our @potcar  = qw ( read_potcar select_potcar make_potcar print_potcar_elem ); 
 our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
 our @oszicar = qw ( read_profile ); 
 our @outcar  = qw ( read_force ); 
 our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
 
 # default import 
-our @EXPORT = ( @poscar, @xdatcar, @oszicar, @outcar, @aimd ); 
+our @EXPORT = ( @poscar, @potcar, @xdatcar, @oszicar, @outcar, @aimd ); 
 
 # tag import 
 our %EXPORT_TAGS = (
@@ -33,16 +37,16 @@ our %EXPORT_TAGS = (
 # POSCAR #
 ##########
 
-# arg : 
-#   - ref to array of lines (POSCAR/CONTCAR/XDATCAR)
-# return : 
-#   - structure name 
-#   - scaling 
-#   - ref to 2d array of lattice vectors
-#   - ref to array of atom
-#   - ref to array of number of atom
-#   - selective dynamic (0 or 1)
-#   - type of coordinate (direct/cartesian)
+# args 
+# -> ref to array of lines (POSCAR/CONTCAR/XDATCAR)
+# return 
+# -> structure name 
+# -> scaling 
+# -> ref to 2d array of lattice vectors
+# -> ref to array of atom
+# -> ref to array of number of atom
+# -> selective dynamic (0 or 1)
+# -> type of coordinate (direct/cartesian)
 sub read_cell { 
     my ($line) = @_;  
 
@@ -75,10 +79,10 @@ sub read_cell {
 }
 
 # read atomic coordinats block
-# arg : 
-#   - ref to array of lines 
-# return : 
-#   - 2d array of atomic coordinates 
+# args 
+# -> ref to array of lines 
+# return
+# -> 2d array of atomic coordinates 
 sub read_geometry { 
     my ($line) = @_; 
 
@@ -92,16 +96,18 @@ sub read_geometry {
     return $coordinate; 
 }
 
-# arg : 
-#   - file handler 
-#   - structure name 
-#   - scaling 
-#   - ref to 2d array of lattice vectors
-#   - ref to array of atom
-#   - ref to array of number of atom
-#   - selective dynamic (0 or 1)
-#   - type of coordinate (direct/cartesian)
-#   - ref to 2d array of coordinates 
+# args  
+# -> file handler 
+# -> structure name 
+# -> scaling 
+# -> ref to 2d array of lattice vectors
+# -> ref to array of atom
+# -> ref to array of number of atom
+# -> selective dynamic (0 or 1)
+# -> type of coordinate (direct/cartesian)
+# -> ref to 2d array of coordinates 
+# return 
+# -> null
 sub write_poscar { 
     my ($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate) = @_; 
 
@@ -126,15 +132,101 @@ sub write_poscar {
     return; 
 }
 
+########## 
+# POTCAR #
+########## 
+
+# read list of PP in POTCAR 
+# args  
+# -> ref to POTCAR lines 
+# return 
+# -> hash of pp type PAW_PBE => [ element, date ];  
+sub read_potcar { 
+    my ($line) = @_; 
+
+    my %pp;  
+    for( @$line ) { 
+         if ( /TITEL/ ) { 
+            my ($type, $element, $date) = (split)[2,3,4]; 
+            push @{$pp{$type}}, [$element, $date] 
+        }
+    }
+
+    return %pp;  
+} 
+
+# print elements in POTCAR 
+# args 
+# -> POTCAR element hash 
+# return 
+# -> null 
+sub print_potcar_elem { 
+    my %pp = @_; 
+
+    for my $type ( sort keys %pp ) { 
+        print "PP: $type\n"; 
+        for my $element ( @{$pp{$type}} ) { 
+            printf "\t%-6s => %s\n", @$element; 
+        }
+    }
+
+    return; 
+}
+
+# POTCAR selector 
+# args 
+# -> directory of VASP pseudo potential 
+# -> type of potential 
+# -> element in periodic table 
+# -> ref of potcar list
+# return 
+# -> null 
+sub select_potcar { 
+    my ($dir, $potential, $element, $potcar) = @_; 
+    
+    my @avail_pots = map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, < $dir/$potential/* >;
+    printf "\n=> Pseudopotentials for $Periodic::table{$element}[1]: %s\n", join(' | ', @avail_pots); 
+    # Promp user to choose potential 
+    while (1) { 
+        print "=> Choice: "; 
+        # remove newline, spaces, etc
+        chomp (my $choice = <STDIN>); 
+        $choice =~ s/\s+//g; 
+        # fullpath for chosen potential 
+        if ( grep { $choice eq $_ } @avail_pots ) { 
+            push @$potcar, catfile($dir, $potential, $choice, 'POTCAR'); 
+            last; 
+        }
+
+    }
+
+    return; 
+}
+
+# write new POTCAR 
+# args 
+# -> filehandle for POTCAR 
+# -> ref of list of POTCAR  
+sub make_potcar { 
+    my ($fh, $potcar) = @_; 
+
+    for my $file ( @$potcar ) { 
+        my $elem_fh = IO::File->new($file, 'r') or die "Cannot open $file\n";  
+        print $fh (<$elem_fh>); 
+        $elem_fh->close; 
+    }
+
+    return; 
+}
 ###########
 # XDATCAR #
 ###########
 
 # read atomic coordinate blocks for each ionic step  
-# arg : 
-#   - slurped XDATCAR lines  
-# return : 
-#   - array of coordinates of each ionic steps 
+# args 
+# -> slurped XDATCAR lines  
+# return
+# -> array of coordinates of each ionic steps 
 sub read_traj { 
     my ($line) = @_; 
 
@@ -153,11 +245,11 @@ sub read_traj {
 }
 
 # save trajectory to disk
-# arg : 
-#   - ref to trajectory (array of ref to 2d coordinate) 
-#   - stored output
+# args  
+# -> ref to trajectory (array of ref to 2d coordinate) 
+# -> stored output
 # return: 
-#   - null
+# -> null
 sub save_traj { 
     my ($traj, $output, $save) = @_; 
 
@@ -171,10 +263,10 @@ sub save_traj {
 }
 
 # retrieve trajectory to disk
-# arg : 
-#   - stored data 
-# return: 
-#   - traj hash 
+# args 
+# -> stored data 
+# return 
+# -> traj hash 
 sub retrieve_traj { 
     my ($stored_traj) = @_; 
 
@@ -193,10 +285,10 @@ sub retrieve_traj {
 ###########
 
 # read istep, T(K), F(eV) from OSZICAR 
-# arg : 
-#   - ref to array of lines 
-# return : 
-#   - potential hash (istep => [T, F])
+# args  
+# -> ref to array of lines 
+# return 
+# -> potential hash (istep => [T, F])
 sub read_profile { 
     my ($line) = @_; 
 
@@ -218,10 +310,10 @@ sub read_profile {
 ##########
 
 # read total forces of each ion step 
-# arg : 
-#   - ref to array of lines 
-# return : 
-#   - array of max forces  
+# args 
+# -> ref to array of lines 
+# return 
+# -> array of max forces  
 sub read_force { 
     my ($line) = @_; 
 
@@ -250,10 +342,10 @@ sub read_force {
 ########
 
 # istep, T(K) and F(eV) from output of get_potential 
-# arg : 
-#   - profile.dat 
-# return : 
-#   - potential hash (istep => [T,F])
+# args  
+# -> profile.dat 
+# return 
+# -> potential hash (istep => [T,F])
 sub read_md { 
     my ($input) = @_; 
    
@@ -275,12 +367,12 @@ sub read_md {
 }
 
 # sort the potential profile for local minimum and maximum 
-# arg : 
-#   - ref to potential hash (istep => [T,F])
-#   - period of ionic steps for sorting  
-# return : 
-#   - ref to array of local minima
-#   - ref to array of local maxima
+# args 
+# -> ref to potential hash (istep => [T,F])
+# -> period of ionic steps for sorting  
+# return
+# -> ref to array of local minima
+# -> ref to array of local maxima
 sub sort_md { 
     my ($md, $periodicity) = @_; 
 
@@ -305,11 +397,12 @@ sub sort_md {
 
 # moving averages of potential profile 
 # ref: http://mathworld.wolfram.com/MovingAverage.html
-# arg: 
-#   - ref to potential hash (istep => [T,F])
-#   - period of ionic step to be averaged 
-#   - output file 
-# return: null
+# args 
+# -> ref to potential hash (istep => [T,F])
+# -> period of ionic step to be averaged 
+# -> output file 
+# return 
+# -> null
 sub average_md { 
     my ($md, $period, $output) = @_; 
 
@@ -334,9 +427,11 @@ sub average_md {
 }
 
 # print potential profile to file 
-# arg: 
-#   - ref to potential hash (istep => [T,F])
-#   - output file 
+# args  
+# -> ref to potential hash (istep => [T,F])
+# -> output file 
+# return 
+# -> null
 sub write_md { 
     my ($md, $output) = @_; 
 
