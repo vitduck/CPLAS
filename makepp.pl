@@ -1,14 +1,13 @@
 #!/usr/bin/env perl 
-
 use strict; 
 use warnings; 
 
+use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
-use File::Basename; 
-use File::Spec::Functions qw( catfile ); 
 
-use Periodic; 
+use GenUtil qw( read_line ); 
+use VASP    qw( read_potcar select_potcar print_potcar_elem make_potcar );
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -56,8 +55,8 @@ my $help       = 0;
 my $list       = 0; 
 my $potential  = 'PAW_PBE'; 
 my @potentials = qw( PAW_PBE PAW_GGA PAW_LDA USP_GGA USP_LDA );  
-my @elements   = (); 
-my @potcars; 
+
+my $potcar = [];  
 
 # default output 
 if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
@@ -65,68 +64,30 @@ if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
 # optional args
 GetOptions(
     'h'       => \$help, 
-    'l'       => \$list, 
-    't=s'     => \$potential,
-    'e=s{1,}' => \@elements
+    'l'       => sub { print_potcar_elem(read_potcar(read_line('POTCAR'))) },  
+    't=s'     => sub { 
+        my ($opt, $potential) = @_; 
+        # available potentials 
+        unless ( grep { $potential eq $_ } @potentials ) {  
+            pod2usage(-verbose => 1, -message => "Invalid potential type: $potential\n" ) 
+        }
+    },
+    'e=s{1,}' => sub { 
+        my ($opt, $element) = @_; 
+        # available elements 
+        unless ( exists $Periodic::table{$element} ) {  
+            pod2usage(-verbose => 1, -message => "Invalid element: $element\n" ) 
+        }
+        # iteractive POTCAR selector
+        select_potcar($dir, $potential, $element, $potcar);  
+    }
 ) or pod2usage(-verbose => 1); 
 
 # help message 
-if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }; 
 
-# available potentials 
-unless ( grep { $potential eq $_ } @potentials ) {  
-    pod2usage(-verbose => 1, -message => "Invalid potential type\n" ) 
-}
-
-# available elements 
-for my $element ( @elements ) { 
-    pod2usage(-verbose => 1, -message => "Invalid element: $element\n" ) 
-    unless exists $Periodic::table{$element}; 
-}
-
-# POTCAR generation
-for my $element (@elements ) { 
-    my @avail_pots = map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, < $dir/$potential/* >;
-    printf "=> Pseudopotentials for $Periodic::table{$element}[1]: %s\n", join(' | ', @avail_pots); 
-    # Promp user to choose potential 
-    while (1) { 
-        print "=> Choice: "; 
-        # remove newline, spaces, etc
-        chomp (my $choice = <STDIN>); 
-        $choice =~ s/\s+//g; 
-        # fullpath for chosen potential 
-        if ( grep { $choice eq $_ } @avail_pots ) { 
-            push @potcars, catfile($dir, $potential, $choice, 'POTCAR'); 
-            last; 
-        }
-
-    }
-    print "\n"; 
-}
-
-# POTCAR accumulation
-if ( @elements and @potcars ) { 
-    print "=> Generating POTCAR for @elements\n" if @elements; 
-    open OUTPUT, '>', 'POTCAR' or die "Cannot write POTCAR\n"; 
-    for my $potcar ( @potcars ) { 
-        # element's POTCAR 
-        open POTCAR, '<', $potcar or die "Cannot open $potcar\n"; 
-        print OUTPUT <POTCAR>; 
-        close POTCAR; 
-    }
-    close OUTPUT; 
-}
-
-# potentials in POTCAR
-if ( $list ) { 
-    print "\n" if @elements; 
-    open POTCAR, '<', 'POTCAR' or die "Cannot open POTCAR\n"; 
-    print "=> List of elements in POTCAR:\n";  
-    while ( <POTCAR> ) { 
-        if ( /TITEL/ ) { 
-            my ($potential, $element, $date) = (split)[2,3,4]; 
-            print "$potential $element $date\n"; 
-        }
-    }
-    close POTCAR; 
+if (@$potcar) { 
+    my $fh = IO::File->new('POTCAR', 'w'); 
+    make_potcar($fh, $potcar); 
+    $fh->close; 
 }
