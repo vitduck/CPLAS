@@ -56,7 +56,7 @@ my $list       = 0;
 my $potential  = 'PAW_PBE'; 
 my @potentials = qw( PAW_PBE PAW_GGA PAW_LDA USP_GGA USP_LDA );  
 
-my $potcar = [];  
+my (@elements, @potcars); 
 
 # default output 
 if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
@@ -69,25 +69,30 @@ GetOptions(
         my ($opt, $potential) = @_; 
         # available potentials 
         unless ( grep { $potential eq $_ } @potentials ) {  
-            pod2usage(-verbose => 1, -message => "Invalid potential type: $potential\n" ) 
+            pod2usage(-verbose => 1, -message => "Invalid potential type: $potential" ) 
         }
     },
     'e=s{1,}' => sub { 
         my ($opt, $element) = @_; 
         # available elements 
         unless ( exists $Periodic::table{$element} ) {  
-            pod2usage(-verbose => 1, -message => "Invalid element: $element\n" ) 
+            pod2usage(-verbose => 1, -message => "Invalid element: $element" ) 
         }
-        # iteractive POTCAR selector
-        select_potcar($dir, $potential, $element, $potcar);  
+        # populate @elements 
+        push @elements, $element; 
     }
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }; 
 
-if (@$potcar) { 
-    my $fh = IO::File->new('POTCAR', 'w'); 
-    make_potcar($fh, $potcar); 
-    $fh->close; 
+# generate POTCAR 
+if ( @elements ) { 
+    my $potfh   = IO::File->new('POTCAR', 'w'); 
+    for my $element ( @elements ) { 
+        make_potcar($potfh, select_potcar($dir, $potential, $element));  
+    }
+    $potfh->close; 
+    # list element POTCAR 
+    print_potcar_elem(read_potcar(read_line('POTCAR')))
 }
