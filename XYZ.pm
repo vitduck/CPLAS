@@ -4,19 +4,20 @@ use strict;
 use warnings; 
 
 use Exporter   qw( import ); 
-
 use List::Util qw( sum ); 
 use constant ARRAY  => ref []; 
 
 use Math       qw( dot_product mat_mul inverse ); 
+use Periodic; 
 
 # symbol 
 our @geometry  = qw( cart_to_direct direct_to_cart atom_distance ); 
+our @xyz       = qw( read_xyz print_xyz ); 
 our @visualize = qw( xmakemol ); 
-our @print     = qw( print_header print_coordinate ); 
+our @print     = qw( print_comment print_coordinate ); 
 
 # default import 
-our @EXPORT = ( @geometry, @print, @visualize ); 
+our @EXPORT = ( @geometry, @xyz, @print, @visualize ); 
 
 # tag import 
 our %EXPORT_TAGS = (
@@ -105,6 +106,69 @@ sub atom_distance {
     return $d12; 
 }
 
+####### 
+# XYZ # 
+####### 
+
+# read xyz coordinates 
+# args 
+# -< ref of xyz lines 
+# return 
+# -> total number of atom 
+# -> xyz comment 
+# -> ref of array of atom 
+# -> ref of array of natom 
+# -> ref of 2d array of coordinate 
+sub read_xyz { 
+    my ($line)  = @_; 
+
+    my %struct; 
+    my $ntotal  = shift @$line; 
+    my $comment = shift @$line || ''; 
+
+    for ( @$line ) { 
+        my ($element, $x, $y, $z) = split; 
+        # initialize coordinate array of element  
+        unless ( exists $struct{$element} ) {   
+            $struct{$element} = [] 
+        }
+        push @{$struct{$element}}, [ $x, $y, $z ]; 
+    }
+
+    my $atom     = [ sort { $Periodic::table{$a}[0] <=> $Periodic::table{$b}[0] } keys %struct ]; 
+    my $natom    = [ map { scalar @{$struct{$_}} } @$atom ];  
+    my $geometry = [ map { @{$struct{$_}} } @$atom ]; 
+    
+    return ($ntotal, $comment, $atom, $natom, $geometry); 
+}
+
+# print xyz coordinates 
+# args 
+# -< total number of atom 
+# -< xyz comment 
+# -< ref of array of atom 
+# -< ref of array of natom 
+# -< ref of 2d array of coordinate 
+# returns 
+# -> null 
+sub print_xyz { 
+    my ($fh, $ntotal, $comment, $atom, $natom, $geometry) = @_;  
+
+    # xyz label 
+    my @labels = map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom;  
+    
+    # print header 
+    printf $fh "%d\n", $ntotal; 
+    printf $fh "%s\n", $comment; 
+    # print coordinate 
+    for  ( 0..$#labels ) { 
+        print_coordinate($fh, $labels[$_], @{$geometry->[$_]}); 
+    }
+
+    return; 
+}
+
+
 #########
 # PRINT #
 #########
@@ -112,12 +176,12 @@ sub atom_distance {
 # print useful information into comment section of xyz file 
 # args 
 # -< file handler 
-# -< header format
+# -< comment format
 # -< total number of atom 
 # -< commnent 
 # return 
 # -> null
-sub print_header { 
+sub print_comment { 
     my ($fh, $format, $ntotal, @info) = @_; 
     printf $fh $format, $ntotal, @info;  
 
