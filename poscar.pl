@@ -4,14 +4,14 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use Pod::Usage; 
 use IO::File; 
 use List::Util qw(sum);  
+use Pod::Usage; 
 
 use GenUtil qw ( read_line ); 
-use VASP    qw ( read_cell read_geometry ); 
-use XYZ     qw ( cart_to_direct direct_to_cart print_header xmakemol );
 use Math    qw ( elem_product dot_product);   
+use VASP    qw ( read_cell read_geometry ); 
+use XYZ     qw ( cart_to_direct direct_to_cart print_comment xmakemol );
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -107,7 +107,7 @@ $geometry = cart_to_direct($scaling, $lat, $geometry, $type);
 
 # write poscar.xyz
 my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
-print_header($fh, "%d\n%s\n", $ntotal, ''); 
+print_comment($fh, "%d\n%s\n", $ntotal, ''); 
 direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 

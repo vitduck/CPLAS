@@ -3,15 +3,15 @@
 use strict; 
 use warnings; 
 
-use IO::File; 
 use Getopt::Long; 
-use Pod::Usage; 
+use IO::File; 
 use List::Util qw(sum);  
+use Pod::Usage; 
 
 use GenUtil qw( read_line ); 
-use VASP    qw( read_cell read_traj save_traj );  
-use XYZ     qw( print_header direct_to_cart xmakemol ); 
 use Math    qw( elem_product dot_product );   
+use VASP    qw( read_cell read_traj save_traj );  
+use XYZ     qw( print_comment direct_to_cart xmakemol ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -117,7 +117,7 @@ for ( @$traj ) {
     $count++; 
     my $geometry = [ map [ split  ], split /\n/ ]; 
     $traj{$count} = $geometry; 
-    print_header($fh, "%d\n# Step: %d\n", $ntotal, $count); 
+    print_comment($fh, "%d\n# Step: %d\n", $ntotal, $count); 
     direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
 }
 

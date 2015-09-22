@@ -4,14 +4,14 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use Pod::Usage; 
 use IO::File; 
 use List::Util qw( sum );  
+use Pod::Usage; 
 
 use GenUtil qw( read_line ); 
-use VASP    qw( read_cell read_geometry read_md retrieve_traj write_poscar ); 
-use XYZ     qw( print_header direct_to_cart xmakemol); 
 use Math    qw ( elem_product dot_product);   
+use VASP    qw( read_cell read_geometry read_md retrieve_traj write_poscar ); 
+use XYZ     qw( print_comment direct_to_cart xmakemol); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -131,7 +131,7 @@ print "=> Extracting #$config\n";
 # write xyz file  
 my $output = "$config.xyz"; 
 $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
-print_header($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}); 
+print_comment($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}); 
 direct_to_cart($fh, $scaling, $lat, $label, $traj{$config}, \@dxyz, $nx, $ny, $nz); 
 $fh->close; 
 

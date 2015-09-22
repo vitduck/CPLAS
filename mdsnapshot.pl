@@ -4,14 +4,14 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use Pod::Usage; 
 use IO::File; 
 use List::Util qw( sum ); 
+use Pod::Usage; 
 
 use GenUtil qw( read_line print_table ); 
-use VASP    qw( read_cell read_md retrieve_traj ); 
-use XYZ     qw( print_header direct_to_cart xmakemol); 
 use Math    qw( elem_product dot_product ); 
+use VASP    qw( read_cell read_md retrieve_traj ); 
+use XYZ     qw( print_comment direct_to_cart xmakemol); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -134,7 +134,7 @@ my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";
 print_table(\@snapshots); 
 
 for my $istep (@snapshots) { 
-    print_header($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $istep, @{$md{$istep}}); 
+    print_comment($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $istep, @{$md{$istep}}); 
     direct_to_cart($fh, $scaling, $lat, $label, $traj{$istep}, \@dxyz, $nx, $ny, $nz); 
 }
 
