@@ -102,5 +102,90 @@ sub read_dir_tree {
     return $tree; 
 } 
 
+#######
+# EPS #
+#######
+
+# convert default color to zenburn 
+# args 
+# -< eps file 
+# return 
+# -> null
+sub zenburnize { 
+    my ($eps) = @_; 
+
+    print "=> With sufficient thrust, pigs fly just fine\n"; 
+    
+    my %zenburn = ( 
+        black   => '#212121', 
+        gray    => '#3F3F3F', 
+        white   => '#DCDCCC', 
+        cyan    => '#8CD0D3', 
+        blue    => '#94BFF3', 
+        red     => '#CC9393', 
+        green   => '#7F9F7F', 
+        magenta => '#ED8BB7', 
+        purple  => '#C0BED1',
+        yellow  => '#F0DFAF', 
+        brown   => '#FFCFAF',
+        orange  => '#DFAF8F',
+    ),  
+
+    return; 
+}
+
+# set the correct eps boundary 
+# due to bug of gnuplot 5 ???
+# args 
+# -< eps file 
+# return 
+# -> null 
+sub set_boundary { 
+    my ($eps) = @_; 
+    
+    # boundary from gs 
+    my @boundaries = (split ' ', (`gs -dQUIET -dBATCH -dNOPAUSE -sDEVICE=bbox $eps 2>&1`)[0])[1..4]; 
+
+    print "=> Fixing $eps boundaries: @boundaries\n"; 
+
+    { # local scope for inline editing 
+        local ($^I, @ARGV) = ('~', $eps); 
+        while (<>) { 
+            s/(%%BoundingBox:).*/$1 @boundaries/;
+            print;   
+        }
+    }
+    # remove back-up eps 
+    unlink "$eps~";
+
+    return; 
+}
+
+# open eps using ghostview 
+# args 
+# -< eps file 
+sub view_eps { 
+    my ($eps, $scale) = @_;   
+    print "=> $eps\n"; 
+    exec "gv -scale=$scale $eps"; 
+}
+
+# convert eps to png 
+# args 
+# -< eps file 
+# -< png file 
+# -< pixel  
+# return 
+# -> null 
+sub eps2png { 
+    my ($eps, $png, $density) = @_; 
+
+    # convert to png 
+    print "=> $eps => $png\n"; 
+    system 'convert', '-density', $density, $eps, $png; 
+        
+    return; 
+}
+
 # last evaluated expression 
 1; 
