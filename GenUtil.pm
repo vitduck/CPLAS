@@ -3,20 +3,20 @@ package GenUtil;
 use strict; 
 use warnings; 
 
-use IO::File; 
-use IO::Dir; 
-use File::Basename; 
-use File::Spec::Functions; 
 use Data::Dumper; 
 use Exporter qw( import ); 
-
-use constant ARRAY => ref []; 
+use File::Basename; 
+use File::Spec::Functions; 
+use IO::Dir; 
+use IO::File; 
 
 use Math qw( max_length print_vec );  
 
+use constant ARRAY => ref []; 
+
 # symbolic 
 our @read  = qw( read_line ); 
-our @print = qw( print_table ); 
+our @print = qw( print_table dump_return ); 
 our @dir   = qw( read_dir_tree );  
 
 # default import 
@@ -28,9 +28,9 @@ our @EXPORT = ( @read, @print, @dir );
 
 # read lines of file: line by line or slurp mode 
 # args
-#   -> file 
+# -< file 
 # return
-#   ->  ref of array of lines 
+# ->  ref of array of lines 
 sub read_line { 
     my $input = shift @_;  
     my $mode  = shift @_ || '';  
@@ -51,9 +51,9 @@ sub read_line {
 
 # print list using table format 
 # args 
-#   -> array of value
+# -< array of value
 # return 
-#   -> null
+# -> null
 sub print_table { 
     my $list   = shift @_; 
     my $format = shift @_ || sprintf "%ds", max_length($list);  
@@ -69,15 +69,24 @@ sub print_table {
     return; 
 }
 
+# dump data returns from subroutines 
+# args 
+# -< array of 'var' 
+# return 
+# -> null 
+sub dump_return { 
+    print Dumper($_) for @_; 
+}
+
 #############
 # DIRECTORY #
 #############
 
 # construct directory tree 
 # args 
-#   -> directory 
+# -< directory 
 # return 
-#   -> hash contains directory and sub directory 
+# -> hash contains directory and sub directory 
 sub read_dir_tree { 
     my $root   = shift; 
     my $tree   = {}; 
