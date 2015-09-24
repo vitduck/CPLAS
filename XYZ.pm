@@ -139,7 +139,7 @@ sub read_xyz {
     my $natom    = [ map { scalar @{$struct{$_}} } @$atom ];  
     my $geometry = [ map { @{$struct{$_}} } @$atom ]; 
     
-    return ($ntotal, $comment, $atom, $natom, $geometry); 
+    return ($comment, $atom, $natom, $geometry); 
 }
 
 # print xyz coordinates 
@@ -152,13 +152,13 @@ sub read_xyz {
 # returns 
 # -> null 
 sub print_xyz { 
-    my ($fh, $ntotal, $comment, $atom, $natom, $geometry) = @_;  
+    my ($fh, $comment, $atom, $natom, $geometry) = @_;  
 
     # xyz label 
     my @labels = map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom;  
     
     # print header 
-    printf $fh "%d\n", $ntotal; 
+    printf $fh "%d\n", sum(@$natom); 
     printf $fh "%s\n", $comment; 
     # print coordinate 
     for  ( 0..$#labels ) { 

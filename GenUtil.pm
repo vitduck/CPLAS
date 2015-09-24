@@ -18,7 +18,7 @@ use constant ARRAY => ref [];
 our @read  = qw( read_line ); 
 our @print = qw( print_table dump_return ); 
 our @dir   = qw( read_dir_tree );  
-our @eps   = qw( view_eps ); 
+our @eps   = qw( view_eps eps2png zenburnize set_boundary ); 
 our @png   = qw( view_png ); 
 
 # default import 
@@ -183,7 +183,7 @@ sub eps2png {
     my ($eps, $png, $density) = @_; 
 
     # convert to png 
-    print "=> $eps => $png\n"; 
+    print "=> $eps to $png\n"; 
     system 'convert', '-density', $density, $eps, $png; 
         
     return; 

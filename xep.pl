@@ -87,6 +87,9 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 # live or die, make your choice  
 for my $format ( sort keys %table ) {     
     my $file   = $table{$format}; 
+    # next loop if hash is empty 
+    if ( keys %$file == 0 ) { next } 
+    # format [digit]
     my $length = max_length(keys %$file); 
     # print table
     print "\n"; 
