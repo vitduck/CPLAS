@@ -15,14 +15,13 @@ use Math qw( max_length print_vec );
 use constant ARRAY => ref []; 
 
 # symbolic 
-our @read  = qw( read_line ); 
+our @read  = qw( read_line read_dir_tree file_format ); 
 our @print = qw( print_table dump_return ); 
-our @dir   = qw( read_dir_tree );  
 our @eps   = qw( view_eps eps2png zenburnize set_boundary ); 
 our @png   = qw( view_png ); 
 
 # default import 
-our @EXPORT = ( @read, @print, @dir, @eps, @png ); 
+our @EXPORT = ( @read, @print, @eps, @png ); 
 
 ######## 
 # READ # 
@@ -45,6 +44,25 @@ sub read_line {
     if ( ref $line eq ARRAY ) { chomp @$line }; 
     
     return $line; 
+}
+
+# get file format 
+# args 
+# -< input files 
+# return 
+# -> file format
+sub file_format { 
+    my ($input) = @_;
+    # POSCAR.
+    if ( $input =~ /POSCAR/ ) { 
+        return 'POSCAR'; 
+    # xyz|eps|png
+    } elsif ( $input =~ /.*\.(.+?)$/ ) { 
+        return $1; 
+    # unsupported format
+    } else { 
+        return ''; 
+    }
 }
 
 #########

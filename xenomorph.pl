@@ -8,7 +8,7 @@ use Getopt::Long;
 use Pod::Usage; 
 
 use Gaussian qw( read_gaussian print_gaussian ); 
-use GenUtil  qw( read_line eps2png zenburnize set_boundary ); 
+use GenUtil  qw( read_line file_format eps2png zenburnize set_boundary ); 
 use VASP     qw( read_cell read_geometry print_poscar ); 
 use XYZ      qw( read_xyz print_xyz ); 
 
@@ -66,7 +66,18 @@ my $density  = 150;
 # available operation 
 my @eps_transform = (); 
 
-# default POSCAR parametes 
+# converision table 
+my %conversion = ( 
+    POSCAR => [ qw( xyz com gif ) ], 
+    xyz    => [ qw( POSCAR com gif ) ], 
+    com    => [ qw( POSCAR xyz ) ], 
+    gif    => [ qw( POSCAR xyz ) ], 
+    eps    => [ qw( png ) ], 
+), 
+
+# -------------------------#
+# default POSCAR parametes #
+# -------------------------#
 my $lat      = [ 
     [ 20.0, 0.00, 0.00 ], 
     [ 0.00, 20.0, 0.00 ], 
@@ -76,18 +87,27 @@ my $scaling  = 1.0;
 my $dynamics = 0; 
 my $type     = 'Cartesian'; 
 
-# gaussian default parameters 
+# ----------------------------#
+# gaussian default parameters #
+# ----------------------------#
 my $option   = ['%chk=file.chk']; 
 my $theory   = '# hf/3-21g'; 
 my $title    = 'Structure'; 
 my $charge   = 0; 
 my $spin     = 1; 
 
-# xyz parameters 
+#----------------#
+# xyz parameters #
+#----------------#
 my $comment = ''; 
 
-# geometry; 
+#----------#
+# geometry #
+#----------# 
 my ($atom, $natom, $geometry); 
+
+# defaul behavior
+if ( @ARGV == 0 ) { pod2usage(-verbose => 99) }; 
 
 # parse optional arguments 
 GetOptions(
@@ -108,25 +128,32 @@ GetOptions(
 # default output 
 if ( $help ) { pod2usage(-verbose => 99) }; 
 
+# check legitimate conversion 
+my $iformat = file_format($input); 
+my $oformat = file_format($output); 
+unless ( grep { $oformat =~ /$_/ } @{$conversion{$iformat}} ) { 
+    die "=> What are you doing ???\n"; 
+}
+
 # parse input
-my $line = ($input =~ /.*\.(com|gif)$/) ? read_line($input, 'slurp') : read_line($input);  
+my $line = ( $iformat =~ /com|gif/ ) ? read_line($input, 'slurp') : read_line($input);  
 
 # quite messy wait to emulate C-style switch
 INPUT: { 
-    $input =~ /POSCAR/ && do { 
+    $iformat =~ /POSCAR/ && do { 
         ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
         $geometry = read_geometry($line); 
     }; 
 
-    $input =~ /.*\.(com|gif)$/ && do { 
+    $iformat =~ /com|gif/ && do { 
         ($option, $theory, $title, $charge, $spin, $atom, $natom, $geometry) = read_gaussian($line); 
     }; 
 
-    $input =~ /.*\.(xyz)$/ && do { 
+    $iformat =~ /xyz/ && do { 
         ($comment, $atom, $natom, $geometry) = read_xyz($line); 
     }; 
 
-    $input =~ /.*\.(eps)$/ && do { 
+    $iformat =~ /eps/ && do { 
         # performs eps transformation
         for ( @eps_transform ) {  $_->($input) }
     }
@@ -136,20 +163,20 @@ INPUT: {
 my $fh = IO::File->new($output, 'w'); 
 
 OUTPUT: { 
-    $output =~ /POSCAR/ && do { 
+    $oformat =~ /POSCAR/ && do { 
         # force scaling, dynamics and type
         print_poscar($fh, $title, 1.0, $lat, $atom, $natom, 0, 'Cartesian', $geometry); 
     }; 
 
-    $output =~ /.*\.(com|gif)$/ && do { 
+    $oformat =~ /com|gif/ && do { 
         print_gaussian($fh, $option, $theory, $title, 0, 1, $atom, $natom, $geometry);  
     }; 
 
-    $output =~ /.*\.(xyz)$/ && do { 
+    $oformat =~ /xyz/ && do { 
         print_xyz($fh, $comment, $atom, $natom, $geometry); 
     }; 
 
-    $output =~ /.*\.(png)$/ && do { 
+    $oformat =~ /png/ && do { 
         eps2png($input, $output, $density); 
     }; 
 }
