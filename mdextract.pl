@@ -10,7 +10,7 @@ use Pod::Usage;
 
 use GenUtil qw( read_line ); 
 use Math    qw ( elem_product dot_product);   
-use VASP    qw( read_cell read_geometry read_md retrieve_traj write_poscar ); 
+use VASP    qw( read_cell read_geometry read_md retrieve_traj print_poscar ); 
 use XYZ     qw( print_comment direct_to_cart xmakemol); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
@@ -115,7 +115,7 @@ my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line);
 
 # write POSCAR.#config 
 my $fh = IO::File->new("POSCAR.$config", 'w') or die "Cannot write to POSCAR.$config\n";  
-write_poscar($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $traj{$config}); 
+print_poscar($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $traj{$config}); 
 $fh->close; 
 
 # supercell box

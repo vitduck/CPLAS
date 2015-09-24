@@ -14,7 +14,7 @@ use Math qw( max_length print_vec print_mat mat_mul );
 use Periodic; 
 
 # symbol 
-our @poscar  = qw ( read_cell read_geometry write_poscar ); 
+our @poscar  = qw ( read_cell read_geometry print_poscar );
 our @potcar  = qw ( read_potcar select_potcar make_potcar print_potcar_elem ); 
 our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
 our @oszicar = qw ( read_profile ); 
@@ -108,7 +108,7 @@ sub read_geometry {
 # -< ref to 2d array of coordinates 
 # return 
 # -> null
-sub write_poscar { 
+sub print_poscar { 
     my ($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate) = @_; 
 
     my %format = ( 
@@ -172,8 +172,8 @@ sub print_potcar_elem {
     my ($type) = keys %pp; 
 
     # string format
-    my $elength = max_length([map $_->[0], @{$pp{$type}}]);  
-    my $slength = max_length([map $_->[1], @{$pp{$type}}]);  
+    my $elength = max_length(map $_->[0], @{$pp{$type}});  
+    my $slength = max_length(map $_->[1], @{$pp{$type}});  
 
     for my $type ( keys %pp ) { 
         print "=> Pseudopotential: $type\n"; 

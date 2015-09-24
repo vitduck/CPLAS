@@ -30,10 +30,10 @@ our %EXPORT_TAGS = (
 # return: 
 #   - digit/character length 
 sub max_length { 
-    my ($list) = @_; 
+    my @lists = @_; 
     
     # max digit length 
-    my $length = ( sort {$b <=> $a} map length($_), @$list )[0]; 
+    my $length = ( sort {$b <=> $a} map length($_), @lists )[0]; 
     
     return $length; 
 }
@@ -45,7 +45,7 @@ sub max_length {
 #   - null 
 sub print_vec { 
     my ($vec)  = shift @_; 
-    my $format = shift @_ || sprintf "%ds", max_length($vec);  
+    my $format = shift @_ || sprintf "%ds", max_length(@$vec);  
     my $fh     = shift @_ || *STDOUT; 
     # repeated format     
     $format = "%$format " x @$vec; 

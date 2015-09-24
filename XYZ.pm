@@ -213,7 +213,8 @@ sub print_coordinate {
 # return : 
 # -> null
 sub xmakemol { 
-    my ($file, $quiet) = @_; 
+    my $file  = shift @_; 
+    my $quiet = shift @_ || 0; 
     unless ( $quiet ) { 
         print "=> xmakemol $file ...\n"; 
         my $bgcolor = $ENV{XMBG} || '#D3D3D3'; 

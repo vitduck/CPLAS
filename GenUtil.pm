@@ -18,9 +18,11 @@ use constant ARRAY => ref [];
 our @read  = qw( read_line ); 
 our @print = qw( print_table dump_return ); 
 our @dir   = qw( read_dir_tree );  
+our @eps   = qw( view_eps ); 
+our @png   = qw( view_png ); 
 
 # default import 
-our @EXPORT = ( @read, @print, @dir ); 
+our @EXPORT = ( @read, @print, @dir, @eps, @png ); 
 
 ######## 
 # READ # 
@@ -56,7 +58,7 @@ sub read_line {
 # -> null
 sub print_table { 
     my $list   = shift @_; 
-    my $format = shift @_ || sprintf "%ds", max_length($list);  
+    my $format = shift @_ || sprintf "%ds", max_length(@$list);  
     my $fh     = shift @_ || *STDOUT;
 
     my @lists = @$list; 
@@ -170,15 +172,6 @@ sub set_boundary {
     return; 
 }
 
-# open eps using ghostview 
-# args 
-# -< eps file 
-sub view_eps { 
-    my ($eps, $scale) = @_;   
-    print "=> $eps\n"; 
-    exec "gv -scale=$scale $eps"; 
-}
-
 # convert eps to png 
 # args 
 # -< eps file 
@@ -193,6 +186,35 @@ sub eps2png {
     print "=> $eps => $png\n"; 
     system 'convert', '-density', $density, $eps, $png; 
         
+    return; 
+}
+
+# open eps using ghostview 
+# args 
+# -< eps file 
+# return 
+# -> null 
+sub view_eps { 
+    my $eps  = shift @_; 
+    my $scale = shift @_ || 2; 
+    print "=> $eps\n"; 
+    system "gv -scale=$scale $eps"; 
+}
+
+#######
+# PNG # 
+#######
+
+# view png file 
+# args 
+# -< png file 
+# return 
+# -> null 
+sub view_png { 
+    my ($png) = @_; 
+    print "=> $png\n"; 
+    system  "feh $png"; 
+
     return; 
 }
 
