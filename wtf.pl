@@ -71,6 +71,8 @@ for my $i ( 0..$#indices ) {
     } 
 }
 
+print "\n"; 
+
 # save force to file 
 if ( $save ) { 
     open my $fh, '>', $output; 
