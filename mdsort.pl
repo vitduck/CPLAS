@@ -43,6 +43,18 @@ Trajectory file (default: traj.dat)
 
 Number of ion steps for minima/maxima search (default: 1000)
 
+=item B<-c> 
+
+Centralize the coordinate (default: no) 
+
+=item B<-d> 
+
+PBC shifting (default [1.0, 1.0. 1.0])
+
+=item B<-x> 
+
+Generate nx x ny x nz supercell (default: 1 1 1)
+
 =back
 
 =cut

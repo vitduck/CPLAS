@@ -114,7 +114,7 @@ my $line = read_line($ref);
 my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
 
 # write POSCAR.#config 
-my $fh = IO::File->new("POSCAR.$config", 'w') or die "Cannot write to POSCAR.$config\n";  
+my $fh = IO::File->new("POSCAR.#$config", 'w') or die "Cannot write to POSCAR.#$config\n";  
 print_poscar($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $traj{$config}); 
 $fh->close; 
 

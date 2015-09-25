@@ -11,7 +11,7 @@ use Math       qw( dot_product mat_mul inverse );
 use Periodic; 
 
 # symbol 
-our @geometry  = qw( cart_to_direct direct_to_cart atom_distance ); 
+our @geometry  = qw( cart_to_direct direct_to_cart set_pbc atom_distance ); 
 our @xyz       = qw( read_xyz print_xyz ); 
 our @visualize = qw( xmakemol ); 
 our @print     = qw( print_comment print_coordinate ); 
@@ -91,6 +91,22 @@ sub direct_to_cart {
         
     }
     
+    return; 
+}
+
+# shift direct coordinate  
+# args 
+# -< ref to 2d array of coordinates 
+# -< ref to 1d array of shifting 
+# return 
+# -> null
+sub set_pbc { 
+    my ($geometry, $dxyz) = @_; 
+
+    for my $atom ( @$geometry ) { 
+        map { $atom->[$_] -= 1.0 if $atom->[$_] > $dxyz->[$_] } 0..2; 
+    }
+
     return; 
 }
 
