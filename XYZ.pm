@@ -72,6 +72,8 @@ sub direct_to_cart {
 
     # atom index 
     my $index = 0; 
+    #set_pbc($coor, $dxyz); 
+
     for my $atom ( @$coor ) { 
         # coordinate shift, careful with reference
         my @atoms = @$atom; 
@@ -233,7 +235,7 @@ sub xmakemol {
     my $quiet = shift @_ || 0; 
     unless ( $quiet ) { 
         print "=> xmakemol $file ...\n"; 
-        my $bgcolor = $ENV{XMBG} || '#D3D3D3'; 
+        my $bgcolor = $ENV{XMAKEMOL_BG} || '#D3D3D3'; 
         system "xmakemol -c '$bgcolor' -f $file >/dev/null 2>&1 &" 
     }    
     
