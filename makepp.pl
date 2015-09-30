@@ -48,7 +48,7 @@ List of elements
 =cut 
 
 # location of PP 
-my $dir = '/opt/VASP/POTCAR';  
+my $dir = $ENV{POTCAR}; 
 
 # default optional arguments 
 my $help       = 0; 
@@ -60,6 +60,11 @@ my (@elements, @potcars);
 
 # default output 
 if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
+
+# location of VASP POTCAR
+if ( ! defined $dir ) { 
+    die "Please export location of POTCAR files in .bashrc\nFor example: export POTCAR=/opt/VASP/POTCAR\n"
+}
 
 # optional args
 GetOptions(
