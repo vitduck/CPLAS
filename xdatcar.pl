@@ -86,7 +86,7 @@ GetOptions(
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
         shift @nxyz; 
-        push @nxyz, $arg-1; 
+        push @nxyz, $arg; 
     }, 
     's'      => \$save, 
     'q'      => \$quiet

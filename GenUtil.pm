@@ -23,9 +23,9 @@ our @png   = qw( view_png );
 # default import 
 our @EXPORT = ( @read, @print, @eps, @png ); 
 
-######## 
+#------#
 # READ # 
-######## 
+#------# 
 
 # read lines of file: line by line or slurp mode 
 # args
@@ -65,9 +65,9 @@ sub file_format {
     }
 }
 
-#########
+#-------#
 # PRINT # 
-#########
+#-------#
 
 # print list using table format 
 # args 
@@ -98,9 +98,9 @@ sub dump_return {
     print Dumper($_) for @_; 
 }
 
-#############
+#-----------#
 # DIRECTORY #
-#############
+#-----------#
 
 # construct directory tree 
 # args 
@@ -131,9 +131,9 @@ sub read_dir_tree {
     return $tree; 
 } 
 
-#######
+#-----#
 # EPS #
-#######
+#-----#
 
 # convert default color to zenburn 
 # args 
@@ -219,9 +219,9 @@ sub view_eps {
     system "gv -scale=$scale $eps"; 
 }
 
-#######
+#-----#
 # PNG # 
-#######
+#-----#
 
 # view png file 
 # args 
