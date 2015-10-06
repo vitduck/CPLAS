@@ -90,7 +90,9 @@ sub read_geometry {
     while ( my $atom = shift @$line ) { 
         last if $atom =~ /^\s+$/; 
         # ignore the selective dynamic tag
-        push @$coordinate, [ (split ' ', $atom)[0..2] ]; 
+        #push @$coordinate, [ (split ' ', $atom)[0..2] ]; 
+        # read the selective dynamics tag (if possible)
+        push @$coordinate, [split ' ', $atom]; 
     }
 
     return $coordinate; 
@@ -117,6 +119,9 @@ sub print_poscar {
         real    => '22.16f', 
     ); 
 
+    # coordinate format 
+    my $cformat; 
+
     # print POSCAR header 
     printf $fh "%s\n", $title; 
     printf $fh "%f\n", $scaling; 
@@ -126,8 +131,24 @@ sub print_poscar {
     printf $fh "%s\n", $dynamics if $dynamics; 
     printf $fh "%s\n" , $type; 
 
+    if ( $dynamics ) { 
+        # check number of row in $coordinate 2d matrix 
+        # 3: no dynamic tag 
+        # 6: with dynamic tag 
+        if ( @{$coordinate->[0]} == 3 ) { 
+            map { push @$_, qw(T T T) } @$coordinate; 
+        }
+        # set the approriate format 
+        $cformat = "%$format{real}"x3 . "%$format{string}"x3 . "%$format{integer}\n"; 
+    } else { 
+        $cformat = "%$format{real}"x3 . "%$format{integer}\n";  
+    }
+
     # print POSCAR geometry 
-    print_mat($coordinate, $format{real}, $fh); 
+    my $count = 0; 
+    for my $atom ( @$coordinate ) { 
+        printf $fh $cformat, @$atom, ++$count;  
+    }
     
     return; 
 }

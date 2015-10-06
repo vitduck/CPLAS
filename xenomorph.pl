@@ -207,7 +207,7 @@ my $fh = IO::File->new($output, 'w');
 OUTPUT: { 
     $oformat =~ /POSCAR/ && do { 
         # force scaling, dynamics and type
-        print_poscar($fh, $title, 1.0, $lat, $atom, $natom, 0, 'Cartesian', $geometry); 
+        print_poscar($fh, $title, 1.0, $lat, $atom, $natom, 'Selective Dynamics', 'Cartesian', $geometry); 
     }; 
 
     $oformat =~ /com|gif/ && do { 

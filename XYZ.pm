@@ -42,6 +42,8 @@ sub cart_to_direct {
     my ($scaling, $lat, $geometry, $type) = @_; 
     
     if ( $type =~ /^\s*c/i ) {  
+        # strip the selective dynamics tag 
+        @$geometry = map [splice @$_, 0, 3], @$geometry;  
         # scale the coordinate 
         $geometry = mat_mul($scaling, $geometry); 
         # direct = cart x lat-1
