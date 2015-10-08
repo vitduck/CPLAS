@@ -26,9 +26,9 @@ our %EXPORT_TAGS = (
     visualize => \@visualize, 
 ); 
 
-############
+#----------#
 # GEOMETRY # 
-############
+#----------#
 
 # convert cartesian to direct coordinate 
 # args 
@@ -126,9 +126,9 @@ sub atom_distance {
     return $d12; 
 }
 
-####### 
+#-----#
 # XYZ # 
-####### 
+#-----#
 
 # read xyz coordinates 
 # args 
@@ -189,9 +189,9 @@ sub print_xyz {
 }
 
 
-#########
+#-------#
 # PRINT #
-#########
+#-------#
 
 # print useful information into comment section of xyz file 
 # args 
@@ -222,9 +222,9 @@ sub print_coordinate {
     return; 
 }
 
-#############
+#-----------#
 # VISUALIZE #
-#############
+#-----------#
 
 # visualize xyz file 
 # args 
