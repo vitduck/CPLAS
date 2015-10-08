@@ -18,7 +18,7 @@ our @poscar  = qw ( read_cell read_geometry print_poscar );
 our @potcar  = qw ( read_potcar select_potcar make_potcar print_potcar_elem ); 
 our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
 our @oszicar = qw ( read_profile ); 
-our @outcar  = qw ( read_force ); 
+our @outcar  = qw ( read_force read_phonon_eigen ); 
 our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
 
 # default import 
@@ -33,9 +33,9 @@ our %EXPORT_TAGS = (
     aimd    => \@aimd, 
 ); 
 
-##########
+#--------#
 # POSCAR #
-##########
+#--------#
 
 # args 
 # -< ref to array of lines (POSCAR/CONTCAR/XDATCAR)
@@ -153,9 +153,9 @@ sub print_poscar {
     return; 
 }
 
-########## 
+#--------#
 # POTCAR #
-########## 
+#--------#
 
 # read list of PP in POTCAR 
 # args  
@@ -251,9 +251,9 @@ sub make_potcar {
     return; 
 }
 
-###########
+#---------#
 # XDATCAR #
-###########
+#---------#
 
 # read atomic coordinate blocks for each ionic step  
 # args 
@@ -313,9 +313,9 @@ sub retrieve_traj {
     return %$traj; 
 }
 
-###########
+#---------#
 # OSZICAR #
-###########
+#---------#
 
 # read istep, T(K), F(eV) from OSZICAR 
 # args  
@@ -338,13 +338,13 @@ sub read_profile {
     return %md; 
 }
 
-##########
+#--------#
 # OUTCAR #
-##########
+#--------#
 
 # read total forces of each ion step 
 # args 
-# -< ref to array of lines 
+# -< ref to array of OUTCAR lines 
 # return 
 # -> array of max forces  
 sub read_force { 
@@ -370,9 +370,50 @@ sub read_force {
     return @max_forces;  
 }
 
-########
+# read the eigenvectors and eigenvalues of dynamical matrix 
+# args
+# -< ref to array of OUTCAR lines 
+# return 
+# -> ref to hash: 
+# 1 => { value  => ..., 
+#        vector => { [dx dy dz] },  
+#      }, 
+# 2 => ...
+sub read_phonon_eigen { 
+    my ($line) = @_; 
+
+    my %eigen; 
+
+    # linenr of DOF and eigen (similar approach to read_force()) 
+    my ($ldof, $leigen) = grep { $line->[$_] =~ /DOF|Eigenvectors and eigenvalues/ } 0..$#$line; 
+    # number of degree of freedom 
+    my $ndof = (split ' ', $line->[$ldof])[-1];
+    
+    # read eigen{vectors,value} 
+    $leigen += 3; 
+    for my $dof (1..$ndof) { 
+        while (1) {  
+            my $line = $line->[++$leigen]; 
+            # skip the eigenvector header 
+            if ( $line =~ /X\s+Y\s+Z\s+/ ) { next } 
+            # exit at blank line 
+            if ( $line =~ /^\s+$/ ) { last }  
+            # eigenvalue 
+            if ( $line =~ /\d+\s+f/ ) { 
+                $eigen{$dof}{f} = (split ' ', $line)[-2]; 
+                next; 
+            }
+            # eigenvector 
+            push @{$eigen{$dof}{dxyz}}, [(split ' ', $line)[-3,-2,-1]]; 
+        }
+    }
+    
+    return \%eigen; 
+}
+
+#------#
 # AIMD #
-########
+#------#
 
 # istep, T(K) and F(eV) from output of get_potential 
 # args  
