@@ -11,24 +11,27 @@ use constant ARRAY => ref [];
 # symbol 
 our @vector = qw( max_length print_vec elem_product dot_product triple_product ); 
 our @matrix = qw( print_mat mat_dim det mat_add mat_mul hstack vstack transpose inverse ); 
+our @grid   = qw( mgrid ); 
 
 # default import 
-our @EXPORT = ( @vector, @matrix ); 
+our @EXPORT = ( @vector, @matrix, @grid ); 
 
 # tag import 
 our %EXPORT_TAGS = ( 
     vector => \@vector, 
     matrix => \@matrix, 
+    grid   => \@grid,
 ); 
 
-##########
+#--------#
 # VECTOR # 
-##########
+#--------#
+
 # largest character length of vector's elements 
-# arg: 
-#   - $ref of vector 
+# args
+# -< $ref of vector 
 # return: 
-#   - digit/character length 
+# -> digit/character length 
 sub max_length { 
     my @lists = @_; 
     
@@ -39,10 +42,10 @@ sub max_length {
 }
 
 # print vector 
-# arg: 
-#   - ref of vector 
+# args 
+# -< ref of vector 
 # return: 
-#   - null 
+# -> null 
 sub print_vec { 
     my ($vec)  = shift @_; 
     my $format = shift @_ || sprintf "%ds", max_length(@$vec);  
@@ -56,9 +59,9 @@ sub print_vec {
 
 # numerical product of all vector's elements 
 # arg: 
-#   - ref of vector 
+# -< ref of vector 
 # return 
-#   - product 
+# -> product 
 sub elem_product { 
     my ($vec) = @_; 
 
@@ -70,11 +73,11 @@ sub elem_product {
     return $product; 
 }
 
-#  dot vector product
-#  arg: 
-#    - (scalar, ref of vector) pair or refs of two vectors 
-#   return: 
-#    - ref of scaled vector or dot product 
+# dot vector product
+# args
+# -< (scalar, ref of vector) pair or refs of two vectors 
+# return
+# -> ref of scaled vector or dot product 
 sub dot_product { 
     my @vectors = grep { ref $_ eq ARRAY  } @_; 
 
@@ -96,10 +99,10 @@ sub dot_product {
 }
 
 # triple vector product
-# arg : 
-#   - refs of three vectors 
-# return : 
-#   - volume of spanned by three vectors 
+# args 
+# -< refs of three vectors 
+# return
+# -> volume of spanned by three vectors 
 sub triple_product { 
     my ($vec1, $vec2, $vec3) = @_; 
 
@@ -110,14 +113,15 @@ sub triple_product {
     return det($mat); 
 }
 
-##########
+#--------#
 # MATRIX #
-##########
+#--------#
+
 # print 2D matrix  
-# arg : 
-#   - ref of matrix
-# return: 
-#   - null 
+# args 
+# -< ref of matrix
+# return
+# -> null 
 sub print_mat { 
     my $mat    = shift @_; 
     my $format = shift @_ || '15.8f'; 
@@ -131,10 +135,10 @@ sub print_mat {
 }
 
 # dimesnion of arbitrary matrix 
-# arg : 
-#   - ref of matrix
-# return :
-#   - array contains dimension of matrix
+# args 
+# -< ref of matrix
+# return
+# -> array contains dimension of matrix
 sub mat_dim { 
     my ($mat) = @_;  
     
@@ -151,10 +155,10 @@ sub mat_dim {
 }
 
 # hardcoded determinant of a 3x3 matrix 
-# args: 
-#    - ref of a 3x3 matrix
-# return: 
-#    - det of matrix 
+# args 
+# -< ref of a 3x3 matrix
+# return
+# -> det of matrix 
 sub det { 
     my ($mat) = @_ ; 
     
@@ -169,10 +173,10 @@ sub det {
 }
 
 # add two matrices 
-# arg:
-#   - refs of two 2d matrices 
-# return: 
-#   - ref of sum 2d matrix
+# args
+# -< refs of two 2d matrices 
+# return
+# -> ref of sum 2d matrix
 sub mat_add { 
     my ($mat1, $mat2) = @_; 
 
@@ -194,10 +198,10 @@ sub mat_add {
 }
 
 # stack matrices vertically 
-# args: 
-#    - list of refs of 2d matrices 
+# args
+# -< list of refs of 2d matrices 
 # return: 
-#    - ref of stacked 2d matrix 
+# -> ref of stacked 2d matrix 
 sub vstack { 
     my @mats = @_; 
     
@@ -210,10 +214,10 @@ sub vstack {
 }
 
 # stacked matrices horizontally 
-# args: 
-#    - list of refs to 2d matrices 
-# return: 
-#    - ref of stacked 2d matrix 
+# args 
+# -< list of refs to 2d matrices 
+# return 
+# -> ref of stacked 2d matrix 
 sub hstack { 
     my @mats = @_; 
 
@@ -229,10 +233,10 @@ sub hstack {
 
 # product of two 
 # matrices
-# arg : 
-#   - refs of two 2d matrices
-# return : 
-#   - ref of product matrix
+# args 
+# -< refs of two 2d matrices
+# return
+# -> ref of product matrix
 sub mat_mul { 
     my $product;  
     my @mats    = grep { ref $_ eq ARRAY  } @_; 
@@ -270,18 +274,18 @@ sub mat_mul {
 }
 
 # transpose 2d matrix 
-# args: 
-#    - ref to a 2D matrix
-# return: 
-#    - transposed matrix 
+# args
+# -< ref to a 2D matrix
+# return
+# -> transposed matrix 
 sub transpose { 
     my ($mat) = @_; 
 
     my $transposed;       
     my ($nrow, $ncol) = mat_dim($mat); 
-    for my $i (0..$nrow-1) { 
-        for my $j (0..$ncol-1) { 
-            $transposed->[$j][$i] = $mat->[$i][$j];  
+    for my $i (0..$ncol-1) { 
+        for my $j (0..$nrow-1) { 
+            $transposed->[$i][$j] = $mat->[$j][$i];  
         }
     }
 
@@ -289,10 +293,10 @@ sub transpose {
 }
 
 # hardcoded inversion of a 3x3 matrix
-# args: 
-#    - ref to a 3x3 matrix
-# return: 
-#    - inverse matrix 
+# args 
+# -< ref to a 3x3 matrix
+# return
+# -> inverse matrix 
 sub inverse { 
     my ($mat) = @_; 
     
@@ -311,6 +315,51 @@ sub inverse {
     $inverse->[2][2] =  ($mat->[0][0]*$mat->[1][1] - $mat->[0][1]*$mat->[1][0])/$det; 
     
     return $inverse; 
+}
+
+#------# 
+# GRID # 
+#------# 
+
+# generate cartesian grid 
+# similar to numpy mgrid 
+# args: 
+# -< xrange, i.e. 100:600:100 
+# -< yrange
+# return 
+# -> ref to 2d xgrid, ygrid
+sub mgrid { 
+    my ($xrange, $yrange) = @_; 
+
+    # left:right:step 
+    my ( $xl, $xr, $xs ) = split /:/, $xrange; 
+    my ( $yl, $yr, $ys ) = split /:/, $yrange; 
+
+    # number of grid point 
+    my $nx = int(($xr - $xl)/$xs); 
+    my $ny = int(($yr - $yl)/$ys); 
+
+    # pseudo '2d' form of clum and row vector 
+    my @x = map $xl + $_ * $xs, 0..$nx-1;  
+    my @y = map $yl + $_ * $ys, 0..$ny-1;  
+    
+    # xgrid 
+    my $xgrid; 
+    for my $i (0..$nx-1) { 
+        for my $j (0..$ny-1) { 
+           $xgrid->[$i][$j] = $x[$i];  
+        }
+    }
+
+    # ygrid 
+    my $ygrid; 
+    for my $i (0..$nx-1) {  
+        for my $j (0..$ny-1) { 
+            $ygrid->[$i][$j] = $y[$j]; 
+        }
+    }
+
+    return ($xgrid, $ygrid); 
 }
 
 # last evaluated expression 
