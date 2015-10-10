@@ -6,8 +6,6 @@ use warnings;
 use Exporter qw( import ); 
 use List::Util qw( sum ); 
 
-use GenUtil qw( read_line ); 
-
 our @thermo   = qw( zpe fvib chempot ); 
 our @ensemble = qw( bolztmann_factor partition_function occupation );  
 
@@ -50,10 +48,9 @@ sub fvib {
 # return 
 # -> hash of chemical potential 
 sub chempot { 
-    my ($janaf) = @_;     
+    my ($line) = @_;     
     
     my %mu; 
-    my $line = read_line($janaf); 
     
     # 1st line: name of gas 
     shift @$line; 

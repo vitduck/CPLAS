@@ -18,17 +18,19 @@ our @poscar  = qw ( read_cell read_geometry print_poscar );
 our @potcar  = qw ( read_potcar select_potcar make_potcar print_potcar_elem ); 
 our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
 our @oszicar = qw ( read_profile ); 
+our @doscar  = qw ( read_doscar print_doscar sum_dos ); 
 our @outcar  = qw ( read_force read_phonon_eigen ); 
 our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
 
 # default import 
-our @EXPORT = ( @poscar, @potcar, @xdatcar, @oszicar, @outcar, @aimd ); 
+our @EXPORT = ( @poscar, @potcar, @xdatcar, @oszicar, @doscar, @outcar, @aimd ); 
 
 # tag import 
 our %EXPORT_TAGS = (
     poscar  => \@poscar, 
     xdatcar => \@xdatcar, 
     oszicar => \@oszicar,
+    doscar  => \@doscar, 
     outcar  => \@outcar, 
     aimd    => \@aimd, 
 ); 
@@ -337,6 +339,59 @@ sub read_profile {
     
     return %md; 
 }
+
+#--------# 
+# DOSCAR #
+#--------# 
+
+# read DOSCAR
+# args 
+# -< ref to array of DOSCAR lines 
+# return 
+# -> ref to array of total dos 
+# -> ref to array of projected dos 
+sub read_doscar { 
+    my ($line) =@_; 
+
+    # number of ions 
+    my $nion = (split ' ', shift @$line)[0]; 
+    
+    # cleave the mysterious heade
+    shift @$line for 1..4; 
+
+    # min, max, nedos, fermi, spin ? 
+    my $header = shift @$line; 
+    my ($min, $max, $nedos, $fermi, $wth) = split ' ', $header; 
+    
+    # total dos, ldos 
+    my @tdos = map {[split]} splice @$line, 0, $nedos; 
+    my @ldos = map { [map { [split] } splice @$line, 0, $nedos+1] } 1..$nion; 
+    
+    return (\@tdos, \@ldos);  
+}
+
+# print LDOS 
+# args 
+# -< filehandler 
+# -< ref to 2d array of ldos 
+# return 
+# -> null
+#sub print_ldos { 
+    #my ($fh, $ldos) = @_; 
+   
+    #my $format = ("%.3f  ") x 14; 
+    #for my $dos ( @$ldos ) { 
+        ## calculate s, p, d, total sum 
+        #my $sum_s = $ldos->[1]; 
+        #my $sum_p = sum(@{$ldos}[2..4]); 
+        #my $sum_d = sum(@{$ldos}[5..9]);
+        #my $sum   = $sum_s + $sum_p + $sum_d; 
+        #printf $fh "$format\n", @$ldos, $sum_s, $sum_p, $sum_d, $sum; 
+
+    #}
+
+    #return; 
+#}
 
 #--------#
 # OUTCAR #
