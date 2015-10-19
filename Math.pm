@@ -9,7 +9,7 @@ use List::Util qw( sum );
 use constant ARRAY => ref []; 
 
 # symbol 
-our @vector = qw( max_length print_vec elem_product dot_product triple_product ); 
+our @vector = qw( max_length print_vec product dot_product triple_product ); 
 our @matrix = qw( print_mat mat_dim det mat_add mat_mul hstack vstack transpose inverse ); 
 our @grid   = qw( mgrid ); 
 
@@ -43,16 +43,20 @@ sub max_length {
 
 # print vector 
 # args 
+# -< filehandler 
 # -< ref of vector 
+# -< fortran format 
 # return: 
 # -> null 
 sub print_vec { 
-    my ($vec)  = shift @_; 
-    my $format = shift @_ || sprintf "%ds", max_length(@$vec);  
-    my $fh     = shift @_ || *STDOUT; 
-    # repeated format     
-    $format = "%$format " x @$vec; 
-    printf $fh "$format\n", @$vec; 
+    my ($fh, $vec, $format)  = @_; 
+
+    # figure out the format
+    my $perl_format = defined $format 
+    ? fortran_format($format) 
+    : join ' ', ("%s") x scalar(@$vec); 
+
+    printf $fh "$perl_format\n", @$vec; 
 
     return;  
 }
@@ -62,7 +66,7 @@ sub print_vec {
 # -< ref of vector 
 # return 
 # -> product 
-sub elem_product { 
+sub product { 
     my ($vec) = @_; 
 
     my $product = 1;  
@@ -123,12 +127,10 @@ sub triple_product {
 # return
 # -> null 
 sub print_mat { 
-    my $mat    = shift @_; 
-    my $format = shift @_ || '15.8f'; 
-    my $fh     = shift @_ || *STDOUT; 
+    my ($fh, $mat, $format) = @_; 
     
     for my $row (@$mat) { 
-        print_vec($row, $format, $fh); 
+        print_vec($fh, $row, $format);  
     }
 
     return; 
@@ -360,6 +362,33 @@ sub mgrid {
     }
 
     return ($xgrid, $ygrid); 
+}
+
+#--------#
+# FORMAT # 
+#--------# 
+
+# fortran-like format => perl format
+# crude implementation 
+# args 
+# -< fortran simple format  
+# return 
+# -> perl equivalent format
+sub fortran_format {  
+    my ($format) = @_; 
+
+    my $perl; 
+    my @fortran = ( $format =~ /(\d*)%([0-9.]*[dfs])/g ); 
+
+    while ( @fortran ) { 
+        # empty repition == 1
+        my $rep    = shift @fortran || 1; 
+        my $format = shift @fortran; 
+        #$perl     .= (join ' ', ("%$format")x$rep).' ';  
+        $perl     .= "%$format"x$rep; 
+    }
+    
+    return $perl; 
 }
 
 # last evaluated expression 
