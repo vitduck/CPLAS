@@ -10,39 +10,159 @@ use File::Spec::Functions;
 use IO::Dir; 
 use IO::File; 
 
-use Math qw( max_length print_vec );  
-
 use constant ARRAY => ref []; 
+use constant HASH  => ref {}; 
 
 # symbolic 
-our @read  = qw( read_line read_dir_tree file_format ); 
-our @print = qw( print_table dump_return ); 
-our @eps   = qw( view_eps eps2png zenburnize set_boundary ); 
-our @png   = qw( view_png ); 
+our @dir    = qw( read_dir_tree print_dir_tree ); 
+our @file   = qw( read_file slurp_file file_format ); 
+our @image  = qw( set_eps_boundary eps2png view_eps view_png ); 
 
 # default import 
-our @EXPORT = ( @read, @print, @eps, @png ); 
+our @EXPORT = ( @dir, @file, @image ); 
+
+# VASP files 
+our @VASP = 
+qw ( 
+    CHG CHGCAR CONTCAR DOSCAR 
+    EIGENVAL INCAR KPOINTS OSZICAR 
+    OUTCAR PCDAT POSCAR POTCAR 
+    PROCAR WAVECAR XDATCAR LOCPOT
+); 
+
+# zenburn 
+# with sufficient thrust, pigs fly just fine
+my %zenburn = 
+( 
+    black   => '#212121', 
+    gray    => '#3F3F3F', 
+    white   => '#DCDCCC', 
+    cyan    => '#8CD0D3', 
+    blue    => '#94BFF3', 
+    red     => '#CC9393', 
+    green   => '#7F9F7F', 
+    magenta => '#ED8BB7', 
+    purple  => '#C0BED1',
+    yellow  => '#F0DFAF', 
+    brown   => '#FFCFAF',
+    orange  => '#DFAF8F',
+); 
+
+#-----------#
+# DIRECTORY #
+#-----------#
+
+# construct directory tree 
+# args 
+# -< top/root directory 
+# return 
+# -> hash ref of directory tree
+sub read_dir_tree { 
+    my ($root) = @_; 
+
+    my $tree = {}; 
+
+    my @queue = ( [$root, $tree] );  
+    while ( my $next = shift @queue ) { 
+        my ($path, $href ) = @$next; 
+        
+        # use only basename for hash keys 
+        my $basename = basename($path); 
+
+        $href->{$basename} = do { 
+            # symbolic is not fullly resolved! 
+            #if ( -f $path or -l $path ) { undef } 
+            if ( -f $path ) { undef } 
+            else { 
+                # hash ref for sub-directories 
+                my $sub_ref = {}; 
+
+                # read content of directory then construct a list of ABSOLUTE path 
+                my $dirfh = IO::Dir->new($path); 
+                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
+                $dirfh->close; 
+
+                # breadth first (stack)
+                unshift @queue, map { [ $_, $sub_ref] } @sub_paths; 
+
+                $sub_ref;
+            }
+        }; 
+    }
+
+    return $tree; 
+} 
+
+# print directory tree
+# args 
+# -< root directory
+# -< hash ref of tree 
+# -< bookmark directory [*]
+# return 
+# -> null  
+sub print_dir_tree { 
+    my ($root, $tree, $current) = @_; 
+    
+    # default parameters; 
+    unless ( defined $current ) { $current = undef }; 
+
+    my $indent = '| '; 
+    my $leaf   = '\_'; 
+
+    my $fh = IO::File->new("$root/tree.dat" => 'w'); 
+    
+    my @queue  = ( [$root, $tree->{basename($root)}, 0] );  
+    while ( my $next = shift @queue ) { 
+        my ($path, $href, $level) = @$next; 
+
+        # add sub directories to queue (with full path) 
+        unshift @queue, 
+        map ["$path/$_", $href->{$_}, $level+1],
+        grep ref($href->{$_}) eq HASH, 
+        sort keys %$href; 
+
+        # tree branching 
+        my $branch = ( $level == 0 ? '+' : ($indent)x($level-1).$leaf );  
+
+        # print tree 
+        printf $fh ( $current eq $path ? "%s%s [*]\n" : "%s%s\n" ), $branch, basename($path);  
+    }
+
+    $fh->close; 
+
+    return; 
+}
 
 #------#
-# READ # 
+# FILE # 
 #------# 
 
-# read lines of file: line by line or slurp mode 
+# read file: line by line
 # args
 # -< file 
 # return
 # ->  ref of array of lines 
-sub read_line { 
-    my $input = shift @_;  
-    my $mode  = shift @_ || '';  
+sub read_file { 
+    my ($file) = @_; 
     
-    my $fh = IO::File->new($input, 'r') or die "Cannot open $input\n"; 
-    my $line = $mode eq 'slurp' ? do { local $/=undef; <$fh> } : [<$fh>];  
+    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
+    chomp (my @lines = <$fh>); 
     $fh->close;  
     
-    # remove trailing \n 
-    if ( ref $line eq ARRAY ) { chomp @$line }; 
+    return \@lines; 
+}
+
+# slurp file
+# -< file 
+# return
+# ->  single string 
+sub slurp_file { 
+    my ($file) = @_; 
     
+    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
+    my $line = do { local $/=undef; <$fh> };  
+    $fh->close; 
+
     return $line; 
 }
 
@@ -52,116 +172,20 @@ sub read_line {
 # return 
 # -> file format
 sub file_format { 
-    my ($input) = @_;
-    # POSCAR.
-    if ( $input =~ /POSCAR/ ) { 
-        return 'POSCAR'; 
-    # xyz|eps|png
-    } elsif ( $input =~ /.*\.(.+?)$/ ) { 
-        return $1; 
-    # unsupported format
-    } else { 
-        return ''; 
-    }
+    my ($file) = @_;
+
+    # VASP files 
+    if ( grep $file eq $_, @VASP ) { return $file } 
+
+    # other files (list context) 
+    my ($format) = ($file =~ /.*\.(.+?)$/); 
+
+    return $format; 
 }
 
 #-------#
-# PRINT # 
+# IMAGE #
 #-------#
-
-# print list using table format 
-# args 
-# -< array of value
-# return 
-# -> null
-sub print_table { 
-    my $list   = shift @_; 
-    my $format = shift @_ || sprintf "%ds", max_length(@$list);  
-    my $fh     = shift @_ || *STDOUT;
-
-    my @lists = @$list; 
-
-    my $ncol = 7; 
-    while ( my @sublist = splice @lists, 0, $ncol ) { 
-        print_vec(\@sublist, $format, $fh); 
-    }
-
-    return; 
-}
-
-# dump data returns from subroutines 
-# args 
-# -< array of 'var' 
-# return 
-# -> null 
-sub dump_return { 
-    print Dumper($_) for @_; 
-}
-
-#-----------#
-# DIRECTORY #
-#-----------#
-
-# construct directory tree 
-# args 
-# -< directory 
-# return 
-# -> hash contains directory and sub directory 
-sub read_dir_tree { 
-    my $root   = shift; 
-    my $tree   = {}; 
-    my @queue  = ( [ $root, $tree ] ); 
-
-    while ( my $next = shift @queue ) { 
-        my ( $path, $ref ) = @$next; 
-        my $basename = basename($path); 
-
-        $ref->{$basename} = do { 
-            if ( -f $path or -l $path ) { undef } 
-            else { 
-                my $sub_ref = {}; 
-                my $dirfh = IO::Dir->new($path); 
-                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
-                $dirfh->close; 
-                push @queue, map { [ $_, $sub_ref ] } @sub_paths; 
-                $sub_ref;
-            }
-        }; 
-    }
-    return $tree; 
-} 
-
-#-----#
-# EPS #
-#-----#
-
-# convert default color to zenburn 
-# args 
-# -< eps file 
-# return 
-# -> null
-sub zenburnize { 
-    my ($eps) = @_; 
-
-    print "=> With sufficient thrust, pigs fly just fine\n"; 
-    
-    my %zenburn = ( 
-        black   => '#212121', 
-        gray    => '#3F3F3F', 
-        white   => '#DCDCCC', 
-        cyan    => '#8CD0D3', 
-        blue    => '#94BFF3', 
-        red     => '#CC9393', 
-        green   => '#7F9F7F', 
-        magenta => '#ED8BB7', 
-        purple  => '#C0BED1',
-        yellow  => '#F0DFAF', 
-        brown   => '#FFCFAF',
-        orange  => '#DFAF8F',
-    ),  
-
-    return; 
-}
 
 # set the correct eps boundary 
 # due to bug of gnuplot 5 ???
@@ -169,7 +193,7 @@ sub zenburnize {
 # -< eps file 
 # return 
 # -> null 
-sub set_boundary { 
+sub set_eps_boundary { 
     my ($eps) = @_; 
     
     # boundary from gs 
@@ -200,6 +224,9 @@ sub set_boundary {
 sub eps2png { 
     my ($eps, $png, $density) = @_; 
 
+    # default
+    if ( not defined $density ) { $density = 150 }
+
     # convert to png 
     print "=> $eps to $png\n"; 
     system 'convert', '-density', $density, $eps, $png; 
@@ -213,15 +240,17 @@ sub eps2png {
 # return 
 # -> null 
 sub view_eps { 
-    my $eps  = shift @_; 
-    my $scale = shift @_ || 2; 
+    my ($eps, $scale) = @_; 
+    
+    # default 
+    if ( not defined $scale ) { $scale = 2 }
+    
+    # lauch ghostview (gv)  
     print "=> $eps\n"; 
     system "gv -scale=$scale $eps"; 
-}
 
-#-----#
-# PNG # 
-#-----#
+    return; 
+}
 
 # view png file 
 # args 
@@ -230,6 +259,8 @@ sub view_eps {
 # -> null 
 sub view_png { 
     my ($png) = @_; 
+
+    # lauch feh
     print "=> $png\n"; 
     system  "feh $png"; 
 
