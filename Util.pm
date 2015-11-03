@@ -1,38 +1,38 @@
-package GenUtil; 
+package Util; 
 
 use strict; 
 use warnings; 
 
-use Data::Dumper; 
-use Exporter qw( import ); 
+use Exporter; 
 use File::Basename; 
 use File::Spec::Functions; 
 use IO::Dir; 
 use IO::File; 
+use Tie::File; 
 
-use constant ARRAY => ref []; 
-use constant HASH  => ref {}; 
+our @file  = qw(read_file slurp_file extract_file paragraph_file file_format);  
+our @image = qw(set_eps_boundary eps2png view_eps view_png); 
+our @tree  = qw(read_dir_tree print_dir_tree); 
 
-# symbolic 
-our @dir    = qw( read_dir_tree print_dir_tree ); 
-our @file   = qw( read_file slurp_file file_format ); 
-our @image  = qw( set_eps_boundary eps2png view_eps view_png ); 
-
-# default import 
-our @EXPORT = ( @dir, @file, @image ); 
-
-# VASP files 
-our @VASP = 
-qw ( 
-    CHG CHGCAR CONTCAR DOSCAR 
-    EIGENVAL INCAR KPOINTS OSZICAR 
-    OUTCAR PCDAT POSCAR POTCAR 
-    PROCAR WAVECAR XDATCAR LOCPOT
+our @ISA         = qw(Exporter);
+our @EXPORT      = (); 
+our @EXPORT_OK   = (@file, @image, @tree);  
+our %EXPORT_TAGS = (
+    file  => \@file, 
+    image => \@image, 
+    tree  => \@tree, 
 ); 
 
-# zenburn 
+# VASP files 
+our @VASP = qw(
+    CHG CHGCAR CONTCAR DOSCAR 
+    EIGENVAL INCAR KPOINTS LOCPOT
+    OSZICAR OUTCAR PCDAT POSCAR 
+    POTCAR PROCAR WAVECAR XDATCAR 
+); 
+
 # with sufficient thrust, pigs fly just fine
-my %zenburn = 
+our %zenburn = 
 ( 
     black   => '#212121', 
     gray    => '#3F3F3F', 
@@ -48,100 +48,15 @@ my %zenburn =
     orange  => '#DFAF8F',
 ); 
 
-#-----------#
-# DIRECTORY #
-#-----------#
-
-# construct directory tree 
-# args 
-# -< top/root directory 
-# return 
-# -> hash ref of directory tree
-sub read_dir_tree { 
-    my ($root) = @_; 
-
-    my $tree = {}; 
-
-    my @queue = ( [$root, $tree] );  
-    while ( my $next = shift @queue ) { 
-        my ($path, $href ) = @$next; 
-        
-        # use only basename for hash keys 
-        my $basename = basename($path); 
-
-        $href->{$basename} = do { 
-            # symbolic is not fullly resolved! 
-            #if ( -f $path or -l $path ) { undef } 
-            if ( -f $path ) { undef } 
-            else { 
-                # hash ref for sub-directories 
-                my $sub_ref = {}; 
-
-                # read content of directory then construct a list of ABSOLUTE path 
-                my $dirfh = IO::Dir->new($path); 
-                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
-                $dirfh->close; 
-
-                # breadth first (stack)
-                unshift @queue, map { [ $_, $sub_ref] } @sub_paths; 
-
-                $sub_ref;
-            }
-        }; 
-    }
-
-    return $tree; 
-} 
-
-# print directory tree
-# args 
-# -< root directory
-# -< hash ref of tree 
-# -< bookmark directory [*]
-# return 
-# -> null  
-sub print_dir_tree { 
-    my ($root, $tree, $current) = @_; 
-    
-    # default parameters; 
-    unless ( defined $current ) { $current = undef }; 
-
-    my $indent = '| '; 
-    my $leaf   = '\_'; 
-
-    my $fh = IO::File->new("$root/tree.dat" => 'w'); 
-    
-    my @queue  = ( [$root, $tree->{basename($root)}, 0] );  
-    while ( my $next = shift @queue ) { 
-        my ($path, $href, $level) = @$next; 
-
-        # add sub directories to queue (with full path) 
-        unshift @queue, 
-        map ["$path/$_", $href->{$_}, $level+1],
-        grep ref($href->{$_}) eq HASH, 
-        sort keys %$href; 
-
-        # tree branching 
-        my $branch = ( $level == 0 ? '+' : ($indent)x($level-1).$leaf );  
-
-        # print tree 
-        printf $fh ( $current eq $path ? "%s%s [*]\n" : "%s%s\n" ), $branch, basename($path);  
-    }
-
-    $fh->close; 
-
-    return; 
-}
-
 #------#
 # FILE # 
 #------# 
 
-# read file: line by line
+# read file (line by line)
 # args
 # -< file 
 # return
-# ->  ref of array of lines 
+# -> ref of array of lines 
 sub read_file { 
     my ($file) = @_; 
     
@@ -149,22 +64,52 @@ sub read_file {
     chomp (my @lines = <$fh>); 
     $fh->close;  
     
-    return \@lines; 
+    return @lines; 
 }
 
 # slurp file
 # -< file 
 # return
-# ->  single string 
+# -> single string 
 sub slurp_file { 
     my ($file) = @_; 
     
     my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
-    my $line = do { local $/=undef; <$fh> };  
+    my $line = do { local $/=undef; <$fh> } ;  
     $fh->close; 
 
     return $line; 
 }
+
+# read file (paragraph mode) 
+# -< file 
+# return 
+# -> array of paragraphs 
+sub paragraph_file { 
+    my ($file) = @_; 
+    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
+    my $line = do { local $/ = ''; <$fh> } ;  
+    $fh->close; 
+
+    return $line; 
+}
+    
+# extract (lines from file)
+# -< file 
+# return 
+# -> array of lines 
+sub extract_file { 
+    my ($file, @nlines) = @_; 
+  
+    my @extract = ();  
+
+    # treat file as perl array!  
+    tie my @lines, 'Tie::File', $file or die "Cannot tie to $file\n"; 
+    push @extract, @lines[@nlines]; 
+    untie @lines; 
+    
+    return @extract;   
+} 
 
 # get file format 
 # args 
@@ -174,8 +119,7 @@ sub slurp_file {
 sub file_format { 
     my ($file) = @_;
 
-    # VASP files 
-    if ( grep $file eq $_, @VASP ) { return $file } 
+    if (grep $file eq $_, @VASP) { return $file }
 
     # other files (list context) 
     my ($format) = ($file =~ /.*\.(.+?)$/); 
@@ -225,7 +169,7 @@ sub eps2png {
     my ($eps, $png, $density) = @_; 
 
     # default
-    if ( not defined $density ) { $density = 150 }
+    $density = defined $density ? $density : 150; 
 
     # convert to png 
     print "=> $eps to $png\n"; 
@@ -243,7 +187,7 @@ sub view_eps {
     my ($eps, $scale) = @_; 
     
     # default 
-    if ( not defined $scale ) { $scale = 2 }
+    $scale = defined $scale ? $scale : 2;     
     
     # lauch ghostview (gv)  
     print "=> $eps\n"; 
@@ -262,7 +206,94 @@ sub view_png {
 
     # lauch feh
     print "=> $png\n"; 
-    system  "feh $png"; 
+    system "feh $png"; 
+
+    return; 
+}
+
+#------#
+# TREE #
+#------#
+
+# construct directory tree 
+# args 
+# -< top/root directory 
+# return 
+# -> hash ref of directory tree
+sub read_dir_tree { 
+    my ($root) = @_; 
+
+    my $tree = {}; 
+
+    my @queue = ([$root, $tree]);  
+    while (my $next = shift @queue) { 
+        my ($path, $href) = @$next; 
+        
+        # use only basename for hash keys 
+        my $basename = basename($path); 
+
+        $href->{$basename} = do { 
+            # symbolic is not fullly resolved! 
+            #if ( -f $path or -l $path ) { undef } 
+            if ( -f $path ) { undef } 
+            else { 
+                # hash ref for sub-directories 
+                my $sub_ref = {}; 
+
+                # read content of directory then construct a list of ABSOLUTE path 
+                # skip unresolved symbolic link (need more testing)
+                my $dirfh = IO::Dir->new($path) or next; 
+                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
+                $dirfh->close; 
+
+                # breadth first (stack)
+                unshift @queue, map { [$_, $sub_ref] } @sub_paths; 
+
+                $sub_ref;
+            }
+        }; 
+    }
+
+    return $tree; 
+} 
+
+# print directory tree
+# args 
+# -< root directory
+# -< hash ref of tree 
+# -< bookmark directory [*]
+# return 
+# -> null  
+sub print_dir_tree { 
+    my ($root, $tree, $current) = @_; 
+    
+    # default
+    $current = defined $current ? $current : undef; 
+
+    my $indent = '| '; 
+    my $leaf   = '\_'; 
+
+    # write to tree.dat
+    my $fh = IO::File->new("$root/tree.dat" => 'w'); 
+    
+    my @queue  = ([$root, $tree->{basename($root)}, 0]);  
+    while ( my $next = shift @queue ) { 
+        my ($path, $href, $level) = @$next; 
+
+        # add sub directories to queue (with full path) 
+        unshift @queue, 
+        map ["$path/$_", $href->{$_}, $level+1],
+        grep ref($href->{$_}) eq 'HASH', 
+        sort keys %$href; 
+
+        # tree branching 
+        my $branch = ($level == 0 ? '+' : ($indent)x($level-1).$leaf);  
+
+        # print tree 
+        printf $fh ($current eq $path ? "%s%s [*]\n" : "%s%s\n"), $branch, basename($path);  
+    }
+
+    $fh->close; 
 
     return; 
 }
