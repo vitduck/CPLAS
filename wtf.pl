@@ -6,10 +6,10 @@ use warnings;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use GenUtil  qw( read_line ); 
-use VASP     qw( read_force); 
+use Math::Linalg qw(length); 
+use VASP qw(read_force); 
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw(NAME SYSNOPSIS OPTIONS); 
 
 # POD 
 =head1 NAME 
@@ -28,32 +28,30 @@ vforce.pl [-h] [-s]
 
 Print the help message and exit.
 
-=item B<-s> 
+=item B<-n> 
 
-Save forces to forces.dat
+Number of column in force table 
 
 =back 
 
 =cut
 
 # default optional arguments 
-my $help   = 0; 
-my $save   = 0; 
-my $output = 'forces.dat'; 
+my $help = 0; 
+my $ncol = 5; 
 
 GetOptions(
-    'h'  => \$help, 
-    's'  => \$save, 
+    'h'   => \$help, 
+    'n=i' => \$ncol,
 ) or pod2usage(-verbose => 1); 
 
 # help message 
-if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ($help) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # collect forces 
-my @forces = read_force(read_line('OUTCAR'));
+my @forces = read_force('OUTCAR');
 
-# maximum of 5 column 
-my $ncol = 5; 
+# table format
 my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol; 
 
 # sort force indices based on modulus 
@@ -61,21 +59,16 @@ my @indices = sort { $a % $nrow <=> $b % $nrow } 0..$#forces;
 
 # print forces
 my $digit   = length(scalar(@forces)); 
-for my $i ( 0..$#indices ) { 
-    printf "%${digit}d: f = %7.3e  ", $indices[$i]+1, $forces[$indices[$i]]; 
-    # last of us 
-    if ( $i == $#indices ) { last } 
+
+for my $i (0..$#indices) { 
+    printf "%${digit}d: f = %.2e    ", $indices[$i]+1, $forces[$indices[$i]]; 
+    
+    # the last of us 
+    if ($i == $#indices) { last  }  
+    
     # break new line due to index wrap around
-    if ( $indices[$i] > $indices[$i+1] ) { 
-        print "\n"; 
-    } 
+    if ($indices[$i] > $indices[$i+1] or $ncol == 1) { print "\n" }  
 }
 
+# trailing newline 
 print "\n"; 
-
-# save force to file 
-if ( $save ) { 
-    open my $fh, '>', $output; 
-    printf $fh "%d\t%7.3e\n", $_+1, $forces[$_] for 0..$#forces; 
-    close $fh; 
-}
