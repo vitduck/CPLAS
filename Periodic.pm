@@ -5,12 +5,12 @@ use warnings;
 
 use Exporter; 
 
-our @info = qw(element_name); 
+our @info = qw/element_name/; 
 
-our @ISA         = qw(Exporter);  
-our @EXPORT      = ();  
-our @EXPORT_OK   = (@info); 
-our @EXPORT_TAGS = (); 
+our @ISA         = qw/Exporter/;  
+our @EXPORT      = ( );  
+our @EXPORT_OK   = ( @info ); 
+our @EXPORT_TAGS = ( ); 
 
 our %table = (
     1 => ['H', 'Hydrogen'],
@@ -139,9 +139,9 @@ our %table = (
 # return 
 # -> boolean 
 sub element_name { 
-    my ($symbol) = @_; 
+    my ( $symbol ) = @_; 
      
-    my ($element) = grep $symbol eq $_->[0], values %table;  
+    my ( $element ) = grep $symbol eq $_->[0], values %table;  
 
     return $element->[1]; 
 }

@@ -5,15 +5,15 @@ use warnings;
 
 use Exporter; 
 
-use Fortran qw(fortran2perl); 
+use Fortran qw/fortran2perl/; 
 
-our @array  = qw(length max min sum product ascale dot triple vstack hstack print_array); 
-our @grid   = qw(mgrid); 
-our @matrix = qw(mat_dim det mat_add mscale mat_mul transpose inverse print_mat); 
+our @array  = qw/length max min sum product ascale dot triple vstack hstack print_array/; 
+our @grid   = qw/mgrid/; 
+our @matrix = qw/mat_dim det mat_add mscale mat_mul transpose inverse print_mat/; 
 
-our @ISA         = qw(Exporter); 
-our @EXPORT      = (); 
-our @EXPORT_OK   = (@array, @grid, @matrix); 
+our @ISA         = qw/Exporter/; 
+our @EXPORT      = ( ); 
+our @EXPORT_OK   = ( @array, @grid, @matrix ); 
 our %EXPORT_TAGS = ( 
     array  => \@array, 
     grid   => \@grid,
@@ -34,7 +34,7 @@ sub length {
     my @array = @_; 
     
     # max digit/character length 
-    my $length = (sort { $b <=> $a } map length($_), @array)[0]; 
+    my $length = ( sort { $b <=> $a } map length($_), @array )[0]; 
     
     return $length; 
 }
@@ -47,7 +47,7 @@ sub length {
 sub min { 
     my @array = @_; 
 
-    my $min = (sort { $a <=> $b } @array)[0]; 
+    my $min = ( sort { $a <=> $b } @array )[0]; 
 
     return $min; 
 }
@@ -60,7 +60,7 @@ sub min {
 sub max { 
     my @array = @_; 
 
-    my $max = (sort { $b <=> $a } @array)[0]; 
+    my $max = ( sort { $b <=> $a } @array )[0]; 
 
     return $max; 
 }
@@ -74,7 +74,7 @@ sub sum {
     my @array = @_; 
 
     my $sum = 0; 
-    for (@array) { $sum += $_ }
+    for ( @array ) { $sum += $_ }
 
     return $sum; 
 }
@@ -88,7 +88,7 @@ sub product {
     my @array = @_; 
 
     my $product = 1;  
-    for (@array) { $product *= $_ }
+    for ( @array ) { $product *= $_ }
 
     return $product; 
 }
@@ -100,7 +100,7 @@ sub product {
 # return 
 # -< scaled array 
 sub ascale { 
-    my ($scaling, @array) = @_; 
+    my ( $scaling, @array ) = @_; 
     
     return map $scaling*$_, @array; 
 } 
@@ -111,13 +111,13 @@ sub ascale {
 # return
 # -> dot product 
 sub dot { 
-    my ($array1, $array2) = @_; 
+    my ( $array1, $array2 ) = @_; 
 
     # compatability check
     unless ( @$array1 == @$array2 ) { die "IndexError: incompatible dimension\n" }
 
     my $dot = 0;  
-    for (0..$#$array1) { 
+    for ( 0..$#$array1 ) { 
         $dot += $array1->[$_]*$array2->[$_]; 
     }
 
@@ -172,7 +172,7 @@ sub hstack {
 # return 
 # -> null 
 sub print_array { 
-    my ($fh, $format, @array) = @_; 
+    my ( $fh, $format, @array ) = @_; 
 
     my $perl_format = fortran2perl($format); 
     printf $fh "$perl_format\n", @array;  
@@ -192,7 +192,7 @@ sub print_array {
 # return 
 # -> ref to 2d xgrid, ygrid
 sub mgrid { 
-    my ($xrange, $yrange) = @_; 
+    my ( $xrange, $yrange ) = @_; 
 
     # left:right:step 
     my ( $xl, $xr, $xs ) = split /:/, $xrange; 
@@ -208,21 +208,21 @@ sub mgrid {
     
     # xgrid 
     my $xgrid; 
-    for my $i (0..$nx-1) { 
-        for my $j (0..$ny-1) { 
+    for my $i ( 0..$nx-1 ) { 
+        for my $j ( 0..$ny-1 ) { 
            $xgrid->[$i][$j] = $x[$i];  
         }
     }
 
     # ygrid 
     my $ygrid; 
-    for my $i (0..$nx-1) {  
-        for my $j (0..$ny-1) { 
+    for my $i ( 0..$nx-1 ) {  
+        for my $j ( 0..$ny-1 ) { 
             $ygrid->[$i][$j] = $y[$j]; 
         }
     }
 
-    return ($xgrid, $ygrid); 
+    return ( $xgrid, $ygrid ); 
 }
 
 #--------#
@@ -237,7 +237,7 @@ sub mgrid {
 sub mat_dim { 
     my @mat = @_;  
     
-    if (ref($mat[0]) eq 'ARRAY') {  
+    if ( ref($mat[0]) eq 'ARRAY' ) {  
         my @shape; 
         # recursive call 
         push @shape, (scalar @mat, mat_dim(@{$mat[0]})); 
@@ -273,18 +273,18 @@ sub det {
 # return
 # -> 2d matrix whose element is sum of input matrices
 sub mat_add { 
-    my ($mat1, $mat2) = @_; 
+    my ( $mat1, $mat2 ) = @_; 
 
     my @mat_sum;  
-    my ($mat1_nrow, $mat1_ncol) = mat_dim(@$mat1);  
-    my ($mat2_nrow, $mat2_ncol) = mat_dim(@$mat2);  
+    my ( $mat1_nrow, $mat1_ncol ) = mat_dim(@$mat1);  
+    my ( $mat2_nrow, $mat2_ncol ) = mat_dim(@$mat2);  
 
     # compatability check
-    if ($mat1_nrow != $mat2_nrow) { die "IndexError: incompatible dimension\n" }
-    if ($mat1_ncol != $mat2_ncol) { die "IndexError: incompatible dimension\n" }
+    if ( $mat1_nrow != $mat2_nrow ) { die "IndexError: incompatible dimension\n" }
+    if ( $mat1_ncol != $mat2_ncol ) { die "IndexError: incompatible dimension\n" }
 
-    for my $i (0..$mat1_nrow-1) { 
-        for my $j (0..$mat1_ncol-1) { 
+    for my $i ( 0..$mat1_nrow-1 ) { 
+        for my $j ( 0..$mat1_ncol-1 ) { 
             $mat_sum[$i][$j] = $mat1->[$i][$j] + $mat2->[$i][$j]; 
         }
     }  
@@ -299,12 +299,12 @@ sub mat_add {
 # return  
 # -> scaled 2d matrix 
 sub mscale { 
-    my ($scaling, @mat) = @_; 
+    my ( $scaling, @mat ) = @_; 
     
     my @scaled_mat; 
 
-    my ($nrow, $ncol) = mat_dim(@mat); 
-    for my $i (0..$nrow-1) { 
+    my ( $nrow, $ncol ) = mat_dim(@mat); 
+    for my $i ( 0..$nrow-1 ) { 
         for my $j ( 0..$ncol-1) { 
             $scaled_mat[$i][$j] = $scaling*$mat[$i][$j]; 
         }
@@ -319,18 +319,18 @@ sub mscale {
 # return
 # -> 2d product matrix
 sub mat_mul { 
-    my ($mat1, $mat2) = @_; 
+    my ( $mat1, $mat2 ) = @_; 
 
     my @product; 
     
     # compatability check
-    my ($mat1_nrow, $mat1_ncol) = mat_dim(@$mat1);  
-    my ($mat2_nrow, $mat2_ncol) = mat_dim(@$mat2);  
-    if ($mat1_ncol != $mat2_nrow) { die "IndexError: incompatible dimension\n" }
+    my ( $mat1_nrow, $mat1_ncol ) = mat_dim(@$mat1);  
+    my ( $mat2_nrow, $mat2_ncol ) = mat_dim(@$mat2);  
+    if ( $mat1_ncol != $mat2_nrow ) { die "IndexError: incompatible dimension\n" }
 
-    for my $i (0..$mat1_nrow-1) { 
-        for my $j (0..$mat2_ncol-1) { 
-            for my $k (0..$mat1_ncol-1) { 
+    for my $i ( 0..$mat1_nrow-1 ) { 
+        for my $j ( 0..$mat2_ncol-1 ) { 
+            for my $k ( 0..$mat1_ncol-1 ) { 
                 $product[$i][$j] += $mat1->[$i][$k] * $mat2->[$k][$j]; 
             }
         }
@@ -349,9 +349,9 @@ sub transpose {
 
     my @transposed;       
 
-    my ($nrow, $ncol) = mat_dim(@mat); 
-    for my $i (0..$ncol-1) { 
-        for my $j (0..$nrow-1) { 
+    my ( $nrow, $ncol ) = mat_dim(@mat); 
+    for my $i ( 0..$ncol-1 ) { 
+        for my $j ( 0..$nrow-1 ) { 
             $transposed[$i][$j] = $mat[$j][$i];  
         }
     }
@@ -393,7 +393,7 @@ sub inverse {
 # return
 # -> null 
 sub print_mat { 
-    my ($fh, $format, @mat) = @_; 
+    my ( $fh, $format, @mat ) = @_; 
     
     for my $array (@mat) { 
         print_array($fh, $format, @$array);  

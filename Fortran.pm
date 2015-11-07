@@ -5,12 +5,12 @@ use warnings;
 
 use Exporter; 
 
-our @format = qw(fortran2perl); 
+our @format = qw/fortran2perl/; 
 
-our @ISA         = qw(Exporter);  
-our @EXPORT      = ();  
-our @EXPORT_OK   = (@format); 
-our @EXPORT_TAGS = (); 
+our @ISA         = qw/Exporter/;  
+our @EXPORT      = ( );  
+our @EXPORT_OK   = ( @format ); 
+our @EXPORT_TAGS = ( ); 
 
 # fortran-like format => perl format
 # crude implementation 
@@ -19,12 +19,12 @@ our @EXPORT_TAGS = ();
 # return 
 # -> perl equivalent format
 sub fortran2perl {  
-    my ($format) = @_; 
+    my ( $format ) = @_; 
 
     my $perl; 
     my @fortran = ( $format =~ /(\d*)%([-0-9.]*[deEfs])/g ); 
 
-    while (@fortran) { 
+    while ( @fortran ) { 
         # empty repition == 1
         my $rep    = shift @fortran || 1; 
         my $format = shift @fortran; 
