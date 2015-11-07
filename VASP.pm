@@ -3,44 +3,285 @@ package VASP;
 use strict; 
 use warnings; 
 
-use IO::File; 
-use List::Util qw( sum max ); 
+use Exporter; 
 use File::Basename; 
-use File::Spec::Functions qw( catfile ); 
-use Storable qw( store retrieve ); 
-use Exporter qw( import ); 
+use File::Spec::Functions; 
+use IO::File; 
+use Storable qw/store retrieve/; 
 
-use Math qw( max_length print_vec print_mat mat_mul );
-use Periodic; 
+use Fortran qw/fortran2perl/; 
+use Math::Linalg qw/max sum length print_array print_mat mat_mul/;
+use Periodic qw/element_name/;  
+use Util qw/read_file slurp_file paragraph_file extract_file/; 
 
-# symbol 
-our @poscar  = qw ( read_cell read_geometry print_poscar );
-our @potcar  = qw ( read_potcar select_potcar make_potcar print_potcar_elem ); 
-our @xdatcar = qw ( read_traj save_traj retrieve_traj  ); 
-our @oszicar = qw ( read_profile ); 
-our @doscar  = qw ( read_doscar print_doscar sum_dos ); 
-our @outcar  = qw ( read_force read_phonon_eigen ); 
-our @aimd    = qw ( read_md sort_md average_md write_md print_extrema ); 
+our @aimd     = qw/read_md sort_md average_md print_extrema/; 
+our @doscar   = qw/read_doscar print_dos sum_dos/; 
+our @eigenval = qw/read_band/;  
+our @kpoints  = qw/read_kpoints/; 
+our @poscar   = qw/read_poscar print_poscar/;
+our @potcar   = qw/read_potcar print_potcar make_potcar/; 
+our @oszicar  = qw/read_profile print_profile/; 
+our @outcar   = qw/read_force read_phonon_eigen/; 
+our @xdatcar  = qw/read_traj save_traj retrieve_traj/; 
 
-# default import 
-our @EXPORT = ( @poscar, @potcar, @xdatcar, @oszicar, @doscar, @outcar, @aimd ); 
-
-# tag import 
-our %EXPORT_TAGS = (
-    poscar  => \@poscar, 
-    xdatcar => \@xdatcar, 
-    oszicar => \@oszicar,
-    doscar  => \@doscar, 
-    outcar  => \@outcar, 
-    aimd    => \@aimd, 
+our @ISA         = qw/Exporter/; 
+our @EXPORT      = ( );  
+our @EXPORT_OK   = ( @aimd, @doscar, @eigenval, @kpoints, @poscar, @potcar, @oszicar, @outcar, @xdatcar ); 
+our %EXPORT_TAGS = ( 
+    aimd     => \@aimd, 
+    doscar   => \@doscar, 
+    eigenval => \@eigenval, 
+    kpoints  => \@kpoints, 
+    poscar   => \@poscar, 
+    potcar   => \@potcar, 
+    oszicar  => \@oszicar,
+    outcar   => \@outcar, 
+    xdatcar  => \@xdatcar, 
 ); 
+
+#------#
+# AIMD #
+#------#
+
+# istep, T(K) and F(eV) from output of get_potential 
+# args  
+# -< profile.dat 
+# return 
+# -> potential hash (istep => [T,F])
+sub read_md { 
+    my $file = shift @_ || 'profile.dat'; 
+
+    my %md; 
+    for ( read_file($file) ) { 
+        next if /#/; 
+        next if /^\s+/; 
+        my ($istep, $temp, $pot) = (split)[0,-2,-1]; 
+        $md{$istep} = [$temp, $pot]; 
+    }
+
+    printf "=> Retrieve potential profile from %s\n", $file; 
+    printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
+
+    return %md; 
+}
+
+# sort the potential profile for local minimum and maximum 
+# args 
+# -< ref to potential hash (istep => [T,F])
+# -< period of ionic steps for sorting  
+# return
+# -> ref to array of local minima
+# -> ref to array of local maxima
+sub sort_md { 
+    my ( $md, $periodicity ) = @_; 
+
+    my ( @minima, @maxima ); 
+
+    # enumerate ionic steps
+    my @nsteps = sort { $a <=> $b } keys %$md; 
+
+    # split according to periodicity
+    while ( my @period = splice @nsteps, 0, $periodicity ) { 
+        # copy the sub hash (not optimal)
+        my %sub_md; 
+        @sub_md{@period} = @$md{@period}; 
+        my ( $local_minimum, $local_maximum ) = ( sort { $md->{$a}[1] <=> $md->{$b}[1] } keys %sub_md )[0,-1];  
+
+        push @minima, $local_minimum; 
+        push @maxima, $local_maximum;  
+    }
+
+    return ( \@minima, \@maxima ); 
+}
+
+# moving averages of potential profile 
+# ref: http://mathworld.wolfram.com/MovingAverage.html
+# args 
+# -< ref to potential hash (istep => [T,F])
+# -< period of ionic step to be averaged 
+# -< output file 
+# return 
+# -> null
+sub average_md { 
+    my ( $output, $md, $period, ) = @_; 
+
+    # extract array of potentials (last column)
+    my @potentials = map { $md->{$_}[-1] } sort{ $a <=> $b } keys %$md; 
+    
+    # total number of averages point
+    my $naverage = scalar(@potentials) - $period + 1; 
+
+    # calculating moving average 
+    print "=> $output: Short-time averages of potential energy over period of $period steps\n"; 
+
+    my $index = 0; 
+    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+    for ( 1..$naverage ) { 
+        my $average = (sum(@potentials[$index..($index+$period-1)]))/$period; 
+        printf $fh "%d\t%10.5f\n", ++$index, $average; 
+    }
+    $fh->close; 
+
+    return; 
+}
+
+#--------# 
+# DOSCAR #
+#--------# 
+
+# read DOSCAR
+# args 
+# -< DOSCAR file (default)
+# return 
+# -> dos array 
+sub read_doscar { 
+    my $file = shift @_ || 'DOSCAR';  
+
+    # 6th line: DOS header  
+    # 7th line: Total DOS (3 or 5 columns)
+    my $doscar_6th = extract_file($file, 6); 
+    my $doscar_7th = extract_file($file, 7); 
+    
+    # min, max, nedos, fermi, spin ? 
+    my ( $max, $min, $nedos, $fermi, $colinear ) = split ' ', $doscar_6th; 
+    
+    # ISPIN = 1: 3 columns 
+    # ISPIN = 2: 5 columns 
+    printf "NEDOS   = %d\n", $nedos; 
+    printf "E_min   = %.3f eV\n", $min; 
+    printf "E_max   = %.3f eV\n", $max; 
+    printf "E_fermi = %.3f eV\n", $fermi; 
+    printf "ISPIN   = %d\n", (scalar(split ' ', $doscar_7th)) == 3 ? 1 : 2; 
+   
+    # dos array 
+    # ldos[0]: total DOS  
+    # ldos[n]: nth ion DOS 
+    my ( $header, @dos ) = split /$doscar_6th\n/, slurp_file($file); 
+
+    return @dos; 
+}
+
+# print DOS 
+# args 
+# -< filename
+# -< slurped dos
+# return 
+# -> null
+sub print_dos { 
+    my ( $file, $dos ) = @_; 
+
+    my $fh = IO::File->new($file, 'w'); 
+
+    printf $fh $dos;  
+
+    $fh->close(); 
+
+    return; 
+}
+
+# sum LDOS  
+# args 
+# -< filehandler
+# -< LDOS files 
+# return 
+# -> null 
+sub sum_dos { 
+    my ( $sum_file, @files ) = @_; 
+
+    # format depends on number of column in LDOS-*
+    my $format = 
+    ( split ' ', extract_file($files[0],1) ) == 10 ?  
+    fortran2perl('%11.3f,9%12.4E') : 
+    fortran2perl('%11.3f,18%12.4E'); 
+
+    # hash of array ref ( energy => [s p d] )
+    my %sum_dos; 
+    for my $ldos ( @files ) { 
+        my $slurped_dos = slurp_file($ldos); 
+        my $dos_fh = IO::File->new(\$slurped_dos, 'r'); 
+
+        while ( <$dos_fh> ) { 
+            my ( $energy, @dos ) = split;    
+            for ( 0..$#dos ) {  
+                $sum_dos{$energy}[$_] += $dos[$_]; 
+            }
+        }
+    }
+
+    my $fh = IO::File->new($sum_file, 'w'); 
+    # print DOS summation
+    for ( sort { $a <=> $b } keys %sum_dos ) { 
+        printf $fh "$format\n", $_, @{$sum_dos{$_}}; 
+    }
+    $fh->close; 
+
+    return; 
+}
+
+#----------# 
+# EIGENVAL #
+#----------# 
+
+# extract eigenvalue for band plot 
+# args
+# -< EIGENVAL file (default)
+# return 
+# -> hash ref { band# => [ eigenvalue ] }
+sub read_band { 
+    my $file = shift @_ || 'EIGENVAL';  
+    
+    # header and band block are separated by a blank line
+    my ( $header, @bands ) = split /\n+\s*\n+/, slurp_file($file); 
+    
+    # last line of the header 
+    my ( $nelectron, $nkpoint, $nband ) = split ' ', ( split /\n/, $header )[-1]; 
+   
+    my %eigen; 
+    my $count = 0; 
+    for my $band ( @bands ) { 
+        $count++; 
+        push @{$eigen{$count}}, map { ( split )[-1] } split /\n/, $band; 
+        # remove header of band block
+        shift @{$eigen{$count}}; 
+    }
+
+    return %eigen; 
+}
+
+#---------# 
+# KPOINTS #
+#---------# 
+
+# parse KPOINTS file 
+# args 
+# -< none (default: 'KPOINTS') 
+# return 
+# -> mode (Cart/Direct/Line-mode)
+# -> ref to array of kpoint
+sub read_kpoints { 
+    my $file = shift @_ || 'KPOINTS';  
+    
+    # parse KPOINTS 
+    chomp ( my ( $comment, $nkpoint, $mode, @kblock ) = read_file($file) ); 
+
+    # automatic k-mesh generation
+    my @kpoints = (); 
+    if ( $nkpoint == 0 ) { 
+        @kpoints = split ' ', shift @kblock;  
+    } else { 
+        # 4th column is kpoint weight
+        @kpoints = map { [(split)[0,1,2]] } @kblock; 
+    }
+
+    return ( $nkpoint, $mode, @kpoints ); 
+}
 
 #--------#
 # POSCAR #
 #--------#
 
 # args 
-# -< ref to array of lines (POSCAR/CONTCAR/XDATCAR)
+# -< POSCAR/CONTCAR/XDATCAR (default: POSCAR)
 # return 
 # -> structure name 
 # -> scaling 
@@ -49,27 +290,30 @@ our %EXPORT_TAGS = (
 # -> ref to array of number of atom
 # -> selective dynamic (0 or 1)
 # -> type of coordinate (direct/cartesian)
-sub read_cell { 
-    my ($line) = @_;  
+sub read_poscar { 
+    my $file = shift @_ || 'POSCAR';  
 
-    my  ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
-    $title   = shift @$line; 
+    my @lines = read_file($file); 
+
+    my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry);  
+    # header block 
+    $title   = shift @lines; 
 	# scaling constant
-	$scaling = shift @$line; 
+	$scaling = shift @lines; 
     # lattice vectors with scaling contants
-    $lat     = [ map { [split ' ', shift @$line] } 1..3 ]; 
+    $lat     = [ map { [split ' ', shift @lines] } 1..3 ]; 
     # scaled lattice vector
     $lat     = mat_mul($scaling, $lat);  
     # array of element 
-	$atom    = [ split ' ', shift @$line ]; 
+	$atom    = [ split ' ', shift @lines ]; 
     # array of number of atoms per element
-	$natom   = [ split ' ', shift @$line ]; 
+	$natom   = [ split ' ', shift @lines ]; 
     # selective dynamics ? 
-    $dynamics = shift @$line; 
+    $dynamics = shift @lines; 
     # direct or cartesian coordinate 
     #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
     if ( $dynamics =~ /^\s*s/i ) { 
-        $type = shift @$line 
+        $type = shift @lines
     } else { 
         $type     = $dynamics; 
         $dynamics = 0; 
@@ -77,27 +321,13 @@ sub read_cell {
     # backward compatability for XDATCAR produced by vasp 5.2.x 
     #if ($type =~ //) { $type = 'direct' }; 
 
-    return ($title, $scaling, $lat, $atom, $natom, $dynamics, $type); 
-}
-
-# read atomic coordinats block
-# args 
-# -< ref to array of lines 
-# return
-# -> 2d array of atomic coordinates 
-sub read_geometry { 
-    my ($line) = @_; 
-
-    my $coordinate; 
-    while ( my $atom = shift @$line ) { 
+    # geometry block  
+    while ( my $atom = shift @lines ) { 
         last if $atom =~ /^\s+$/; 
-        # ignore the selective dynamic tag
-        #push @$coordinate, [ (split ' ', $atom)[0..2] ]; 
-        # read the selective dynamics tag (if possible)
-        push @$coordinate, [split ' ', $atom]; 
+        push @$geometry, [split ' ', $atom]; 
     }
 
-    return $coordinate; 
+    return ($title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry); 
 }
 
 # args  
@@ -161,96 +391,223 @@ sub print_poscar {
 
 # read list of PP in POTCAR 
 # args  
-# -< ref to POTCAR lines 
+# -< POTCAR
 # return 
-# -> hash of pp type PAW_PBE => [ element, date ];  
+# -> 2d array of pp => [ type, element, config ];  
 sub read_potcar { 
-    my ($line) = @_; 
+    my $file = shift @_ || 'POTCAR';  
 
-    my %pp;  
-    my $shell_config; 
-    for( @$line ) { 
+    my ( @pp, $shell_config );  
+    for( read_file($file) ) { 
         if ( /VRHFIN/ ) { 
-            $shell_config = (split /:/)[-1]; 
+            $shell_config = ( split /:/ )[-1]; 
 
         }
         if ( /TITEL/ ) { 
-            my ($type, $element, $date) = (split)[2,3,4]; 
-            push @{$pp{$type}}, [$element, $shell_config, $date]; 
+            my ( $type, $element ) = ( split )[2,3]; 
+            push @pp, [$type, $element, $shell_config]; 
         }
     }
 
-    return %pp;  
+    return @pp;  
 } 
 
 # print elements in POTCAR 
 # args 
-# -< POTCAR element hash 
+# -> 2d array of pp => [ type, element, config, date ];  
 # return 
 # -> null 
-sub print_potcar_elem { 
-    my %pp = @_; 
-
-    # PP type 
-    my ($type) = keys %pp; 
+sub print_potcar { 
+    my @pp = @_; 
 
     # string format
-    my $elength = max_length(map $_->[0], @{$pp{$type}});  
-    my $slength = max_length(map $_->[1], @{$pp{$type}});  
+    my $elem_length  = length(map $_->[1], @pp);  
+    my $shell_length = length(map $_->[2], @pp);  
 
-    for my $type ( keys %pp ) { 
-        print "=> Pseudopotential: $type\n"; 
-        for my $element ( @{$pp{$type}} ) { 
-            printf "%-${elength}s |%-${slength}s | %-s\n", @$element; 
-        }
+    print "=> Pseudopotential:\n";  
+
+    for my $pp ( @pp ) { 
+        printf "=|%-s|=   %-${elem_length}s %-${shell_length}s\n", @$pp;  
     }
 
     return; 
 }
 
-# POTCAR selector 
+# POTCAR creation
 # args 
-# -< directory of VASP pseudo potential 
+# -< POTCAR  
+# -< directory of pseudopotentials 
 # -< type of potential 
 # -< element in periodic table 
-# -< ref of potcar list
-# return 
-# -> null 
-sub select_potcar { 
-    my ($dir, $potential, $element) = @_; 
-    
-    my @avail_pots = map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, < $dir/$potential/* >;
-    printf "=> Pseudopotentials for $Periodic::table{$element}[1]: %s\n", join(' | ', @avail_pots); 
-    # Promp user to choose potential 
-    while (1) { 
-        print "=> Choice: "; 
-        # remove newline, spaces, etc
-        chomp (my $choice = <STDIN>); 
-        $choice =~ s/\s+//g; 
-        # fullpath for chosen potential 
-        if ( grep { $choice eq $_ } @avail_pots ) { 
-            print "\n"; 
-            return catfile($dir, $potential, $choice, 'POTCAR'); 
-        }
-    }
-
-    return; 
-}
-
-# write new POTCAR 
-# args 
-# -< filehandle for POTCAR 
-# -< element's POTCAR file 
 # return 
 # -> null 
 sub make_potcar { 
-    my ($fh, $potcar) = @_; 
+    my ( $file, $dir, $potential, @element ) = @_; 
 
-    my $elem_fh = IO::File->new($potcar, 'r') or die "Cannot open $potcar\n";  
-    print $fh (<$elem_fh>); 
-    $elem_fh->close; 
-    
+    my $fh = IO::File->new($file, 'w') or die "Cannot write to $file\n";  
+
+    for my $element ( @element ) { 
+        # list the available potentials 
+        my @avail_pots = map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, <$dir/$potential/*>;
+        printf "=> Pseudopotentials for %s: =| %s |=\n", element_name($element), join(' | ', @avail_pots); 
+
+        # Promp user to choose potential 
+        while ( 1 ) { 
+            print "=> Choice: "; 
+            # remove newline, spaces, etc
+            chomp ( my $choice = <STDIN> ); 
+            $choice =~ s/\s+//g; 
+
+            # fullpath for chosen potential 
+            if ( grep { $choice eq $_ } @avail_pots ) { 
+                my $potcar = slurp_file(catfile($dir, $potential, $choice, 'POTCAR')); 
+                print $fh $potcar; 
+                # extra blank line
+                if ( $element ne $element[-1] ) { print "\n" }  
+                last; 
+            }
+        }
+    }
+    $fh->close( ); 
+
     return; 
+}
+
+#---------#
+# OSZICAR #
+#---------#
+
+#read istep, T(K), F(eV) from OSZICAR 
+# args  
+# -< ref to array of lines 
+# return 
+# -> potential hash (istep => [T, F])
+sub read_profile { 
+    my $file = shift @_ || 'OSZICAR';  
+
+    my @md = map [(split)[0,2,6]], grep /T=/, read_file($file); 
+
+    # convert array to hash for easier index tracking 
+    my %md = map { $_->[0] => [$_->[1], $_->[2] ] } @md; 
+    
+    # total number of entry in hash
+    print  "=> Retrieve ISTEP, T(K), and F(eV) from OSZICAR\n"; 
+    printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
+    
+    return %md; 
+}
+
+# print potential profile to file 
+# args  
+# -< ref to potential hash (istep => [T,F])
+# -< output file 
+# return 
+# -> null
+sub print_profile { 
+    my ( $output, $md ) = @_; 
+
+    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+    print $fh "# Step  T(K)   F(eV)\n"; 
+    map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
+    $fh->close; 
+
+    return; 
+}
+
+#--------#
+# OUTCAR #
+#--------#
+
+# read total forces of each ion step 
+# args 
+# -< OUTCAR 
+# return 
+# -> hash of max forces  
+sub read_force { 
+    my $file = shift @_ || 'OUTCAR';   
+    
+    my ($nion, @max_forces); 
+    my $slurp_line = slurp_file($file); ; 
+    
+    # number of ion (NIONS)
+    if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
+
+    # filehandler to scalar ref
+    my $fh = IO::File->new(\$slurp_line, 'r'); 
+    
+    # force header: TOTAL-FORCE
+    while (<$fh>) { 
+        if (/TOTAL-FORCE/) { 
+            my @forces = ();  
+            # skip '---' 
+            my $line = <$fh>;  
+            # move record NIONS ahead 
+            for (1..$nion) { 
+                $line = <$fh>; 
+                my @fxyz =  (split ' ', $line)[3,4,5]; 
+                push @forces, sqrt($fxyz[0]**2+$fxyz[1]**2+$fxyz[2]**2);
+            }
+            # max forces 
+            push @max_forces, max(@forces);  
+        }
+    }
+    $fh->close; 
+    
+    return @max_forces;  
+}
+
+# read the eigenvectors and eigenvalues of dynamical matrix 
+# args
+# -< ref to array of OUTCAR lines 
+# return 
+# -> ref to hash: 
+# 1 => { [ frequency, 
+#          [dx dy dz] 
+#          ....
+#        ]
+#      }, 
+# 2 => ...
+sub read_phonon_eigen { 
+    my $file = shift @_ || 'OUTCAR';   
+
+    my ( $nion, $ndof, %eigen ); 
+    my $slurp_line = slurp_file($file);  
+    
+    # number of ion (NIONS)
+    if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
+
+    # number of degree of freedom (DOF)
+    if ( $slurp_line =~ /DOF.+?(\d+)/ ) { $ndof = $1 } 
+
+    # filehandler to scalar ref
+    my $fh = IO::File->new(\$slurp_line, 'r'); 
+    
+    while ( <$fh> ) { 
+        if ( /Eigenvectors and eigenvalues/ ) { 
+            my $line; 
+            # skip three lines 
+            for ( 1..3 ) { $line = <$fh> } 
+
+            for my $dof ( 1..$ndof ) { 
+                # eigenvalue 
+                if ( ( $line = <$fh> ) =~ /\d+\s+f/ ) { $eigen{$dof}[0] = ( split ' ', $line )[-2] } 
+
+                # skip 'X  Y  Z' header
+                $line = <$fh>; 
+
+                # move record NIONS ahead 
+                for ( 1..$nion ) { 
+                    $line = <$fh>; 
+                    push @{$eigen{$dof}}, [( split ' ', $line )[-3,-2,-1]]; 
+                }
+                
+                # skip blank line
+                $line = <$fh>;     
+            }
+        }
+    }
+    
+    return %eigen; 
 }
 
 #---------#
@@ -263,8 +620,10 @@ sub make_potcar {
 # return
 # -> array of coordinates of each ionic steps 
 sub read_traj { 
-    my ($line) = @_; 
+    my ($file) = @_; 
 
+    my $line = defined $file ? slurp_file($file) : slurp_file('XDATCAR');  
+    
     my ($title, $scaling, $lat, $atom, $natom); 
     my ($cell, @trajs) = split /Direct configuration=.*\d+\n/, $line; 
     
@@ -302,7 +661,7 @@ sub save_traj {
 # -< stored data 
 # return 
 # -> traj hash 
-sub retrieve_traj { 
+sub retrieve_taj { 
     my ($stored_traj) = @_; 
 
     # trajectory is required 
@@ -313,263 +672,6 @@ sub retrieve_traj {
     printf "=> Hash contains %d entries\n\n", scalar(keys %$traj); 
 
     return %$traj; 
-}
-
-#---------#
-# OSZICAR #
-#---------#
-
-# read istep, T(K), F(eV) from OSZICAR 
-# args  
-# -< ref to array of lines 
-# return 
-# -> potential hash (istep => [T, F])
-sub read_profile { 
-    my ($line) = @_; 
-
-    my %md; 
-    my @md = map {[(split)[0,2,6]]} grep {/T=/} @$line;
-
-    # convert array to hash for easier index tracking 
-    map { $md{$_->[0]} = [$_->[1], $_->[2]] } @md; 
-    
-    # total number of entry in hash
-    print  "=> Retrieve ISTEP, T(K), and F(eV) from OSZICAR\n"; 
-    printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
-    
-    return %md; 
-}
-
-#--------# 
-# DOSCAR #
-#--------# 
-
-# read DOSCAR
-# args 
-# -< ref to array of DOSCAR lines 
-# return 
-# -> ref to array of total dos 
-# -> ref to array of projected dos 
-sub read_doscar { 
-    my ($line) =@_; 
-
-    # number of ions 
-    my $nion = (split ' ', shift @$line)[0]; 
-    
-    # cleave the mysterious heade
-    shift @$line for 1..4; 
-
-    # min, max, nedos, fermi, spin ? 
-    my $header = shift @$line; 
-    my ($min, $max, $nedos, $fermi, $wth) = split ' ', $header; 
-    
-    # total dos, ldos 
-    my @tdos = map {[split]} splice @$line, 0, $nedos; 
-    my @ldos = map { [map { [split] } splice @$line, 0, $nedos+1] } 1..$nion; 
-    
-    return (\@tdos, \@ldos);  
-}
-
-# print LDOS 
-# args 
-# -< filehandler 
-# -< ref to 2d array of ldos 
-# return 
-# -> null
-#sub print_ldos { 
-    #my ($fh, $ldos) = @_; 
-   
-    #my $format = ("%.3f  ") x 14; 
-    #for my $dos ( @$ldos ) { 
-        ## calculate s, p, d, total sum 
-        #my $sum_s = $ldos->[1]; 
-        #my $sum_p = sum(@{$ldos}[2..4]); 
-        #my $sum_d = sum(@{$ldos}[5..9]);
-        #my $sum   = $sum_s + $sum_p + $sum_d; 
-        #printf $fh "$format\n", @$ldos, $sum_s, $sum_p, $sum_d, $sum; 
-
-    #}
-
-    #return; 
-#}
-
-#--------#
-# OUTCAR #
-#--------#
-
-# read total forces of each ion step 
-# args 
-# -< ref to array of OUTCAR lines 
-# return 
-# -> array of max forces  
-sub read_force { 
-    my ($line) = @_; 
-
-    # linenr of NION, and force
-    my ($lion, @lforces) = grep { $line->[$_] =~ /number of ions|TOTAL-FORCE/ } 0..$#$line; 
-    # number of ion 
-    my $nion = (split ' ', $line->[$lion])[-1];
-    
-    # max forces 
-    my @max_forces; 
-    for my $lforce (@lforces) { 
-        # move forward 2 lines 
-        $lforce = $lforce+2; 
-        # slice $nion from @lines 
-        my @forces = map { [(split)[3,4,5]] } @{$line}[$lforce .. $lforce+$nion-1]; 
-        # max forces 
-        my $max_force = max(map {sqrt($_->[0]**2+$_->[1]**2+$_->[2]**2) } @forces); 
-        push @max_forces, $max_force; 
-    }
-    
-    return @max_forces;  
-}
-
-# read the eigenvectors and eigenvalues of dynamical matrix 
-# args
-# -< ref to array of OUTCAR lines 
-# return 
-# -> ref to hash: 
-# 1 => { value  => ..., 
-#        vector => { [dx dy dz] },  
-#      }, 
-# 2 => ...
-sub read_phonon_eigen { 
-    my ($line) = @_; 
-
-    my %eigen; 
-
-    # linenr of DOF and eigen (similar approach to read_force()) 
-    my ($ldof, $leigen) = grep { $line->[$_] =~ /DOF|Eigenvectors and eigenvalues/ } 0..$#$line; 
-    # number of degree of freedom 
-    my $ndof = (split ' ', $line->[$ldof])[-1];
-    
-    # read eigen{vectors,value} 
-    $leigen += 3; 
-    for my $dof (1..$ndof) { 
-        while (1) {  
-            my $line = $line->[++$leigen]; 
-            # skip the eigenvector header 
-            if ( $line =~ /X\s+Y\s+Z\s+/ ) { next } 
-            # exit at blank line 
-            if ( $line =~ /^\s+$/ ) { last }  
-            # eigenvalue 
-            if ( $line =~ /\d+\s+f/ ) { 
-                $eigen{$dof}{f} = (split ' ', $line)[-2]; 
-                next; 
-            }
-            # eigenvector 
-            push @{$eigen{$dof}{dxyz}}, [(split ' ', $line)[-3,-2,-1]]; 
-        }
-    }
-    
-    return \%eigen; 
-}
-
-#------#
-# AIMD #
-#------#
-
-# istep, T(K) and F(eV) from output of get_potential 
-# args  
-# -< profile.dat 
-# return 
-# -> potential hash (istep => [T,F])
-sub read_md { 
-    my ($input) = @_; 
-   
-    my %md; 
-    print "=> Retrieve potential profile from $input\n"; 
-    
-    my $fh = IO::File->new($input, 'r') or die "Cannot open $input\n";  
-    while ( <$fh> ) { 
-        next if /#/; 
-        next if /^\s+/; 
-        my ($istep, $temp, $pot) = (split)[0,-2,-1]; 
-        $md{$istep} = [ $temp, $pot ]; 
-    }
-    $fh->close; 
-
-    printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
-
-    return %md; 
-}
-
-# sort the potential profile for local minimum and maximum 
-# args 
-# -< ref to potential hash (istep => [T,F])
-# -< period of ionic steps for sorting  
-# return
-# -> ref to array of local minima
-# -> ref to array of local maxima
-sub sort_md { 
-    my ($md, $periodicity) = @_; 
-
-    my (@minima, @maxima); 
-
-    # enumerate ionic steps
-    my @nsteps = sort { $a <=> $b } keys %$md; 
-
-    # split according to periodicity
-    while ( my @period = splice @nsteps, 0, $periodicity ) { 
-        # copy the sub hash (not optimal)
-        my %sub_md; 
-        @sub_md{@period} = @{$md}{@period}; 
-        my ($local_minimum, $local_maximum) = (sort { $md->{$a}[1] <=> $md->{$b}[1] } keys %sub_md)[0,-1];  
-
-        push @minima, $local_minimum; 
-        push @maxima, $local_maximum;  
-    }
-
-    return (\@minima, \@maxima); 
-}
-
-# moving averages of potential profile 
-# ref: http://mathworld.wolfram.com/MovingAverage.html
-# args 
-# -< ref to potential hash (istep => [T,F])
-# -< period of ionic step to be averaged 
-# -< output file 
-# return 
-# -> null
-sub average_md { 
-    my ($md, $period, $output) = @_; 
-
-    # extract array of potentials (last column)
-    my @potentials = map { $md->{$_}[-1] } sort{ $a <=> $b } keys %$md; 
-    
-    # total number of averages point
-    my $naverage = scalar(@potentials) - $period + 1; 
-
-    # calculating moving average 
-    print "=> $output: Short-time averages of potential energy over period of $period steps\n"; 
-
-    my $index = 0; 
-    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
-    for (1..$naverage) { 
-        my $average = (sum(@potentials[$index..($index+$period-1)]))/$period; 
-        printf $fh "%d\t%10.5f\n", ++$index, $average; 
-    }
-    $fh->close; 
-
-    return; 
-}
-
-# print potential profile to file 
-# args  
-# -< ref to potential hash (istep => [T,F])
-# -< output file 
-# return 
-# -> null
-sub write_md { 
-    my ($md, $output) = @_; 
-
-    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
-    print $fh "# Step  T(K)   F(eV)\n"; 
-    map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
-    $fh->close; 
-
-    return; 
 }
 
 # last evaluated expression 
