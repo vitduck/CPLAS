@@ -20,8 +20,8 @@ our @kpoints  = qw/read_kpoints/;
 our @poscar   = qw/read_poscar print_poscar/;
 our @potcar   = qw/read_potcar print_potcar make_potcar/; 
 our @oszicar  = qw/read_profile print_profile/; 
-our @outcar   = qw/read_force read_phonon_eigen/; 
-our @xdatcar  = qw/read_traj save_traj retrieve_traj/; 
+our @outcar   = qw/read_lattice read_force read_phonon_eigen/; 
+our @xdatcar  = qw/read_traj4 read_traj5 save_traj retrieve_traj/; 
 
 our @ISA         = qw/Exporter/; 
 our @EXPORT      = ( );  
@@ -117,10 +117,12 @@ sub average_md {
 
     my $index = 0; 
     my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+
     for ( 1..$naverage ) { 
         my $average = (sum(@potentials[$index..($index+$period-1)]))/$period; 
         printf $fh "%d\t%10.5f\n", ++$index, $average; 
     }
+
     $fh->close; 
 
     return; 
@@ -501,6 +503,7 @@ sub make_potcar {
             }
         }
     }
+
     $fh->close( ); 
 
     return; 
@@ -542,8 +545,10 @@ sub print_profile {
     my ( $output, $md ) = @_; 
 
     my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+
     print $fh "# Step  T(K)   F(eV)\n"; 
     map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
+
     $fh->close; 
 
     return; 
@@ -552,6 +557,38 @@ sub print_profile {
 #--------#
 # OUTCAR #
 #--------#
+# read lattice vectors (ISIF 3) 
+# args 
+# -< OUTCAR 
+# return 
+# -> array of optimized lattice vectors 
+sub read_lattice { 
+    my ( $file ) = @_; 
+
+    $file = defined $file ? $file : 'OUTCAR'; 
+
+    my $slurp_line = slurp_file($file); 
+
+    # filehandler to scalar ref
+    my $fh = IO::File->new(\$slurp_line, 'r'); 
+
+    # direct lattice vector 
+    my @lattices = ( ); 
+    while ( <$fh> ) { 
+        if ( /direct lattice vectors/ ) { 
+            my @lattice = ( );  
+            for ( 1..3 ) { 
+                my $lat_line = <$fh>;  
+                push @lattice, [ (split ' ',$lat_line)[0..2] ]; 
+            }
+            push @lattices, \@lattice; 
+        }
+    } 
+
+    $fh->close; 
+
+    return @lattices; 
+}
 
 # read total forces of each ion step 
 # args 
@@ -563,8 +600,8 @@ sub read_force {
     
     $file = defined $file ? $file : 'OUTCAR'; 
 
-    my ($nion, @max_forces); 
-    my $slurp_line = slurp_file($file); ; 
+    my ( $nion, @max_forces ); 
+    my $slurp_line = slurp_file($file); 
     
     # number of ion (NIONS)
     if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
@@ -573,8 +610,8 @@ sub read_force {
     my $fh = IO::File->new(\$slurp_line, 'r'); 
     
     # force header: TOTAL-FORCE
-    while (<$fh>) { 
-        if (/TOTAL-FORCE/) { 
+    while ( <$fh> ) { 
+        if ( /TOTAL-FORCE/ ) { 
             my @forces = ();  
             # skip '---' 
             my $line = <$fh>;  
@@ -588,6 +625,7 @@ sub read_force {
             push @max_forces, max(@forces);  
         }
     }
+
     $fh->close; 
     
     return @max_forces;  
@@ -657,26 +695,53 @@ sub read_phonon_eigen {
 # args 
 # -< slurped XDATCAR lines  
 # return
-# -> array of coordinates of each ionic steps 
-sub read_traj { 
+# -> array of lattice, atom, natom, geometry
+sub read_traj5 { 
     my ( $file ) = @_; 
     
     $file = defined $file ? $file : 'XDATCAR'; 
 
-    my $line = slurp_file($file); 
-    
-    my ($title, $scaling, $lat, $atom, $natom); 
-    my ($cell, @trajs) = split /Direct configuration=.*\d+\n/, $line = slurp_file($file); 
-    
-    # cell
-    ($title, $scaling, @$lat[0..2], $atom, $natom) = split /\n/, $cell;  
-    # 1d array -> 2d array 
-    $lat   = [ map [split ' ', $_], @$lat ]; 
-    # string -> 1d array 
-	$atom  = [ split ' ', $atom ]; 
-	$natom = [ split ' ', $natom ]; 
+    # ISIF checking, extract 8th line 
+    my $keyword = extract_file($file, 8);  
+    my $isif    = ( $keyword =~ /Direct configuration=/ ) ? 2 : 3; 
 
-    return ($title, $scaling, $lat, $atom, $natom, \@trajs);  
+    # ISIF = 2 
+    if ( $isif == 2 ) { 
+        my ( $cell, @trajs ) = split /Direct configuration=.*\d+\n/, slurp_file($file); 
+
+        # header  
+        my ( $title, $scaling, $latx, $laty, $latz, $atom, $natom ) = split /\n/, $cell;  
+
+        # cell info 
+        my @lat   = map { [split] } ( $latx, $laty, $latz ); 
+        my @atom  = split ' ', $atom; 
+        my @natom = split ' ', $natom; 
+        
+        return ( $isif, $title, $scaling, \@lat, $atom, $natom, \@trajs );  
+    # ISIF = 3
+    } else  { 
+        my ( undef, $initial_cell, @structure ) = split /$keyword\s*\n/, slurp_file($file); 
+        
+        # header from initial cell 
+        my ( $scaling, undef, undef, undef, $atom, $natom ) = split /\n/, $initial_cell;  
+        my @atom  = split ' ', $atom; 
+        my @natom = split ' ', $natom; 
+
+        # (lattice + geometry)
+        my ( @lats, @trajs ); 
+        for ( @structure ) { 
+            my ( $cell, $geometry ) = split /Direct configuration=.*\d+\n/, $_;  
+
+            # lattice vector 
+            my ( undef, $latx, $laty, $latz ) = split /\n/, $cell; 
+            push @lats, [ map { [split] } ( $latx, $laty, $latz ) ];
+            push @trajs, $geometry; 
+        }
+
+        return ( $isif, $keyword, $scaling, \@lats, $atom, $natom, \@trajs );  
+    }
+
+    return; 
 }
 
 # save trajectory to disk
@@ -686,7 +751,7 @@ sub read_traj {
 # return: 
 # -> null
 sub save_traj { 
-    my ($traj, $output, $save) = @_; 
+    my ( $traj, $output, $save ) = @_; 
 
     if ( $save ) { 
         print  "=> Save trajectory as '$output'\n"; 
@@ -703,10 +768,11 @@ sub save_traj {
 # return 
 # -> traj hash 
 sub retrieve_taj { 
-    my ($stored_traj) = @_; 
+    my ( $stored_traj ) = @_; 
 
     # trajectory is required 
-    die "$stored_traj does not exists\n" unless -e $stored_traj; 
+    unless ( -e $stored_traj ) { die "$stored_traj does not exists\n" } 
+
     # retored traj as hash reference 
     my $traj = retrieve($stored_traj); 
     print  "=> Retrieve trajectory from '$stored_traj'\n"; 
