@@ -9,7 +9,6 @@ use File::Spec::Functions;
 use IO::File; 
 use Storable qw/store retrieve/; 
 
-use Fortran qw/fortran2perl/; 
 use Math::Linalg qw/max sum length print_array print_mat mat_mul/;
 use Periodic qw/element_name/;  
 use Util qw/read_file slurp_file paragraph_file extract_file/; 
@@ -190,9 +189,9 @@ sub sum_dos {
 
     # format depends on number of column in LDOS-*
     my $format = 
-    ( split ' ', extract_file($files[0],1) ) == 10 ?  
-    fortran2perl('%11.3f,9%12.4E') : 
-    fortran2perl('%11.3f,18%12.4E'); 
+    ( split ' ', extract_file($files[0],1) ) == 10 ? 
+    '%11.3f,9%12.4E' : 
+    '%11.3f,18%12.4E';  
 
     # hash of array ref ( energy => [s p d] )
     my %sum_dos; 
@@ -209,10 +208,12 @@ sub sum_dos {
     }
 
     my $fh = IO::File->new($sum_file, 'w'); 
+
     # print DOS summation
     for ( sort { $a <=> $b } keys %sum_dos ) { 
-        printf $fh "$format\n", $_, @{$sum_dos{$_}}; 
+        print_array($fh, $format, $_, @{$sum_dos{$_}}); 
     }
+
     $fh->close; 
 
     return; 
@@ -291,47 +292,62 @@ sub read_kpoints {
 # -> selective dynamic (0 or 1)
 # -> type of coordinate (direct/cartesian)
 sub read_poscar { 
-    my $file = shift @_ || 'POSCAR';  
+    my $file = shift @_ || 'POSCAR'; 
 
-    my @lines = read_file($file); 
+    my ( $title, $scaling, @lat, @atom, $natom, $selective, $type, @geometry );  
+    
+    # version checking: 6th line
+    my $version_string = extract_file($file, 6);  
 
-    my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry);  
-    # header block 
-    $title   = shift @lines; 
-	# scaling constant
-	$scaling = shift @lines; 
-    # lattice vectors with scaling contants
-    $lat     = [ map { [split ' ', shift @lines] } 1..3 ]; 
-    # scaled lattice vector
-    $lat     = mat_mul($scaling, $lat);  
-    # array of element 
-	$atom    = [ split ' ', shift @lines ]; 
-    # array of number of atoms per element
-	$natom   = [ split ' ', shift @lines ]; 
-    # selective dynamics ? 
-    $dynamics = shift @lines; 
-    # direct or cartesian coordinate 
-    #my $type     = ($dynamics =~ /selective/i) ? shift @$line : $dynamics; 
-    if ( $dynamics =~ /^\s*s/i ) { 
-        $type = shift @lines
+    # VASP4 or 5
+    if ( element_name((split ' ', $version_string)) ) {  
+        print "=> VASP 5\n"; 
+        @atom = split ' ', $version_string; 
+        
+        # selective dynamics ?  
+        # vasp 5 ? (8th line)
+        if ( extract_file($file, 8) =~ /^\s*S/i ) { 
+            $selective = 1; 
+            ($title, $scaling, @lat[0..2], undef, $natom, undef, $type, @geometry) = read_file($file);  
+        } else { 
+            $selective = 0; 
+            ($title, $scaling, @lat[0..2], undef, $natom, $type, @geometry) = read_file($file);  
+        }
     } else { 
-        $type     = $dynamics; 
-        $dynamics = 0; 
-    }
-    # backward compatability for XDATCAR produced by vasp 5.2.x 
-    #if ($type =~ //) { $type = 'direct' }; 
+        print "=> VASP 4\n"; 
+        # extract elements from POTCAR !
+        @atom = map $_->[1], read_potcar('POTCAR');  
 
-    # geometry block  
-    while ( my $atom = shift @lines ) { 
-        last if $atom =~ /^\s+$/; 
-        push @$geometry, [split ' ', $atom]; 
-    }
+        # selective dynamics ?  
+        # vasp 4: 7th line
+        if ( extract_file($file, 7) =~ /^\s*S/i ) { 
+            $selective = 1; 
+            ($title, $scaling, @lat[0..2], $natom, undef, $type, @geometry) = read_file($file);  
+        } else { 
+            $selective = 0; 
+            ($title, $scaling, @lat[0..2], $natom, $type, @geometry) = read_file($file);  
+        }
 
-    return ($title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry); 
+    }
+    
+    # total number of atom
+    my @natom = split ' ', $natom; 
+
+    # VASP4 
+    if ( @atom < @natom ) { die "VASP4: Mismatch between $file and POTCAR\n" }
+    @atom = splice @atom, 0, scalar(@natom); 
+
+    # convert lattice block to 2d array 
+    @lat = map [ (split) ], @lat; 
+
+    # convert geometry block to 2d array 
+    @geometry = map [ (split) ], ( splice @geometry, 0, sum(@natom) );  
+
+    return ( $title, $scaling, \@lat, \@atom, \@natom, $selective, $type, \@geometry ); 
 }
 
 # args  
-# -< file handler 
+# -< output file (POSCAR)
 # -< structure name 
 # -< scaling 
 # -< ref to 2d array of lattice vectors
@@ -343,44 +359,49 @@ sub read_poscar {
 # return 
 # -> null
 sub print_poscar { 
-    my ($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate) = @_; 
+    my ($file, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate, $version) = @_; 
 
-    my %format = ( 
-        string  => '5s', 
-        integer => '6d', 
-        real    => '22.16f', 
-    ); 
+    # default is VASP 5 format 
+    $version = defined $version ? $version : 5;  
 
-    # coordinate format 
-    my $cformat; 
+    # format
+    my $format_1 = scalar(@$atom).'%5s';  
+    my $format_2 = scalar(@$natom).'%6d'; 
+    # coordinate 
+    my $format_3 = $dynamics ? '3%22.16f3%5s%6d' : '3%22.16f%5d';   
 
-    # print POSCAR header 
+    # write to POSCAR 
+    my $fh = IO::File->new($file, 'w'); 
     printf $fh "%s\n", $title; 
-    printf $fh "%f\n", $scaling; 
-    print_mat($lat, $format{real}, $fh); 
-    print_vec($atom, $format{string}, $fh); 
-    print_vec($natom, $format{integer}, $fh); 
-    printf $fh "%s\n", $dynamics if $dynamics; 
+    printf $fh "%d\n", $scaling; 
+
+    # lattice vector 
+    print_mat($fh, '3%22.16f', @$lat);  
+
+    # VASP 5 format
+    if ( $version == 5 ) { print_array($fh, $format_1, @$atom) }; 
+   
+    # number of atom 
+    print_array($fh, $format_2, @$natom); 
+
+    # selective dynamics 
+    if ( $dynamics ) { printf $fh "%s\n", 'Selective dynamics' }  
+
+    # direct || cartesian 
     printf $fh "%s\n" , $type; 
-
+    
+    # geometry block
+    my $count  = 0; 
     if ( $dynamics ) { 
-        # check number of row in $coordinate 2d matrix 
-        # 3: no dynamic tag 
-        # 6: with dynamic tag 
-        if ( @{$coordinate->[0]} == 3 ) { 
-            map { push @$_, qw(T T T) } @$coordinate; 
-        }
-        # set the approriate format 
-        $cformat = "%$format{real}"x3 . "%$format{string}"x3 . "%$format{integer}\n"; 
+        map { splice @$_, 3, 4, 'T', 'T', 'T', ++$count } @$coordinate; 
     } else { 
-        $cformat = "%$format{real}"x3 . "%$format{integer}\n";  
+        map { splice @$_, 3, 4, ++$count } @$coordinate; 
     }
+    
+    # print_coordinate 
+    print_mat($fh, $format_3, @$coordinate); 
 
-    # print POSCAR geometry 
-    my $count = 0; 
-    for my $atom ( @$coordinate ) { 
-        printf $fh $cformat, @$atom, ++$count;  
-    }
+    $fh->close; 
     
     return; 
 }
