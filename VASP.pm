@@ -48,7 +48,9 @@ our %EXPORT_TAGS = (
 # return 
 # -> potential hash (istep => [T,F])
 sub read_md { 
-    my $file = shift @_ || 'profile.dat'; 
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'profile.dat'; 
 
     my %md; 
     for ( read_file($file) ) { 
@@ -134,7 +136,9 @@ sub average_md {
 # return 
 # -> dos array 
 sub read_doscar { 
-    my $file = shift @_ || 'DOSCAR';  
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'DOSCAR'; 
 
     # 6th line: DOS header  
     # 7th line: Total DOS (3 or 5 columns)
@@ -229,8 +233,10 @@ sub sum_dos {
 # return 
 # -> hash ref { band# => [ eigenvalue ] }
 sub read_band { 
-    my $file = shift @_ || 'EIGENVAL';  
+    my ( $file ) = @_; 
     
+    $file = defined $file ? $file : 'EIGENVAL'; 
+
     # header and band block are separated by a blank line
     my ( $header, @bands ) = split /\n+\s*\n+/, slurp_file($file); 
     
@@ -260,8 +266,10 @@ sub read_band {
 # -> mode (Cart/Direct/Line-mode)
 # -> ref to array of kpoint
 sub read_kpoints { 
-    my $file = shift @_ || 'KPOINTS';  
+    my ( $file ) = @_; 
     
+    $file = defined $file ? $file : 'KPOINTS'; 
+
     # parse KPOINTS 
     chomp ( my ( $comment, $nkpoint, $mode, @kblock ) = read_file($file) ); 
 
@@ -292,7 +300,9 @@ sub read_kpoints {
 # -> selective dynamic (0 or 1)
 # -> type of coordinate (direct/cartesian)
 sub read_poscar { 
-    my $file = shift @_ || 'POSCAR'; 
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'POSCAR'; 
 
     my ( $title, $scaling, @lat, @atom, $natom, $selective, $type, @geometry );  
     
@@ -416,7 +426,9 @@ sub print_poscar {
 # return 
 # -> 2d array of pp => [ type, element, config ];  
 sub read_potcar { 
-    my $file = shift @_ || 'POTCAR';  
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'POTCAR'; 
 
     my ( @pp, $shell_config );  
     for( read_file($file) ) { 
@@ -504,7 +516,9 @@ sub make_potcar {
 # return 
 # -> potential hash (istep => [T, F])
 sub read_profile { 
-    my $file = shift @_ || 'OSZICAR';  
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'OSZICAR'; 
 
     my @md = map [(split)[0,2,6]], grep /T=/, read_file($file); 
 
@@ -545,8 +559,10 @@ sub print_profile {
 # return 
 # -> hash of max forces  
 sub read_force { 
-    my $file = shift @_ || 'OUTCAR';   
+    my ( $file ) = @_; 
     
+    $file = defined $file ? $file : 'OUTCAR'; 
+
     my ($nion, @max_forces); 
     my $slurp_line = slurp_file($file); ; 
     
@@ -589,7 +605,9 @@ sub read_force {
 #      }, 
 # 2 => ...
 sub read_phonon_eigen { 
-    my $file = shift @_ || 'OUTCAR';   
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'OUTCAR'; 
 
     my ( $nion, $ndof, %eigen ); 
     my $slurp_line = slurp_file($file);  
@@ -641,12 +659,14 @@ sub read_phonon_eigen {
 # return
 # -> array of coordinates of each ionic steps 
 sub read_traj { 
-    my ($file) = @_; 
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'XDATCAR'; 
 
-    my $line = defined $file ? slurp_file($file) : slurp_file('XDATCAR');  
+    my $line = slurp_file($file); 
     
     my ($title, $scaling, $lat, $atom, $natom); 
-    my ($cell, @trajs) = split /Direct configuration=.*\d+\n/, $line; 
+    my ($cell, @trajs) = split /Direct configuration=.*\d+\n/, $line = slurp_file($file); 
     
     # cell
     ($title, $scaling, @$lat[0..2], $atom, $natom) = split /\n/, $cell;  
