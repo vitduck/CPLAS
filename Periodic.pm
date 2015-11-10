@@ -5,7 +5,7 @@ use warnings;
 
 use Exporter; 
 
-our @info = qw/element_name/; 
+our @info = qw/element_name atomic_number/; 
 
 our @ISA         = qw/Exporter/;  
 our @EXPORT      = ( );  
@@ -134,7 +134,7 @@ our %table = (
 ); 
 
 # get the name of element from periodic table 
-# args: 
+# args
 # -< atomic symbol 
 # return 
 # -> boolean 
@@ -144,6 +144,19 @@ sub element_name {
     my ( $element ) = grep $symbol eq $_->[0], values %table;  
 
     return $element->[1]; 
+}
+
+# get the atomic number of element from periodic table 
+# args 
+# -< element name
+# return 
+# -> atomic number 
+sub atomic_number { 
+    my ( $element_name ) = @_; 
+    
+    my ( $atomic_number ) = grep $element_name eq $table{$_}[0], keys %table; 
+
+    return $atomic_number; 
 }
 
 # last evaluated expression 
