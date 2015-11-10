@@ -7,7 +7,8 @@ use Getopt::Long;
 use IO::File; 
 use Pod::Usage; 
 
-use VASP qw/read_lattice read_traj5 save_traj/;  
+use Util qw/extract_file/; 
+use VASP qw/read_lattice read_traj4 read_traj5 save_traj/;  
 use XYZ  qw/info_xyz direct_to_cart set_pbc xmakemol/; 
 
 my @usages = qw/NAME SYSNOPSIS OPTIONS/;
@@ -90,8 +91,11 @@ GetOptions(
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
-# XDATCAR lines
-my ( $isif, $title, $scaling, $lat, $atom, $natom, $traj ) = read_traj5($input);  
+# determine the version of VASP 
+my ( $isif, $title, $scaling, $lat, $atom, $natom, $traj ) = 
+extract_file('XDATCAR', 4) =~ /CAR/ ? 
+read_traj4($input) :  
+read_traj5($input) ;   
 
 # supercell box
 my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
@@ -102,7 +106,6 @@ my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);
 # save direct coordinate to hash for lookup
 my $count = 0;  
 my %traj  = (); 
-
 
 # write to xdatcar.xyz
 my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
@@ -121,9 +124,10 @@ for ( @$traj ) {
     # print coordinate to ion.xyz
     printf $fh "%d\n# Step: %d\n", $ntotal, $count;  
     
-    # ISIF = 2|3 
+    # ISIF = 2|4
     if ( $isif == 2 ) {    
         direct_to_cart($fh, $scaling, $lat, $label, $geometry, $nx, $ny, $nz); 
+    # ISIF = 3 ( and VASP 4 )
     } else { 
         my $ilat = shift @$lat; 
         direct_to_cart($fh, $scaling, $ilat, $label, $geometry, $nx, $ny, $nz); 

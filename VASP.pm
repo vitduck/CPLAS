@@ -314,7 +314,6 @@ sub read_poscar {
 
     # VASP4 or 5
     if ( element_name((split ' ', $version_string)) ) {  
-        print "=> VASP 5\n"; 
         @atom = split ' ', $version_string; 
         
         # selective dynamics ?  
@@ -327,7 +326,6 @@ sub read_poscar {
             ($title, $scaling, @lat[0..2], undef, $natom, $type, @geometry) = read_file($file);  
         }
     } else { 
-        print "=> VASP 4\n"; 
         # extract elements from POTCAR !
         @atom = map $_->[1], read_potcar('POTCAR');  
 
@@ -591,6 +589,9 @@ sub read_lattice {
 
     $fh->close; 
 
+    # the 1st lattice is from POSCAR! 
+    shift @lattices; 
+
     return @lattices; 
 }
 
@@ -694,10 +695,36 @@ sub read_phonon_eigen {
 #---------#
 # XDATCAR #
 #---------#
+# read atomic coordinate blocks for each ionic step  
+# args 
+# -< XDATCAR (VASP 4)
+# return
+# -> array of lattice, atom, natom, geometry
+sub read_traj4 { 
+    my ( $file ) = @_; 
+
+    $file = defined $file ? $file : 'XDATCAR'; 
+
+    chomp ( my $line_6th = extract_file($file, 6) ); 
+
+    # why three undef ? VASP4 is weired 
+    my (undef, undef, undef, @trajs) = split /$line_6th\n| Konfig=.+?\n/, slurp_file('XDATCAR'); 
+
+    # since there is no element info 
+    # get it from POSCAR 
+    my ( $title, $scaling, undef, $atom, $natom, $selective, $type, undef ) = read_poscar('POSCAR');  
+
+    # since there is no lattice vectors info 
+    # get it from the OUTCAR 
+    my @lat = read_lattice('OUTCAR'); 
+
+    # similar to ISIF = 3 (VASP5)
+    return ( 3, $title, $scaling, \@lat, $atom, $natom, \@trajs );  
+}
 
 # read atomic coordinate blocks for each ionic step  
 # args 
-# -< slurped XDATCAR lines  
+# -< XDATCAR (VASP 5)
 # return
 # -> array of lattice, atom, natom, geometry
 sub read_traj5 { 
@@ -711,7 +738,6 @@ sub read_traj5 {
 
     # ISIF = 2 
     if ( $isif == 2 ) { 
-        print "=> ISIF = 2|4\n"; 
         my ( $cell, @trajs ) = split /Direct configuration=.*\d+\n/, slurp_file($file); 
 
         # header  
@@ -725,7 +751,6 @@ sub read_traj5 {
         return ( $isif, $title, $scaling, \@lat, \@atoms, \@natoms, \@trajs );  
     # ISIF = 3
     } else  { 
-        print "=> ISIF = 3\n"; 
         my ( undef, $initial_cell, @structure ) = split /$keyword\s*\n/, slurp_file($file); 
         
         # header from initial cell 
