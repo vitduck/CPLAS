@@ -3,26 +3,22 @@ package XYZ;
 use strict; 
 use warnings; 
 
-use Exporter   qw( import ); 
-use List::Util qw( sum ); 
-use constant ARRAY  => ref []; 
+use Exporter; 
+use IO::File; 
 
-use Math       qw( dot_product mat_mul inverse ); 
-use Periodic; 
+use Math::Linalg qw/sum product ascale mat_mul inverse print_array print_mat/;  
+use Periodic qw/atomic_number/;  
+use Util qw/read_file/; 
 
-# symbol 
-our @geometry  = qw( cart_to_direct direct_to_cart set_pbc atom_distance ); 
-our @xyz       = qw( read_xyz print_xyz ); 
-our @visualize = qw( xmakemol ); 
-our @print     = qw( print_comment print_coordinate ); 
+our @geometry  = qw/cart_to_direct direct_to_cart set_pbc atom_distance/; 
+our @xyz       = qw/info_xyz read_xyz print_xyz/; 
+our @visualize = qw/xmakemol/; 
 
-# default import 
-our @EXPORT = ( @geometry, @xyz, @print, @visualize ); 
-
-# tag import 
+our @ISA         = qw/Exporter/; 
+our @EXPORT      = ( );  
+our @EXPORT_OK   = ( @geometry, @xyz, @visualize ); 
 our %EXPORT_TAGS = (
     geometry  => \@geometry, 
-    print     => \@print, 
     visualize => \@visualize, 
 ); 
 
@@ -32,29 +28,21 @@ our %EXPORT_TAGS = (
 
 # convert cartesian to direct coordinate 
 # args 
-# -< scaling constant 
 # -< ref to 2d array of lattice vectors 
 # -< ref to 2d array of direct coordinates 
-# -< coordinate type; 
 # return
 # -> direct coordinates   
 sub cart_to_direct { 
-    my ($scaling, $lat, $geometry, $type) = @_; 
+    my ( $lat, $cart ) = @_; 
     
-    if ( $type =~ /^\s*c/i ) {  
-        # strip the selective dynamics tag 
-        @$geometry = map [splice @$_, 0, 3], @$geometry;  
-        # scale the coordinate 
-        $geometry = mat_mul($scaling, $geometry); 
-        # direct = cart x lat-1
-        $geometry = mat_mul($geometry, inverse($lat)); 
-        # undo any centering 
-        #for my $atom (@$geometry) { 
-            #map { $atom->[$_] += 1.0 if $atom->[$_] < 0 } 0..2; 
-        #}
-    }
+    # remove selective dynamics tags and count
+    map { splice @$_, 3, 4 } @$cart; 
+
+    # direct = cart x lat-1
+    my @inverse_lat = inverse(@$lat); 
+    my @direct = mat_mul($cart, \@inverse_lat);  
     
-    return $geometry;  
+    return @direct; 
 }
 
 # convert POSCAR/CONTCAR/XDATCAR to xyz 
@@ -64,31 +52,26 @@ sub cart_to_direct {
 # -< ref to 2d array of lattive vectors 
 # -< ref to 1d array of expanded atomic labels 
 # -< ref to 2d array of atomic coordinates
-# -< ref to coordinate shifting array
-# -< ref to expansion array x,y,z
+# -< nx, ny, nz expansion
 # return 
 # -> null 
 sub direct_to_cart { 
-    my ($fh, $scaling, $lat, $label, $coor, $dxyz, $nx, $ny, $nz) = @_; 
-    my ($x, $y, $z, @xyz);  
+    my ( $fh, $scaling, $lat, $label, $coor, $nx, $ny, $nz ) = @_; 
+    my ( $x, $y, $z ); 
 
     # atom index 
     my $index = 0; 
-    #set_pbc($coor, $dxyz); 
 
     for my $atom ( @$coor ) { 
-        # coordinate shift, careful with reference
-        my @atoms = @$atom; 
-        map { $atoms[$_] -= 1.0 if $atoms[$_] > $dxyz->[$_] } 0..2; 
         # expand the supercell
-        for my $iz (@$nz) { 
-            for my $iy (@$ny) { 
-                for my $ix (@$nx) { 
-                    # convert to cartesian
-                    $x = $lat->[0][0]*($atoms[0]+$ix)+$lat->[1][0]*($atoms[1]+$iy)+$lat->[2][0]*($atoms[2]+$iz); 
-                    $y = $lat->[0][1]*($atoms[0]+$ix)+$lat->[1][1]*($atoms[1]+$iy)+$lat->[2][1]*($atoms[2]+$iz); 
-                    $z = $lat->[0][2]*($atoms[0]+$ix)+$lat->[1][2]*($atoms[1]+$iy)+$lat->[2][2]*($atoms[2]+$iz); 
-                    print_coordinate($fh, $label->[$index++], $x, $y, $z); 
+        for my $iz (0..$nz-1) { 
+            for my $iy (0..$ny-1) { 
+                for my $ix (0..$nx-1) { 
+                    # hard coded convert to cartesian
+                    $x = $lat->[0][0]*($atom->[0]+$ix)+$lat->[1][0]*($atom->[1]+$iy)+$lat->[2][0]*($atom->[2]+$iz); 
+                    $y = $lat->[0][1]*($atom->[0]+$ix)+$lat->[1][1]*($atom->[1]+$iy)+$lat->[2][1]*($atom->[2]+$iz); 
+                    $z = $lat->[0][2]*($atom->[0]+$ix)+$lat->[1][2]*($atom->[1]+$iy)+$lat->[2][2]*($atom->[2]+$iz); 
+                    print_array($fh, '%-3s3%10.3f', $label->[$index++], $x, $y, $z); 
                 }
             }
         }
@@ -105,10 +88,12 @@ sub direct_to_cart {
 # return 
 # -> null
 sub set_pbc { 
-    my ($geometry, $dxyz) = @_; 
+    my ($geometry, $dx, $dy, $dz) = @_; 
 
     for my $atom ( @$geometry ) { 
-        map { $atom->[$_] -= 1.0 if $atom->[$_] > $dxyz->[$_] } 0..2; 
+        if ( $atom->[0] > $dx ) { $atom->[0] -= 1.0 } 
+        if ( $atom->[1] > $dy ) { $atom->[1] -= 1.0 } 
+        if ( $atom->[2] > $dz ) { $atom->[2] -= 1.0 } 
     }
 
     return; 
@@ -120,8 +105,9 @@ sub set_pbc {
 # return
 # -> distance 
 sub atom_distance { 
-    my ($xyz1, $xyz2) = @_; 
-    my $d12 = sqrt(($xyz1->[1]-$xyz2->[1])**2 + ($xyz1->[2]-$xyz2->[2])**2 + ($xyz1->[3]-$xyz2->[3])**2); 
+    my ($atm1, $atm2) = @_; 
+
+    my $d12 = sqrt(($atm1->[1]-$atm2->[1])**2 + ($atm1->[2]-$atm2->[2])**2 + ($atm1->[3]-$atm2->[3])**2); 
 
     return $d12; 
 }
@@ -129,41 +115,58 @@ sub atom_distance {
 #-----#
 # XYZ # 
 #-----#
+# xyz information 
+# args 
+# -< ref to array of atom 
+# -< ref to array of natom 
+# -< nx, ny, nz 
+# return 
+# -> total number of atom 
+# -> xyz label
+sub info_xyz { 
+    my ( $atom, $natom, $nx, $ny, $nz ) = @_; 
+
+    my @snatom = ascale(product($nx, $ny, $nz), @$natom); 
+    my $ntotal = sum(@snatom); 
+    my @label  = map { ( $atom->[$_] ) x $snatom[$_] } 0..$#$atom; 
+
+    return ($ntotal, @label); 
+
+} 
 
 # read xyz coordinates 
 # args 
-# -< ref of xyz lines 
+# -< file
 # return 
-# -> total number of atom 
 # -> xyz comment 
 # -> ref of array of atom 
 # -> ref of array of natom 
 # -> ref of 2d array of coordinate 
 sub read_xyz { 
-    my ($line)  = @_; 
+    my ( $file )  = @_; 
+
+    my @lines = read_file($file); 
 
     my %struct; 
-    my $ntotal  = shift @$line; 
-    my $comment = shift @$line || ''; 
+    my $ntotal  = shift @lines; 
+    my $comment = shift @lines || ''; 
 
-    for ( @$line ) { 
-        my ($element, $x, $y, $z) = split; 
-        # initialize coordinate array of element  
-        unless ( exists $struct{$element} ) {   
-            $struct{$element} = [] 
-        }
+    for ( @lines ) { 
+        my ( $element, $x, $y, $z ) = split; 
         push @{$struct{$element}}, [ $x, $y, $z ]; 
     }
 
-    my $atom     = [ sort { $Periodic::table{$a}[0] <=> $Periodic::table{$b}[0] } keys %struct ]; 
-    my $natom    = [ map { scalar @{$struct{$_}} } @$atom ];  
-    my $geometry = [ map { @{$struct{$_}} } @$atom ]; 
+    # sort element based on atomic number 
+    my @atoms    = sort { atomic_number($a) <=> atomic_number($b) } keys %struct;  
+    my @natoms   = map scalar(@{$struct{$_}}), @atoms;  
+    my @geometry = map @{$struct{$_}}, @atoms; 
     
-    return ($comment, $atom, $natom, $geometry); 
+    return ( $comment, \@atoms, \@natoms, \@geometry ); 
 }
 
 # print xyz coordinates 
 # args 
+# -< output file
 # -< total number of atom 
 # -< xyz comment 
 # -< ref of array of atom 
@@ -172,52 +175,21 @@ sub read_xyz {
 # returns 
 # -> null 
 sub print_xyz { 
-    my ($fh, $comment, $atom, $natom, $geometry) = @_;  
+    my ( $file, $comment, $atom, $natom, $geometry ) = @_;  
+
+    my $fh = IO::File->new($file, 'w') or die "Cannot write to $file\n"; 
 
     # xyz label 
     my @labels = map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom;  
-    
+       
     # print header 
     printf $fh "%d\n", sum(@$natom); 
     printf $fh "%s\n", $comment; 
+
     # print coordinate 
     for  ( 0..$#labels ) { 
-        print_coordinate($fh, $labels[$_], @{$geometry->[$_]}); 
+        print_array($fh, '%-3s3%10.3f', $labels[$_], @{$geometry->[$_]}); 
     }
-
-    return; 
-}
-
-
-#-------#
-# PRINT #
-#-------#
-
-# print useful information into comment section of xyz file 
-# args 
-# -< file handler 
-# -< comment format
-# -< total number of atom 
-# -< commnent 
-# return 
-# -> null
-sub print_comment { 
-    my ($fh, $format, $ntotal, @info) = @_; 
-    printf $fh $format, $ntotal, @info;  
-
-    return ; 
-}
-
-# print atomic coordinate block
-# args 
-# -< filehandler 
-# -< atomic label 
-# -< x, y, and z 
-# return : 
-# -> null
-sub print_coordinate { 
-    my ($fh, $label, $x, $y, $z) = @_; 
-    printf $fh "%-2s  %7.3f  %7.3f  %7.3f\n", $label, $x, $y, $z; 
 
     return; 
 }
@@ -229,12 +201,14 @@ sub print_coordinate {
 # visualize xyz file 
 # args 
 # -< xyz file 
-# -< quiet mode ? 
+# -< quiet mode (0|1)
 # return : 
 # -> null
 sub xmakemol { 
-    my $file  = shift @_; 
-    my $quiet = shift @_ || 0; 
+    my ( $file, $quiet )  = @_; 
+
+    $quiet = defined $quiet ? $quiet : 0; 
+
     unless ( $quiet ) { 
         print "=> xmakemol $file ...\n"; 
         my $bgcolor = $ENV{XMAKEMOL_BG} || '#D3D3D3'; 

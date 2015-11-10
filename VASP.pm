@@ -9,7 +9,7 @@ use File::Spec::Functions;
 use IO::File; 
 use Storable qw/store retrieve/; 
 
-use Math::Linalg qw/max sum length print_array print_mat mat_mul/;
+use Math::Linalg qw/max sum length print_array mscale print_mat/;
 use Periodic qw/element_name/;  
 use Util qw/read_file slurp_file paragraph_file extract_file/; 
 
@@ -149,14 +149,17 @@ sub read_doscar {
     
     # min, max, nedos, fermi, spin ? 
     my ( $max, $min, $nedos, $fermi, $colinear ) = split ' ', $doscar_6th; 
-    
-    # ISPIN = 1: 3 columns 
-    # ISPIN = 2: 5 columns 
+   
+    # DOS info 
     printf "NEDOS   = %d\n", $nedos; 
     printf "E_min   = %.3f eV\n", $min; 
     printf "E_max   = %.3f eV\n", $max; 
     printf "E_fermi = %.3f eV\n", $fermi; 
-    printf "ISPIN   = %d\n", (scalar(split ' ', $doscar_7th)) == 3 ? 1 : 2; 
+
+    # ISPIN = 1: 3 columns 
+    # ISPIN = 2: 5 columns 
+    my @columns = split ' ', $doscar_7th; 
+    printf "ISPIN   = %d\n", ( @columns == 3 ? 1 : 2 ); 
    
     # dos array 
     # ldos[0]: total DOS  
@@ -194,10 +197,8 @@ sub sum_dos {
     my ( $sum_file, @files ) = @_; 
 
     # format depends on number of column in LDOS-*
-    my $format = 
-    ( split ' ', extract_file($files[0],1) ) == 10 ? 
-    '%11.3f,9%12.4E' : 
-    '%11.3f,18%12.4E';  
+    my @columns = split ' ', extract_file($files[0],1);  
+    my $format = @columns == 10 ? '%11.3f,9%12.4E' : '%11.3f,18%12.4E';  
 
     # hash of array ref ( energy => [s p d] )
     my %sum_dos; 
@@ -349,11 +350,14 @@ sub read_poscar {
     if ( @atom < @natom ) { die "VASP4: Mismatch between $file and POTCAR\n" }
     @atom = splice @atom, 0, scalar(@natom); 
 
-    # convert lattice block to 2d array 
+    # convert lattice block to 2d array with scaling 
     @lat = map [ (split) ], @lat; 
+    @lat = mscale($scaling, @lat); 
 
     # convert geometry block to 2d array 
     @geometry = map [ (split) ], ( splice @geometry, 0, sum(@natom) );  
+    # if cartesian, apply scaling constant
+    if ( $type =~ /^\s*c/i ) { @geometry = mscale($scaling, @geometry) } 
 
     return ( $title, $scaling, \@lat, \@atom, \@natom, $selective, $type, \@geometry ); 
 }

@@ -87,7 +87,7 @@ sub paragraph_file {
     my ( $file ) = @_; 
 
     my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
-    my @paragraph = do { local $/ = ''; <$fh> } ;  
+    chomp ( my @paragraph = do { local $/ = ''; <$fh> } ) ;  
     $fh->close; 
 
     return @paragraph;  
@@ -103,6 +103,7 @@ sub extract_file {
   
     # treat file as perl array!  
     tie my @lines, 'Tie::File', $file or die "Cannot tie to $file\n"; 
+
     # array's index starts from 0
     my $extract = $lines[$nline-1]; 
     untie @lines; 
