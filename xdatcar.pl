@@ -5,15 +5,12 @@ use warnings;
 
 use Getopt::Long; 
 use IO::File; 
-use List::Util qw(sum);  
 use Pod::Usage; 
 
-use GenUtil qw( read_line ); 
-use Math    qw( elem_product dot_product );   
-use VASP    qw( read_cell read_traj save_traj );  
-use XYZ     qw( print_comment direct_to_cart xmakemol ); 
+use VASP qw/read_lattice read_traj5 save_traj/;  
+use XYZ  qw/info_xyz direct_to_cart set_pbc xmakemol/; 
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS/;
 
 # POD 
 =head1 NAME 
@@ -22,7 +19,7 @@ xdatcar.pl: convert XDATCAR to ion.xyz
 
 =head1 SYNOPSIS
 
-xdatcar.pl [-h] [-i] <POSCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-s] [-q] 
+xdatcar.pl [-h] [-i] <XDATCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-s] [-q] 
 
 =head1 OPTIONS
 
@@ -42,7 +39,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting 
 
 =item B<-x> 
 
@@ -64,28 +61,26 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 my $help   = 0; 
 my $quiet  = 0; 
 my $save   = 0; 
-my @nxyz   = (1,1,1); 
-my @dxyz   = (1.0,1.0,1.0); 
+my @nxyz   = ( ); 
+my @dxyz   = ( ); 
 
 # input & output
-my $xdatcar = 'XDATCAR'; 
-my $xyz     = 'ion.xyz'; 
+my $input  = 'XDATCAR'; 
+my $xyz    = 'ion.xyz'; 
 
 # parse optional arguments 
 GetOptions(
     'h'      => \$help, 
-    'i=s'    => \$xdatcar,
+    'i=s'    => \$input,
     'c'      => sub { 
         @dxyz = (0.5,0.5,0.5) 
     }, 
     'd=f{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @dxyz; 
         push @dxyz, $arg;  
     }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @nxyz; 
         push @nxyz, $arg; 
     }, 
     's'      => \$save, 
@@ -96,33 +91,46 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
 # XDATCAR lines
-my $line = read_line($xdatcar, 'slurp'); 
-my ($title, $scaling, $lat, $atom, $natom, $traj) = read_traj($line); 
+my ( $isif, $title, $scaling, $lat, $atom, $natom, $traj ) = read_traj5($input);  
 
 # supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
 
 # total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
+my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
 
 # save direct coordinate to hash for lookup
 my $count = 0;  
 my %traj  = (); 
 
+
 # write to xdatcar.xyz
 my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
+
 for ( @$traj ) { 
     $count++; 
-    my $geometry = [ map [ split  ], split /\n/ ]; 
+    # scalar -> 2d array 
+    my $geometry = [ map [ split ], split /\n/, $_ ];  
+
+    # hash of original geometry
     $traj{$count} = $geometry; 
-    print_comment($fh, "%d\n# Step: %d\n", $ntotal, $count); 
-    direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+    
+    # PBC
+    if ( @dxyz ) { set_pbc($geometry, @dxyz) } 
+
+    # print coordinate to ion.xyz
+    printf $fh "%d\n# Step: %d\n", $ntotal, $count;  
+    
+    # ISIF = 2|3 
+    if ( $isif == 2 ) {    
+        direct_to_cart($fh, $scaling, $lat, $label, $geometry, $nx, $ny, $nz); 
+    } else { 
+        my $ilat = shift @$lat; 
+        direct_to_cart($fh, $scaling, $ilat, $label, $geometry, $nx, $ny, $nz); 
+    }
 }
 
-## flush
 $fh->close; 
 
 # store trajectory
-$save ? save_traj(\%traj, 'traj.dat', $save) : xmakemol($xyz, $quiet); 
+$save ? save_traj('traj.dat', \%traj, $save) : xmakemol($xyz, $quiet); 

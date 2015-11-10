@@ -5,13 +5,10 @@ use warnings;
 
 use Getopt::Long; 
 use IO::File; 
-use List::Util qw( sum ); 
 use Pod::Usage; 
 
-use GenUtil qw( read_line print_table ); 
-use Math    qw( elem_product dot_product ); 
-use VASP    qw( read_cell read_md retrieve_traj ); 
-use XYZ     qw( print_comment direct_to_cart xmakemol); 
+use VASP qw/read_poscar read_md retrieve_traj/;  
+use XYZ  qw/info_xyz set_pbc direct_to_cart xmakemol/;  
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -46,7 +43,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting
 
 =item B<-x> 
 
@@ -70,8 +67,8 @@ my $quiet      = 0;
 my $profile    = 'profile.dat'; 
 my $trajectory = 'traj.dat'; 
 my $output     = 'movie.xyz'; 
-my @nxyz       = (1,1,1); 
-my @dxyz       = (1.0,1.0,1.0); 
+my @nxyz       = ( );  
+my @dxyz       = ( ); 
 my $period     = 100; 
  
 # parse optional arguments 
@@ -84,12 +81,10 @@ GetOptions(
     },  
     'd=f{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @dxyz; 
         push @dxyz, $arg;  
     }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @nxyz; 
         push @nxyz, $arg; 
     }, 
     'q' => \$quiet, 
@@ -99,23 +94,18 @@ GetOptions(
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
-
 # POSCAR/CONTCAR 
 my ($ref) = grep -e $_, qw( POSCAR CONTCAR ); 
 unless ( $ref ) { die "POSCAR/CONTCAR is required for cell parameters\n" } 
 
 # read POSCAR/CONTCAR 
-my $line = read_line($ref); 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
+my ( $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry ) = read_poscar($ref); 
 
 # supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
 
 # total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
-
+my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
 
 # ISTEP, T, F from profile.dat 
 my %md = read_md($profile); 
@@ -124,18 +114,22 @@ my %md = read_md($profile);
 my %traj = retrieve_traj($trajectory); 
 
 # extraction every $periodicity of ionic steps 
-my @snapshots = grep { $_ % $period == 1  } (sort {$a <=> $b} keys %traj); 
+my @snapshots = grep { $_ % $period == 1  } ( sort {$a <=> $b} keys %traj ); 
 
 print "=> Snapshot with period of $period ionic steps: $output\n"; 
 
 # movie.xyz
 my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
 
-print_table(\@snapshots); 
+for my $istep ( @snapshots ) { 
+    # PBC 
+    set_pbc($traj{$istep}, @dxyz); 
 
-for my $istep (@snapshots) { 
-    print_comment($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $istep, @{$md{$istep}}); 
-    direct_to_cart($fh, $scaling, $lat, $label, $traj{$istep}, \@dxyz, $nx, $ny, $nz); 
+    # total number of atom 
+    printf ($fh "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $istep, @{$md{$istep}}); 
+
+    # print coordinate
+    direct_to_cart($fh, $scaling, $lat, $label, $traj{$istep}, $nx, $ny, $nz); 
 }
 
 # flush

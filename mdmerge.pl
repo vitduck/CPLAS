@@ -7,9 +7,9 @@ use IO::File;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use VASP qw( read_md save_traj retrieve_traj ); 
+use VASP qw/read_md save_traj retrieve_traj/;  
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
 
 # POD 
 =head1 NAME 
@@ -113,5 +113,5 @@ if (@trajectories) {
         @total_traj{@keys} = values(%traj);
             }
     # store joined hash to output 
-    save_traj(\%total_traj, $output, 1); 
+    save_traj($output, \%total_traj, 1); 
 }

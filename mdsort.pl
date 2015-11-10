@@ -4,13 +4,10 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use List::Util qw( sum ); 
 use Pod::Usage; 
 
-use GenUtil qw( read_line print_table ); 
-use Math    qw( elem_product dot_product ); 
-use VASP    qw( read_cell read_md sort_md retrieve_traj ); 
-use XYZ     qw( print_comment direct_to_cart xmakemol ); 
+use VASP qw/read_poscar read_md retrieve_traj sort_md/; 
+use XYZ  qw/info_xyz set_pbc direct_to_cart xmakemol/;  
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
@@ -49,7 +46,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting
 
 =item B<-x> 
 
@@ -64,8 +61,8 @@ my $help       = 0;
 my $profile    = 'profile.dat'; 
 my $trajectory = 'traj.dat'; 
 my $period     = 1000; 
-my @nxyz       = (1,1,1); 
-my @dxyz       = (1.0,1.0,1.0); 
+my @nxyz       = ( );  
+my @dxyz       = ( ); 
 
 my $output1    = 'minima.xyz'; 
 my $output2    = 'maxima.xyz'; 
@@ -81,12 +78,10 @@ GetOptions(
     }, 
     'd=f{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @dxyz; 
         push @dxyz, $arg;  
     }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @nxyz; 
         push @nxyz, $arg-1; 
     }, 
     'n=i' => \$period, 
@@ -101,17 +96,13 @@ my ($ref) = grep -e $_, qw( POSCAR CONTCAR );
 unless ( $ref ) { die "POSCAR/CONTCAR is required for cell parameters\n" } 
 
 # read POSCAR/CONTCAR 
-my $line = read_line($ref); 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
+my ( $title, $scaling, $lat, $atom, $natom, $geometry ) = read_poscar($ref);  
 
 # supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
 
 # total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
-
+my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
 
 # ISTEP, T, F from profile.dat
 my %md = read_md($profile); 
@@ -123,21 +114,20 @@ my %traj = retrieve_traj($trajectory);
 my ($local_minima, $local_maxima) = sort_md(\%md, $period); 
 my @pes = sort { $a <=> $b } (@$local_minima, @$local_maxima); 
 
-# local minima/maxima
-print "=> Local minimum with period of $period steps:\n"; 
-print_table($local_minima); 
+## local minima/maxima
+#print "=> Local minimum with period of $period steps:\n"; 
+#print_table($local_minima); 
 
-print "\n"; 
+#print "\n"; 
 
-print "=> Local maxima with period of $period steps:\n"; 
-print_table($local_maxima); 
+#print "=> Local maxima with period of $period steps:\n"; 
+#print_table($local_maxima); 
 
 # weired situation ? 
 unless ( @$local_minima == @$local_maxima ) { die "Something weired is going on\n" }
 
 # remove minima, maxima files 
 unlink ($output1, $output2, $output3); 
-unlink < minimum-* >; 
 
 # minima.xyz, maxima.xyz
 my $fh1 = IO::File->new($output1, 'w') or die "Cannot write to $output1\n"; 
@@ -146,14 +136,17 @@ my $fh2 = IO::File->new($output2, 'w') or die "Cannot write to $output2\n";
 for my $index (0..$#$local_minima) { 
     my $minxyz = $traj{$local_minima->[$index]}; 
     my $maxxyz = $traj{$local_maxima->[$index]}; 
+
+    # PBC 
+    if ( @dxyz ) { set_pbc($minxyz, @dxyz) && set_pbc($maxxyz, @dxyz) } 
     
-    # print coordinate to minima.xyz
-    print_comment($fh1, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_minima->[$index], @{$md{$local_minima->[$index]}}); 
-    direct_to_cart($fh1, $scaling, $lat, $label, $minxyz, \@dxyz, $nx, $ny, $nz); 
-    
-    # print coordinate to maxima.xyz
-    print_comment($fh2, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_maxima->[$index], @{$md{$local_maxima->[$index]}}); 
-    direct_to_cart($fh2, $scaling, $lat, $label, $maxxyz, \@dxyz, $nx, $ny, $nz); 
+    # MD info
+    printf $fh1 "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_minima->[$index], @{$md{$local_minima->[$index]}};  
+    printf $fh2 "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $local_maxima->[$index], @{$md{$local_maxima->[$index]}};  
+   
+    # print coordinate
+    direct_to_cart($fh1, $scaling, $lat, $label, $minxyz, $nx, $ny, $nz); 
+    direct_to_cart($fh2, $scaling, $lat, $label, $maxxyz, $nx, $ny, $nz); 
 }
 
 # flush
@@ -164,8 +157,15 @@ $fh2->close;
 my $fh3 = IO::File->new($output3, 'w') or die "Cannot write to $output3\n"; 
 for my $index ( @pes ) { 
     my $geometry = $traj{$index}; 
-    print_comment($fh3, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $index, @{$md{$index}}); 
-    direct_to_cart($fh3, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+
+    # PBC 
+    if ( @dxyz ) { set_pbc($geometry, @dxyz) } 
+
+    # MD info 
+    printf $fh3 "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $index, @{$md{$index}}; 
+
+    # print_coordinate
+    direct_to_cart($fh3, $scaling, $lat, $label, $geometry, $nx, $ny, $nz); 
 }
 
 # flush

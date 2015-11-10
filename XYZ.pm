@@ -130,8 +130,7 @@ sub info_xyz {
     my $ntotal = sum(@snatom); 
     my @label  = map { ( $atom->[$_] ) x $snatom[$_] } 0..$#$atom; 
 
-    return ($ntotal, @label); 
-
+    return ($ntotal, \@label); 
 } 
 
 # read xyz coordinates 

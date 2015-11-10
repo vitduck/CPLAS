@@ -6,9 +6,9 @@ use warnings;
 use Getopt::Long;  
 use Pod::Usage; 
 
-use VASP qw( read_md average_md ); 
+use VASP qw/read_md average_md/; 
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS/; 
 
 # POD 
 =head1 NAME 
@@ -59,4 +59,4 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 my %md = read_md($profile); 
 
 # moving average 
-average_md(\%md, $period, $output); 
+average_md($output,\%md, $period);  

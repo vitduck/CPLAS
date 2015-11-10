@@ -3,25 +3,23 @@
 use strict; 
 use warnings; 
 
+use Data::Dumper; 
 use Getopt::Long; 
 use IO::File; 
-use List::Util qw(sum);  
 use Pod::Usage; 
 
-use GenUtil qw ( read_line ); 
-use Math    qw ( elem_product dot_product);   
-use VASP    qw ( read_cell read_geometry ); 
-use XYZ     qw ( direct_to_cart print_comment xmakemol );
+use VASP qw/read_poscar/;  
+use XYZ  qw/info_xyz cart_to_direct direct_to_cart set_pbc xmakemol/; 
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
 
 # POD 
 =head1 NAME 
-contcar.pl: convert POSCAR to poscar.xyz
+contcar.pl: convert CONTCAR to contcar.xyz
 
 =head1 SYNOPSIS
 
-contcar.pl [-h] [-i] <POSCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-q] 
+contcar.pl [-h] [-i] <CONTCAR> [-c] [-d dx dy dz] [-x nx ny nz] [-q] 
 
 =head1 OPTIONS
 
@@ -33,7 +31,7 @@ Print the help message and exit.
 
 =item B<-i> 
 
-input file (default: POSCAR)
+input file (default: CONTCAR)
 
 =item B<-c> 
 
@@ -41,7 +39,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting 
 
 =item B<-x> 
 
@@ -58,8 +56,9 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 # default optional arguments
 my $help   = 0; 
 my $quiet  = 0; 
-my @nxyz   = (1,1,1); 
-my @dxyz   = (1.0,1.0,1.0); 
+
+my @nxyz   = ( );  
+my @dxyz   = ( );  
 
 # input & output
 my $input  = 'CONTCAR'; 
@@ -74,12 +73,10 @@ GetOptions(
     },  
     'd=f{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @dxyz; 
         push @dxyz, $arg;  
     }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @nxyz; 
         push @nxyz, $arg; 
     }, 
     'q'      => \$quiet, 
@@ -89,22 +86,29 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # read CONTCAR
-my $line = read_line($input); 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
-my $geometry = read_geometry($line); 
+my ( $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry ) = read_poscar($input); 
 
 # supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
 
 # total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
+my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
 
-# write contcar.xyz
+#write poscar.xyz
 my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
-print_comment($fh, "%d\n%s\n", $ntotal, ''); 
-direct_to_cart($fh, $scaling, $lat, $label, $geometry, \@dxyz, $nx, $ny, $nz); 
+
+# total number of atom 
+printf $fh "%d\n\n", $ntotal; 
+
+# convert to direct coordinate + pbc shift
+my @direct = ( $type =~ /^\s*c/i ) ? cart_to_direct($lat, $geometry) : @$geometry;  
+
+# PBC
+if ( @dxyz ) { set_pbc(\@direct, @dxyz) } 
+
+# print coordinate to contcar.xyz
+direct_to_cart($fh, $scaling, $lat, $label, \@direct, $nx, $ny, $nz); 
+
 $fh->close; 
 
 # xmakemol

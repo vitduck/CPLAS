@@ -8,12 +8,10 @@ use IO::File;
 use List::Util qw( sum );  
 use Pod::Usage; 
 
-use GenUtil qw( read_line ); 
-use Math    qw ( elem_product dot_product);   
-use VASP    qw( read_cell read_geometry read_md retrieve_traj print_poscar ); 
-use XYZ     qw( print_comment direct_to_cart xmakemol); 
+use VASP qw/read_md read_poscar retrieve_traj print_poscar/; 
+use XYZ  qw/info_xyz set_pbc direct_to_cart xmakemol/;  
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS/;   
 
 # POD 
 =head1 NAME 
@@ -46,7 +44,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting
 
 =item B<-x> 
 
@@ -63,8 +61,8 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 # default optional arguments 
 my $help       = 0; 
 my $quiet      = 0; 
-my @nxyz       = (1,1,1); 
-my @dxyz       = (1.0,1.0,1.0); 
+my @nxyz       = ( ); 
+my @dxyz       = ( ); 
 my $profile    = 'profile.dat'; 
 my $trajectory = 'traj.dat'; 
 
@@ -78,16 +76,15 @@ GetOptions(
     },  
     'd=f{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @dxyz; 
         push @dxyz, $arg;  
     }, 
     'x=i{3}' => sub { 
         my ($opt, $arg) = @_; 
-        shift @nxyz; 
         push @nxyz, $arg; 
     }, 
     'q' => \$quiet, 
 ) or pod2usage(-verbose => 1); 
+
 
 # help message
 if ( $help or @ARGV == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }
@@ -110,29 +107,31 @@ unless ( exists $md{$config} )   { die "=> #$config does not exist in MD profile
 unless ( exists $traj{$config} ) { die "=> #$config does not exist in MD trajectory\n" } 
 
 # read POSCAR/CONTCAR 
-my $line = read_line($ref); 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
+my ( $title, $scaling, $lat, $atom, $natom, $geometry ) = read_poscar($ref);  
 
 # write POSCAR.#config 
-my $fh = IO::File->new("POSCAR.#$config", 'w') or die "Cannot write to POSCAR.#$config\n";  
-print_poscar($fh, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $traj{$config}); 
-$fh->close; 
+print_poscar("POSCAR.#$config", $title, $scaling, $lat, $atom, $natom, 1, 'Direct', $traj{$config}); 
 
 # supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
 
 # total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
+my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
 
 print "=> Extracting #$config\n";  
     
 # write xyz file  
 my $output = "$config.xyz"; 
-$fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
-print_comment($fh, "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}); 
-direct_to_cart($fh, $scaling, $lat, $label, $traj{$config}, \@dxyz, $nx, $ny, $nz); 
+my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+
+# MD info
+printf $fh "%d\n#%d:  T= %.1f  F= %-10.5f\n", $ntotal, $config, @{$md{$config}}; 
+
+# PBC 
+if ( @dxyz ) { set_pbc($traj{$config}, @dxyz) } 
+
+direct_to_cart($fh, $scaling, $lat, $label, $traj{$config}, $nx, $ny, $nz); 
+
 $fh->close; 
 
 # xmakemol

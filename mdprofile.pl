@@ -6,10 +6,9 @@ use warnings;
 use Getopt::Long;  
 use Pod::Usage; 
 
-use GenUtil qw( read_line ); 
-use VASP    qw( read_profile write_md save_traj retrieve_traj ); 
+use VASP qw/read_profile print_profile save_traj retrieve_traj/;  
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS NOTE ); 
+my @usages = qw/NAME SYSNOPSIS OPTIONS NOTE/; 
 
 # POD 
 =head1 NAME 
@@ -53,7 +52,7 @@ my $profile    = 'profile.dat';
 my %traj = retrieve_traj($trajectory);  
 
 # profile
-my %md   = read_profile(read_line('OSZICAR')); 
+my %md   = read_profile('OSZICAR'); 
 
 # synchronization two hashses 
 my $ntraj = keys %traj; 
@@ -72,10 +71,10 @@ if ( $ntraj > $nmd  ) {
 # store trajectory to disk 
 unless ( $ntraj == $nmd ) { 
     print "=> Mismatch between XDATCAR and OSZICAR\n\n"; 
-    save_traj(\%traj, $trajectory, 1); 
+    save_traj($trajectory, \%traj, 1); 
     print "\n"; 
 }
 
 # profile.dat
 print "=> Potential profile is written to $profile\n"; 
-write_md(\%md, $profile); 
+print_profile($profile, \%md);  

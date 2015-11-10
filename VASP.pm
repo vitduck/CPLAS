@@ -285,7 +285,7 @@ sub read_kpoints {
         @kpoints = map { [(split)[0,1,2]] } @kblock; 
     }
 
-    return ( $nkpoint, $mode, @kpoints ); 
+    return ( $nkpoint, $mode, \@kpoints ); 
 }
 
 #--------#
@@ -711,25 +711,27 @@ sub read_traj5 {
 
     # ISIF = 2 
     if ( $isif == 2 ) { 
+        print "=> ISIF = 2|4\n"; 
         my ( $cell, @trajs ) = split /Direct configuration=.*\d+\n/, slurp_file($file); 
 
         # header  
         my ( $title, $scaling, $latx, $laty, $latz, $atom, $natom ) = split /\n/, $cell;  
 
         # cell info 
-        my @lat   = map { [split] } ( $latx, $laty, $latz ); 
-        my @atom  = split ' ', $atom; 
-        my @natom = split ' ', $natom; 
+        my @lat    = map { [split] } ( $latx, $laty, $latz ); 
+        my @atoms  = split ' ', $atom; 
+        my @natoms = split ' ', $natom; 
         
-        return ( $isif, $title, $scaling, \@lat, $atom, $natom, \@trajs );  
+        return ( $isif, $title, $scaling, \@lat, \@atoms, \@natoms, \@trajs );  
     # ISIF = 3
     } else  { 
+        print "=> ISIF = 3\n"; 
         my ( undef, $initial_cell, @structure ) = split /$keyword\s*\n/, slurp_file($file); 
         
         # header from initial cell 
         my ( $scaling, undef, undef, undef, $atom, $natom ) = split /\n/, $initial_cell;  
-        my @atom  = split ' ', $atom; 
-        my @natom = split ' ', $natom; 
+        my @atoms  = split ' ', $atom; 
+        my @natoms = split ' ', $natom; 
 
         # (lattice + geometry)
         my ( @lats, @trajs ); 
@@ -742,7 +744,7 @@ sub read_traj5 {
             push @trajs, $geometry; 
         }
 
-        return ( $isif, $keyword, $scaling, \@lats, $atom, $natom, \@trajs );  
+        return ( $isif, $keyword, $scaling, \@lats, \@atoms, \@natoms, \@trajs );  
     }
 
     return; 
@@ -755,7 +757,7 @@ sub read_traj5 {
 # return: 
 # -> null
 sub save_traj { 
-    my ( $traj, $output, $save ) = @_; 
+    my ( $output, $traj, $save ) = @_; 
 
     if ( $save ) { 
         print  "=> Save trajectory as '$output'\n"; 
@@ -771,7 +773,7 @@ sub save_traj {
 # -< stored data 
 # return 
 # -> traj hash 
-sub retrieve_taj { 
+sub retrieve_traj { 
     my ( $stored_traj ) = @_; 
 
     # trajectory is required 
