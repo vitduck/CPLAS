@@ -18,7 +18,7 @@ wtf.pl: what the (Hellmann-Feynman) forces (VASP 5)
 
 =head1 SYNOPSIS
 
-vforce.pl [-h] [-s]
+wtf.pl [-h] [-s]
 
 =head1 OPTIONS
 
@@ -32,6 +32,10 @@ Print the help message and exit.
 
 Number of column in force table 
 
+=item B<-i>
+
+Input file (default: OUTCAR) 
+
 =back 
 
 =cut
@@ -39,17 +43,19 @@ Number of column in force table
 # default optional arguments 
 my $help = 0; 
 my $ncol = 5; 
+my $input = 'OUTCAR'; 
 
 GetOptions(
     'h'   => \$help, 
     'n=i' => \$ncol,
+    'i=s' => \$input,
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ($help) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # collect forces 
-my @forces = read_force('OUTCAR');
+my @forces = read_force($input);
 
 # table format
 my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol; 
