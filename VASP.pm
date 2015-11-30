@@ -16,20 +16,22 @@ use Util qw/read_file slurp_file paragraph_file extract_file/;
 our @aimd     = qw/read_md sort_md average_md print_extrema/; 
 our @doscar   = qw/read_doscar print_dos sum_dos/; 
 our @eigenval = qw/read_band/;  
+our @incar    = qw/read_init_magmom/; 
 our @kpoints  = qw/read_kpoints/; 
 our @poscar   = qw/read_poscar print_poscar/;
 our @potcar   = qw/read_potcar print_potcar make_potcar/; 
 our @oszicar  = qw/read_profile print_profile/; 
-our @outcar   = qw/read_lattice read_force read_phonon_eigen/; 
+our @outcar   = qw/read_lattice read_final_magmom read_force read_phonon_eigen/; 
 our @xdatcar  = qw/read_traj4 read_traj5 save_traj retrieve_traj/; 
 
 our @ISA         = qw/Exporter/; 
 our @EXPORT      = ( );  
-our @EXPORT_OK   = ( @aimd, @doscar, @eigenval, @kpoints, @poscar, @potcar, @oszicar, @outcar, @xdatcar ); 
+our @EXPORT_OK   = ( @aimd, @doscar, @eigenval, @incar, @kpoints, @poscar, @potcar, @oszicar, @outcar, @xdatcar ); 
 our %EXPORT_TAGS = ( 
     aimd     => \@aimd, 
     doscar   => \@doscar, 
     eigenval => \@eigenval, 
+    incar    => \@incar, 
     kpoints  => \@kpoints, 
     poscar   => \@poscar, 
     potcar   => \@potcar, 
@@ -258,6 +260,36 @@ sub read_band {
     return %eigen; 
 }
 
+#-------# 
+# INCAR #
+#-------# 
+sub read_init_magmom { 
+    my ( $file ) = @_; 
+
+    my @magmom = (); 
+
+    $file = defined $file ? $file : 'INCAR'; 
+    for ( read_file($file) ) { 
+        # skip comment 
+        if ( /^.*#/ ) { next } 
+        # magmom tag 
+        if ( /MAGMOM/ ) { 
+            my ( $tag, $moment ) = split /=/; 
+            # expand the magmom array 
+            for ( split ' ', $moment ) { 
+                # with repetition
+                if ( /(\d+)\*(.*)/ ) { 
+                    push @magmom, ($2)x$1; 
+                } else { 
+                    push @magmom, $_; 
+                }
+            }
+        }
+    }
+
+    return @magmom; 
+}
+
 #---------# 
 # KPOINTS #
 #---------# 
@@ -344,18 +376,22 @@ sub read_poscar {
     # total number of atom
     my @natom = split ' ', $natom; 
 
-    # VASP4 
+    # VASP4 sanity check
     if ( @atom < @natom ) { die "VASP4: Mismatch between $file and POTCAR\n" }
+
+    # in case @atom > @natom, trim down the array 
     @atom = splice @atom, 0, scalar(@natom); 
 
-    # convert lattice block to 2d array with scaling 
+    # convert lattice block to 2d array with scaling constant
     @lat = map [ (split) ], @lat; 
     @lat = mscale($scaling, @lat); 
-
+    
     # convert geometry block to 2d array 
     @geometry = map [ (split) ], ( splice @geometry, 0, sum(@natom) );  
-    # if cartesian, apply scaling constant
-    if ( $type =~ /^\s*c/i ) { @geometry = mscale($scaling, @geometry) } 
+
+    # if cartesian is used, apply scaling constant
+    # cant use mscale here because of 'dynamic tag'
+    if ( $type =~ /^\s*c/i ) {  map { map { $_ *= $scaling } @$_[0..2] } @geometry } 
 
     return ( $title, $scaling, \@lat, \@atom, \@natom, $selective, $type, \@geometry ); 
 }
@@ -595,13 +631,48 @@ sub read_lattice {
     return @lattices; 
 }
 
+sub read_final_magmom { 
+    my ( $file ) = @_; 
+    
+    $file = defined $file ? $file : 'OUTCAR'; 
+
+    my ( $nion, @magnetization ); 
+
+    my $slurp_line = slurp_file($file); 
+
+    # spin polarization 
+    unless ( $slurp_line =~ /ISPIN\s*=\s*2/ ) { return } 
+
+    # number of ion (NIONS)
+    if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
+
+    # filehandler to scalar ref 
+    my $fh = IO::File->new(\$slurp_line, 'r'); 
+
+    while ( <$fh> ) { 
+        if ( /magnetization \(x\)/ ) { 
+            my ( $line, @step_mag ); 
+            # skip 3 lines 
+            for (1..3) { $line = <$fh> }
+            for my $ion ( 0..$nion-1 ) { 
+                my $line = <$fh>; 
+                my $tot_mag = (split ' ', $line)[-1]; 
+                push @step_mag, $tot_mag; 
+            }
+            push @magnetization, \@step_mag; 
+        }
+    }
+
+    return @magnetization; 
+}
+
 # read total forces of each ion step 
 # args 
 # -< OUTCAR 
 # return 
-# -> hash of max forces  
+# -> array of forces  
 sub read_force { 
-    my ( $file ) = @_; 
+    my ( $file, $frozen ) = @_; 
     
     $file = defined $file ? $file : 'OUTCAR'; 
 
@@ -613,7 +684,7 @@ sub read_force {
 
     # filehandler to scalar ref
     my $fh = IO::File->new(\$slurp_line, 'r'); 
-    
+
     # force header: TOTAL-FORCE
     while ( <$fh> ) { 
         if ( /TOTAL-FORCE/ ) { 
@@ -621,9 +692,12 @@ sub read_force {
             # skip '---' 
             my $line = <$fh>;  
             # move record NIONS ahead 
-            for (1..$nion) { 
+            for my $ion ( 0..$nion-1 ) { 
                 $line = <$fh>; 
                 my @fxyz =  (split ' ', $line)[3,4,5]; 
+                # skip frozen atoms 
+                if ( grep $ion eq $_, @$frozen ) { next }
+                # array of forces 
                 push @forces, sqrt($fxyz[0]**2+$fxyz[1]**2+$fxyz[2]**2);
             }
             # max forces 
@@ -671,8 +745,9 @@ sub read_phonon_eigen {
             for ( 1..3 ) { $line = <$fh> } 
 
             for my $dof ( 1..$ndof ) { 
+            #for my $dof ( 1..477 ) { 
                 # eigenvalue 
-                if ( ( $line = <$fh> ) =~ /\d+\s+f/ ) { $eigen{$dof}[0] = ( split ' ', $line )[-2] } 
+                if ( ( $line = <$fh> ) =~ /\d+\s*f  =/ ) { $eigen{$dof}[0] = ( split ' ', $line )[-2] } 
 
                 # skip 'X  Y  Z' header
                 $line = <$fh>; 
