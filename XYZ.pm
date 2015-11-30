@@ -10,7 +10,7 @@ use Math::Linalg qw/sum product ascale mat_mul inverse print_array print_mat/;
 use Periodic qw/atomic_number/;  
 use Util qw/read_file/; 
 
-our @geometry  = qw/cart_to_direct direct_to_cart set_pbc atom_distance/; 
+our @geometry  = qw/cart_to_direct direct_to_cart set_pbc atom_distance color_magmom/; 
 our @xyz       = qw/info_xyz read_xyz print_xyz/; 
 our @visualize = qw/xmakemol/; 
 
@@ -71,13 +71,41 @@ sub direct_to_cart {
                     $x = $lat->[0][0]*($atom->[0]+$ix)+$lat->[1][0]*($atom->[1]+$iy)+$lat->[2][0]*($atom->[2]+$iz); 
                     $y = $lat->[0][1]*($atom->[0]+$ix)+$lat->[1][1]*($atom->[1]+$iy)+$lat->[2][1]*($atom->[2]+$iz); 
                     $z = $lat->[0][2]*($atom->[0]+$ix)+$lat->[1][2]*($atom->[1]+$iy)+$lat->[2][2]*($atom->[2]+$iz); 
-                    print_array($fh, '%-3s3%10.3f', $label->[$index++], $x, $y, $z); 
+                    #print_array($fh, '%-3s3%10.3f', $label->[$index++], $x, $y, $z); 
+                    printf $fh "%-3s %10.3f %10.3f %10.3f\n", $label->[$index++], $x, $y, $z;  
                 }
             }
         }
         
     }
     
+    return; 
+}
+
+sub color_magmom { 
+    my ( $label, $magmom ) = @_;   
+
+    my %color = ( 
+        'zero' => 'Bh', 
+        'up'   => 'Hs', 
+        'down' => 'Mt'
+    ); 
+
+    my $cutoff = 0.5;  
+
+    for ( 0..$#$magmom ) { 
+        # small magmom -> white 
+        if ( abs($magmom->[$_] ) < $cutoff ) { 
+            $label->[$_] = $color{zero}; 
+        # spin-up
+        } elsif ( $magmom->[$_] > 0 ) { 
+            $label->[$_] = $color{up};  
+        # spin-down 
+        } else { 
+            $label->[$_] = $color{down}; 
+        }
+    }
+
     return; 
 }
 
@@ -130,7 +158,7 @@ sub info_xyz {
     my $ntotal = sum(@snatom); 
     my @label  = map { ( $atom->[$_] ) x $snatom[$_] } 0..$#$atom; 
 
-    return ($ntotal, \@label); 
+    return ($ntotal, \@label) 
 } 
 
 # read xyz coordinates 
