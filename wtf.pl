@@ -3,11 +3,12 @@
 use strict; 
 use warnings; 
 
+use Data::Dumper; 
 use Getopt::Long; 
 use Pod::Usage; 
 
 use Math::Linalg qw(length); 
-use VASP qw(read_force); 
+use VASP qw(read_poscar read_force); 
 
 my @usages = qw(NAME SYSNOPSIS OPTIONS); 
 
@@ -18,7 +19,7 @@ wtf.pl: what the (Hellmann-Feynman) forces (VASP 5)
 
 =head1 SYNOPSIS
 
-wtf.pl [-h] [-s]
+wtf.pl [-h] [-s] [-i OUTCAR] -p 
 
 =head1 OPTIONS
 
@@ -36,26 +37,38 @@ Number of column in force table
 
 Input file (default: OUTCAR) 
 
+=item B<-p>
+
+Plot the force 
+
 =back 
 
 =cut
 
 # default optional arguments 
-my $help = 0; 
-my $ncol = 5; 
+my $help  = 0; 
+my $ncol  = 5; 
 my $input = 'OUTCAR'; 
+my $plot  = 0;  
 
 GetOptions(
     'h'   => \$help, 
     'n=i' => \$ncol,
     'i=s' => \$input,
+    'p'   => \$plot,  
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ($help) { pod2usage(-verbose => 99, -section => \@usages) }
 
+# check selective tags in 
+my (undef, undef, undef, undef, undef, undef, undef, $geometry) = read_poscar(); 
+
+# frozen atom 
+my @frozen = grep { ( grep $_ =~ /F/, @{$geometry->[$_]} ) == 3 } 0..$#$geometry; 
+
 # collect forces 
-my @forces = read_force($input);
+my @forces = read_force($input, \@frozen);
 
 # table format
 my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol; 
