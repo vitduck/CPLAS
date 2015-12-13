@@ -6,10 +6,10 @@ use IO::File;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use Periodic qw/element_name/; 
-use VASP qw/read_potcar print_potcar make_potcar/;
+use Periodic qw( element_name );  
+use VASP qw( read_potcar print_potcar make_potcar );
 
-my @usages = qw/NAME SYSNOPSIS OPTIONS/; 
+my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
 # POD 
 =head1 NAME 
@@ -47,31 +47,32 @@ List of elements
 =cut 
 
 # location of PP 
-my $dir = $ENV{POTCAR}; 
+my $dir        = $ENV{POTCAR}; 
+my @potentials = qw/PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA/;  
 
 # default optional arguments 
 my $help       = 0; 
 my $list       = 0; 
 my $potential  = 'PAW_PBE'; 
-my @potentials = qw/PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA/;  
+my @elements   = ();  
 
 # default output 
 if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
 
 # location of VASP POTCAR
-if ( not defined $dir ) { 
+if ( ! defined $dir ) { 
     die "Please export location of POTCAR files in .bashrc\n
     For example: export POTCAR=/opt/VASP/POTCAR\n";
 }
 
-my @elements = ( );  
+my $potcar = 'POTCAR'; 
 
 # optional args
 GetOptions(
     'h' => \$help, 
     'l' => sub { 
-        my @pp = read_potcar();  
-        print_potcar(@pp); 
+        my %pp = read_potcar($potcar);  
+        print_potcar(\%pp); 
     },  
     't=s' => sub { 
         my ( $opt, $arg ) = @_; 
@@ -85,9 +86,10 @@ GetOptions(
     'e=s{1,}' => sub { 
         my ( $opt, $element ) = @_; 
         # available elements 
-        unless ( element_name($element) ) {  
+        if ( ! element_name($element) ) {  
             pod2usage(-verbose => 1, -message => "Invalid element: $element"); 
         }
+
         # populate @elements 
         push @elements, $element; 
     }
@@ -97,4 +99,4 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }; 
 
 # generate POTCAR 
-if ( @elements ) { make_potcar('POTCAR', $dir, $potential, @elements) }
+make_potcar($dir, $potential, \@elements => 'POTCAR'); 

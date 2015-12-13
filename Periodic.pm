@@ -5,12 +5,12 @@ use warnings;
 
 use Exporter; 
 
-our @info = qw/element_name atomic_number/; 
+our @subroutines = qw( element_name atomic_number atomic_symbol );  
 
-our @ISA         = qw/Exporter/;  
-our @EXPORT      = ( );  
-our @EXPORT_OK   = ( @info ); 
-our @EXPORT_TAGS = ( ); 
+our @ISA         = qw( Exporter );  
+our @EXPORT      = ();  
+our @EXPORT_OK   = ( @subroutines ); 
+our %EXPORT_TAGS = (); 
 
 our %table = (
     1 => ['H', 'Hydrogen'],
@@ -157,6 +157,19 @@ sub atomic_number {
     my ( $atomic_number ) = grep $element_name eq $table{$_}[0], keys %table; 
 
     return $atomic_number; 
+}
+
+# get the atomic symbol from element name 
+# args 
+# -< element name 
+# return 
+# -> atomic symbol
+sub atomic_symbol { 
+    my ( $element_name ) = @_; 
+
+    my ( $atomic_symbol ) = map $_->[0], grep $element_name eq $_->[1], values %table; 
+
+    return $atomic_symbol; 
 }
 
 # last evaluated expression 
