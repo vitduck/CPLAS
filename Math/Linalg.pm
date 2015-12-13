@@ -5,14 +5,14 @@ use warnings;
 
 use Exporter; 
 
-use Fortran qw/fortran2perl/; 
+use Fortran qw( fortran2perl );  
 
-our @array  = qw/length max min sum product ascale dot triple vstack hstack print_array/; 
-our @grid   = qw/mgrid/; 
-our @matrix = qw/mat_dim det mat_add mscale mat_mul transpose inverse print_mat/; 
+our @array  = qw( length max min sum product ascale dot triple vstack hstack print_array ); 
+our @grid   = qw( mgrid );  
+our @matrix = qw( mat_dim det mat_add mscale mat_mul transpose inverse print_mat ); 
 
 our @ISA         = qw/Exporter/; 
-our @EXPORT      = ( ); 
+our @EXPORT      = (); 
 our @EXPORT_OK   = ( @array, @grid, @matrix ); 
 our %EXPORT_TAGS = ( 
     array  => \@array, 
@@ -100,9 +100,9 @@ sub product {
 # return 
 # -< scaled array 
 sub ascale { 
-    my ( $scaling, @array ) = @_; 
+    my ( $scaling, $array ) = @_; 
     
-    return map $scaling*$_, @array; 
+    return map $scaling*$_, @$array; 
 } 
 
 # dot product
@@ -143,7 +143,7 @@ sub triple {
 # return 
 # -> stacked 2d matrix 
 sub vstack { 
-    my @vstack; 
+    my @vstack = ();  
     for (@_) { 
         push @vstack, $_; 
     }
@@ -172,10 +172,10 @@ sub hstack {
 # return 
 # -> null 
 sub print_array { 
-    my ( $fh, $format, @array ) = @_; 
+    my ( $fh, $format, $array ) = @_; 
 
     my $perl_format = fortran2perl($format); 
-    printf $fh "$perl_format\n", @array;  
+    printf $fh "$perl_format\n", @$array;  
 
     return;  
 }
@@ -235,17 +235,17 @@ sub mgrid {
 # return
 # -> array dimension of matrix
 sub mat_dim { 
-    my @mat = @_;  
+    my ( $mat ) = @_;  
     
-    if ( ref($mat[0]) eq 'ARRAY' ) {  
+    if ( ref($mat->[0]) eq 'ARRAY' ) {  
         my @shape; 
         # recursive call 
-        push @shape, (scalar @mat, mat_dim(@{$mat[0]})); 
+        push @shape, (scalar @$mat, mat_dim($mat->[0])); 
         return @shape; 
     } else { 
         # halting condition 
         # ref to 1d array is reached 
-        return scalar(@mat); 
+        return scalar(@$mat); 
     }
 }
 
@@ -255,14 +255,14 @@ sub mat_dim {
 # return
 # -> det of matrix 
 sub det { 
-    my @mat = @_ ; 
+    my ( $mat ) = @_ ; 
     
-    my $det =  $mat[0][0]*$mat[1][1]*$mat[2][2] + 
-               $mat[0][1]*$mat[1][2]*$mat[2][0] + 
-               $mat[0][2]*$mat[1][0]*$mat[2][1] -
-               $mat[0][2]*$mat[1][1]*$mat[2][0] - 
-               $mat[0][1]*$mat[1][0]*$mat[2][2] - 
-               $mat[0][0]*$mat[1][2]*$mat[2][1]; 
+    my $det =  $mat->[0][0]*$mat->[1][1]*$mat->[2][2] + 
+               $mat->[0][1]*$mat->[1][2]*$mat->[2][0] + 
+               $mat->[0][2]*$mat->[1][0]*$mat->[2][1] -
+               $mat->[0][2]*$mat->[1][1]*$mat->[2][0] - 
+               $mat->[0][1]*$mat->[1][0]*$mat->[2][2] - 
+               $mat->[0][0]*$mat->[1][2]*$mat->[2][1]; 
 
     return $det; 
 }
@@ -276,8 +276,8 @@ sub mat_add {
     my ( $mat1, $mat2 ) = @_; 
 
     my @mat_sum;  
-    my ( $mat1_nrow, $mat1_ncol ) = mat_dim(@$mat1);  
-    my ( $mat2_nrow, $mat2_ncol ) = mat_dim(@$mat2);  
+    my ( $mat1_nrow, $mat1_ncol ) = mat_dim($mat1);  
+    my ( $mat2_nrow, $mat2_ncol ) = mat_dim($mat2);  
 
     # compatability check
     if ( $mat1_nrow != $mat2_nrow ) { die "IndexError: incompatible dimension\n" }
@@ -299,14 +299,14 @@ sub mat_add {
 # return  
 # -> scaled 2d matrix 
 sub mscale { 
-    my ( $scaling, @mat ) = @_; 
+    my ( $scaling, $mat ) = @_; 
     
     my @scaled_mat; 
 
-    my ( $nrow, $ncol ) = mat_dim(@mat); 
+    my ( $nrow, $ncol ) = mat_dim($mat); 
     for my $i ( 0..$nrow-1 ) { 
         for my $j ( 0..$ncol-1) { 
-            $scaled_mat[$i][$j] = $scaling*$mat[$i][$j]; 
+            $scaled_mat[$i][$j] = $scaling*$mat->[$i][$j]; 
         }
     } 
 
@@ -324,8 +324,8 @@ sub mat_mul {
     my @product; 
     
     # compatability check
-    my ( $mat1_nrow, $mat1_ncol ) = mat_dim(@$mat1);  
-    my ( $mat2_nrow, $mat2_ncol ) = mat_dim(@$mat2);  
+    my ( $mat1_nrow, $mat1_ncol ) = mat_dim($mat1);  
+    my ( $mat2_nrow, $mat2_ncol ) = mat_dim($mat2);  
     if ( $mat1_ncol != $mat2_nrow ) { die "IndexError: incompatible dimension\n" }
 
     for my $i ( 0..$mat1_nrow-1 ) { 
@@ -345,14 +345,14 @@ sub mat_mul {
 # return
 # -> transposed matrix 
 sub transpose { 
-    my @mat = @_; 
+    my ( $mat ) = @_; 
 
     my @transposed;       
 
-    my ( $nrow, $ncol ) = mat_dim(@mat); 
+    my ( $nrow, $ncol ) = mat_dim($mat); 
     for my $i ( 0..$ncol-1 ) { 
         for my $j ( 0..$nrow-1 ) { 
-            $transposed[$i][$j] = $mat[$j][$i];  
+            $transposed[$i][$j] = $mat->[$j][$i];  
         }
     }
 
@@ -365,22 +365,22 @@ sub transpose {
 # return
 # -> inverse 3x3 matrix 
 sub inverse { 
-    my @mat = @_; 
+    my ( $mat ) = @_; 
     
     my @inverse; 
-    my $det = det(@mat); 
+    my $det = det($mat); 
 
-    $inverse[0][0] =  ($mat[1][1]*$mat[2][2] - $mat[1][2]*$mat[2][1])/$det; 
-    $inverse[0][1] = -($mat[0][1]*$mat[2][2] - $mat[0][2]*$mat[2][1])/$det; 
-    $inverse[0][2] =  ($mat[0][1]*$mat[1][2] - $mat[0][2]*$mat[1][1])/$det; 
+    $inverse[0][0] =  ($mat->[1][1]*$mat->[2][2] - $mat->[1][2]*$mat->[2][1])/$det; 
+    $inverse[0][1] = -($mat->[0][1]*$mat->[2][2] - $mat->[0][2]*$mat->[2][1])/$det; 
+    $inverse[0][2] =  ($mat->[0][1]*$mat->[1][2] - $mat->[0][2]*$mat->[1][1])/$det; 
 
-    $inverse[1][0] = -($mat[1][0]*$mat[2][2] - $mat[1][2]*$mat[2][0])/$det; 
-    $inverse[1][1] =  ($mat[0][0]*$mat[2][2] - $mat[0][2]*$mat[2][0])/$det; 
-    $inverse[1][2] = -($mat[0][0]*$mat[1][2] - $mat[0][2]*$mat[1][0])/$det; 
+    $inverse[1][0] = -($mat->[1][0]*$mat->[2][2] - $mat->[1][2]*$mat->[2][0])/$det; 
+    $inverse[1][1] =  ($mat->[0][0]*$mat->[2][2] - $mat->[0][2]*$mat->[2][0])/$det; 
+    $inverse[1][2] = -($mat->[0][0]*$mat->[1][2] - $mat->[0][2]*$mat->[1][0])/$det; 
 
-    $inverse[2][0] =  ($mat[1][0]*$mat[2][1] - $mat[1][1]*$mat[2][0])/$det; 
-    $inverse[2][1] = -($mat[0][0]*$mat[2][1] - $mat[0][1]*$mat[2][0])/$det; 
-    $inverse[2][2] =  ($mat[0][0]*$mat[1][1] - $mat[0][1]*$mat[1][0])/$det; 
+    $inverse[2][0] =  ($mat->[1][0]*$mat->[2][1] - $mat->[1][1]*$mat->[2][0])/$det; 
+    $inverse[2][1] = -($mat->[0][0]*$mat->[2][1] - $mat->[0][1]*$mat->[2][0])/$det; 
+    $inverse[2][2] =  ($mat->[0][0]*$mat->[1][1] - $mat->[0][1]*$mat->[1][0])/$det; 
     
     return @inverse; 
 }
@@ -393,10 +393,10 @@ sub inverse {
 # return
 # -> null 
 sub print_mat { 
-    my ( $fh, $format, @mat ) = @_; 
+    my ( $fh, $format, $mat ) = @_; 
     
-    for my $array (@mat) { 
-        print_array($fh, $format, @$array);  
+    for my $array (@$mat) { 
+        print_array($fh, $format, $array);  
     }
 
     return; 
