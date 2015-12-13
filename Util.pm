@@ -6,16 +6,14 @@ use warnings;
 use Exporter; 
 use File::Basename; 
 use File::Spec::Functions; 
-use IO::Dir; 
-use IO::File; 
 use Tie::File; 
 
-our @file  = qw/read_file slurp_file extract_file paragraph_file file_format/;  
-our @image = qw/set_eps_boundary eps2png view_eps view_png/; 
-our @tree  = qw/read_dir_tree print_dir_tree/; 
+our @file  = qw( read_file slurp_file extract_file paragraph_file file_format );  
+our @image = qw( set_eps_boundary eps2png view_eps view_png );  
+our @tree  = qw( read_dir_tree print_dir_tree );  
 
-our @ISA         = qw/Exporter/;
-our @EXPORT      = ( ); 
+our @ISA         = qw( Exporter );
+our @EXPORT      = (); 
 our @EXPORT_OK   = ( @file, @image, @tree );  
 our %EXPORT_TAGS = (
     file  => \@file, 
@@ -24,10 +22,12 @@ our %EXPORT_TAGS = (
 ); 
 
 # VASP files 
-our @VASP = qw/ CHG CHGCAR CONTCAR DOSCAR 
-                EIGENVAL INCAR KPOINTS LOCPOT
-                OSZICAR OUTCAR PCDAT POSCAR 
-                POTCAR PROCAR WAVECAR XDATCAR /; 
+our @VASP = qw( 
+    CHG CHGCAR CONTCAR DOSCAR 
+    EIGENVAL INCAR KPOINTS LOCPOT
+    OSZICAR OUTCAR PCDAT POSCAR 
+    POTCAR PROCAR WAVECAR XDATCAR 
+);  
 
 # with sufficient thrust, pigs fly just fine
 our %zenburn = 
@@ -57,58 +57,70 @@ our %zenburn =
 # -> array of lines 
 sub read_file { 
     my ( $file ) = @_; 
+   
+    my @lines = (); 
+
+    open my $fh, '<', $file or die "Cannot open $file\n"; 
+    chomp ( @lines = <$fh> ); 
+    close $fh; 
     
-    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
-    chomp ( my @lines = <$fh> ); 
-    $fh->close;  
-    
-    return @lines; 
+    return @lines;  
 }
 
-# slurp file
+# read file (slurp mode)
+# args
 # -< file 
 # return
-# -> single scalar string 
+# -> slurped line 
 sub slurp_file { 
     my ( $file ) = @_; 
     
-    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
-    my $line = do { local $/ = undef; <$fh> } ;  
-    $fh->close; 
+    open my $fh, '<', $file or die "Cannot open $file\n"; 
+    my $line = do { 
+        local $/ = undef; 
+        <$fh>;   
+    };  
+    close $fh; 
 
-    return $line; 
+    return $line;  
 }
 
 # read file (paragraph mode) 
 # -< file 
 # return 
-# -> array of paragraphs 
+# -> array of paragraphs
 sub paragraph_file { 
     my ( $file ) = @_; 
 
-    my $fh = IO::File->new($file => 'r') or die "Cannot open $file\n"; 
-    chomp ( my @paragraph = do { local $/ = ''; <$fh> } ) ;  
-    $fh->close; 
+    open my $fh, '<', $file or die "Cannot open $file\n"; 
+    my @paragraphs = do {           
+        local $/ = ''; 
+        <$fh>; 
+    };  
+    close $fh; 
 
-    return @paragraph;  
+    return chomp ( @paragraphs ); 
 }
     
 # extract (lines from file)
 # -< file 
-# -< line number 
 # return 
-# -> extracted line
+# -> array of lines 
 sub extract_file { 
-    my ( $file, $nline ) = @_; 
+    my ( $file, @linenrs ) = @_; 
+
+    my @extracts = (); 
   
-    # treat file as perl array!  
+    # treat file as perl array !  
+    if ( ! -e $file ) { die "$file does not exist\n" }
     tie my @lines, 'Tie::File', $file or die "Cannot tie to $file\n"; 
 
-    # array's index starts from 0
-    my $extract = $lines[$nline-1]; 
+    # shift the array index (0-based)
+    for ( @linenrs ) { push @extracts, $lines[$_-1] } 
+
     untie @lines; 
     
-    return $extract; 
+    return ( @extracts == 1 ? $extracts[0] : @extracts ); 
 } 
 
 # get file format 
@@ -223,9 +235,9 @@ sub view_png {
 sub read_dir_tree { 
     my ( $root ) = @_; 
 
-    my $tree = {}; 
+    my %tree = ();  
 
-    my @queue = ( [$root, $tree] );  
+    my @queue = ( [$root, \%tree] );  
     while ( my $next = shift @queue ) { 
         my ( $path, $href ) = @$next; 
         
@@ -241,9 +253,9 @@ sub read_dir_tree {
 
                 # read content of directory then construct a list of ABSOLUTE path 
                 # skip unresolved symbolic link (need more testing)
-                my $dirfh = IO::Dir->new($path) or die "Cannot open directory handler to $path\n"; 
-                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } $dirfh->read; 
-                $dirfh->close; 
+                opendir my $dfh, $path or die "Cannot open directory handler to $path\n"; 
+                my @sub_paths = map { catfile($path, $_) } grep { ! /^\.\.?$/ } readdir $dfh; 
+                closedir $dfh; 
 
                 # breadth first (stack)
                 unshift @queue, map { [$_, $sub_ref] } @sub_paths; 
@@ -253,7 +265,7 @@ sub read_dir_tree {
         }; 
     }
 
-    return $tree; 
+    return %tree;  
 } 
 
 # print directory tree
@@ -273,7 +285,7 @@ sub print_dir_tree {
     my $leaf   = '\_'; 
 
     # write to tree.dat
-    my $fh = IO::File->new("$root/tree.dat" => 'w'); 
+    open my $fh, '>', "$root/tree.dat" or die "Cannot write to $root/tree.dat\n"; 
     
     my @queue  = ( [$root, $tree->{basename($root)}, 0] );  
     while ( my $next = shift @queue ) { 
@@ -291,8 +303,7 @@ sub print_dir_tree {
         # print tree 
         printf $fh ( $current eq $path ? "%s%s [*]\n" : "%s%s\n" ), $branch, basename($path);  
     }
-
-    $fh->close; 
+    close $fh; 
 
     return; 
 }

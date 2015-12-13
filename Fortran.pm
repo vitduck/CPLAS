@@ -5,12 +5,12 @@ use warnings;
 
 use Exporter; 
 
-our @format = qw/fortran2perl/; 
+our @format = qw( fortran2perl );  
 
-our @ISA         = qw/Exporter/;  
-our @EXPORT      = ( );  
+our @ISA         = qw( Exporter );  
+our @EXPORT      = ();  
 our @EXPORT_OK   = ( @format ); 
-our @EXPORT_TAGS = ( ); 
+our %EXPORT_TAGS = (); 
 
 # fortran-like format => perl format
 # crude implementation 
@@ -31,7 +31,7 @@ sub fortran2perl {
         #$perl     .= (join ' ', ("%$format")x$rep).' ';  
         $perl     .= "%$format"x$rep; 
     }
-    
+
     return $perl; 
 }
 
