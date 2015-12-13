@@ -3,98 +3,93 @@ package Gaussian;
 use Exporter;  
 use IO::File; 
 
-use Util qw/paragraph_file/;
-use Periodic qw/atomic_number/; 
-use Math::Linalg qw/print_array/; 
+use Util qw( paragraph_file );
+use Periodic qw( atomic_number ); 
+use Math::Linalg qw( print_array ); 
+use XYZ qw( tag_xyz ); 
 
-our @gaussian = qw/read_gaussian print_gaussian/;  
+our @gaussian = qw( read_gaussian print_gaussian );  
 
-our @ISA         = qw/Exporter/;
-our @EXPORT      = ( ); 
+our @ISA         = qw( Exporter );;
+our @EXPORT      = (); 
 our @EXPORT_OK   = ( @gaussian ); 
-our %EXPORT_TAGS = ( ); 
+our %EXPORT_TAGS = (); 
 
 # parse gaussian input
 # args 
-# -< file
-# -< ref of array of options 
-# -< level of theory 
-# -< title 
-# -< charge 
-# -< spin 
-# -< ref of array of atom
-# -< ref of array of natom 
-# -< ref of 2d array of geometry
+# -< gaussian input file
 # return 
-# -> null
-
+# -> gaussian hash
 sub read_gaussian { 
     my ( $file ) = @_;  
+
+    my ( %gaussian, %geometry ) = ();  
+    my ( $header, $geometry_block ) = (); 
     
     # paragraph mode
-    chomp ( my ( $header, $title, $structure ) = paragraph_file($file) );  
+    chomp ( ( $header, $gaussian{name}, $geometry_block ) = paragraph_file($file) );  
     
     # option 
-    my @options = ( $header =~ /(\%.+?)\n/ );  
+    $gaussian{options} = [ $header =~ /(\%.+?)\n/ ];   
 
     # theory (no more trailing)
-    my ( $theory ) = ( $header =~ /(#.+?)$/ );  
+    ( $gaussian{theory} ) = ( $header =~ /(#.+?)$/ );  
 
+    my @lines = split /\n/, $geometry_block;  
+    
     # charge, spin and structure 
-    my @lines = split /\n/, $structure; 
-    ( $charge, $spin ) = split ' ', shift @lines; 
+    @gaussian{qw( charge spin )} = split ' ', shift @lines; 
 
     # read the xyz block
-    my %struct; 
     for ( @lines ) { 
         my ( $element, $x, $y, $z ) = split; 
-        push @{$struct{$element}}, [ $x, $y, $z ]; 
+        push @{$geometry{$element}}, [ $x, $y, $z ]; 
     }
 
-    # sort element based on atomic number 
-    my @atoms    = sort { atomic_number($a) <=> atomic_number($b) } keys %struct;  
-    my @natoms   = map scalar @{$struct{$_}}, @atoms;  
-    my @geometry = map @{$struct{$_}}, @atoms;  
+    # array of elements  
+    my @atoms = sort { atomic_number($a) <=> atomic_number($b) } keys %geometry; 
 
-    return ( \@options, $theory, $title, $charge, $spin, \@atoms, \@natoms, \@geometry );  
+    # array of number of atom per element 
+    my @natoms = map scalar(@{$geometry{$_}}), @atoms;  
+
+    # array of geometry 
+    my @geometry = map @{$geometry{$_}}, @atoms; 
+
+    # complete gaussian hash 
+    @gaussian{qw( atom natom geometry )} = ( \@atoms, \@natoms, \@geometry ); 
+
+    return %gaussian; 
 }
 
 # print gaussian input 
 # args
+# -< hash ref of gaussian 
 # -< output file
-# -< option 
-# -< level of theory 
-# -< title 
-# -< charge 
-# -< spin 
-# -< array of atom
-# -< array of natom 
-# -< 2d array of geometry
 # return 
 # -> null 
 sub print_gaussian { 
-    my ( $file, $option, $theory, $title, $charge, $spin, $atom, $natom, $geometry ) = @_;  
-
-    my $fh = IO::File->new($file, 'w') or die "Cannot write to $file\n"; 
+    my ( $gaussian => $file ); 
 
     # xyz label 
-    my @labels = map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom;
+    my @tags = tag_xyz($gaussian->{atom}, $gaussian->{natom}, [1,1,1]);  
+
+    open my $fh, '>', $file or die "Cannot write to $file\n"; 
 
     # print header 
-    map { printf $fh "%s\n", $_ } @$option; 
-    printf $fh "%s\n\n", $theory; 
-    printf $fh "%s\n\n", $title; 
-    printf $fh "%d  %d\n", $charge, $spin; 
+    map { printf $fh "%s\n", $_ } @{$gaussian->{options}}; 
+    printf $fh "%s\n\n", $gaussian->{theory}; 
+    printf $fh "%s\n\n", $gaussian->{name}; 
+    printf $fh "%d  %d\n", $gaussian->{charge}, $gaussian->{spin}; 
 
     # print coordinates 
-    for  ( 0..$#labels ) { 
-        print_array($fh, '%-3s3%10.3f', $labels[$_], @{$geometry->[$_]}); 
+    for  ( 0..$#tags ) { 
+        print_array($fh, '%-3s3%10.3f', $tags[$_], $gaussian->{geometry}[$_]);  
     }
 
     # connectivity 
     printf $fh "\n"; 
 
-    $fh->close; 
+    close $fh; 
 
     return; 
 } 
