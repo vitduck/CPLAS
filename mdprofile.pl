@@ -6,9 +6,10 @@ use warnings;
 use Getopt::Long;  
 use Pod::Usage; 
 
-use VASP qw/read_profile print_profile save_traj retrieve_traj/;  
+use MD   qw( save_traj retrieve_traj normalize ); 
+use VASP qw( read_md print_md );  
 
-my @usages = qw/NAME SYSNOPSIS OPTIONS NOTE/; 
+my @usages = qw( NAME SYSNOPSIS OPTIONS NOTE );  
 
 # POD 
 =head1 NAME 
@@ -48,33 +49,19 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 my $trajectory = 'traj.dat'; 
 my $profile    = 'profile.dat'; 
 
-# pre-generated trajectory
+# profile
+my %md   = read_md('OSZICAR'); 
+
+# pre-generated trajectory for sanity check
 my %traj = retrieve_traj($trajectory);  
 
-# profile
-my %md   = read_profile('OSZICAR'); 
-
-# synchronization two hashses 
-my $ntraj = keys %traj; 
-my $nmd   = keys %md; 
-
-if ( $ntraj > $nmd  ) { 
-    for my $istep ( keys %traj ) { 
-        delete $traj{$istep} unless exists $md{$istep}; 
-    } 
-} elsif ( $ntraj < $nmd ) { 
-    for my $istep ( keys %md ) { 
-        delete $md{$istep} unless exists $traj{$istep}; 
-    } 
-}
-
-# store trajectory to disk 
-unless ( $ntraj == $nmd ) { 
-    print "=> Mismatch between XDATCAR and OSZICAR\n\n"; 
-    save_traj($trajectory, \%traj, 1); 
+# synchronization two hashses probably due to early job termination
+if ( normalize(\%md, \%traj) ) { 
+    print "=> Updating trajectry file\n"; 
+    save_traj(\%traj => $trajectory); 
     print "\n"; 
 }
 
 # profile.dat
 print "=> Potential profile is written to $profile\n"; 
-print_profile($profile, \%md);  
+print_md(\%md => $profile);  
