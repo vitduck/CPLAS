@@ -3,32 +3,32 @@ package VASP;
 use strict; 
 use warnings; 
 
+use Data::Dumper; 
 use Exporter; 
 use File::Basename; 
 use File::Spec::Functions; 
-use IO::File; 
-use Storable qw/store retrieve/; 
+use Storable qw( store retrieve );  
 
-use Math::Linalg qw/max sum length print_array mscale print_mat/;
-use Periodic qw/element_name/;  
-use Util qw/read_file slurp_file paragraph_file extract_file/; 
+use Fortran qw( fortran2perl ); 
+use Math::Linalg qw( max sum product length print_array mscale print_mat ); 
+use Periodic qw( element_name atomic_symbol );  
+use Util qw( read_file slurp_file paragraph_file extract_file );  
 
-our @aimd     = qw/read_md sort_md average_md print_extrema/; 
-our @doscar   = qw/read_doscar print_dos sum_dos/; 
-our @eigenval = qw/read_band/;  
-our @incar    = qw/read_init_magmom/; 
-our @kpoints  = qw/read_kpoints/; 
-our @poscar   = qw/read_poscar print_poscar/;
-our @potcar   = qw/read_potcar print_potcar make_potcar/; 
-our @oszicar  = qw/read_profile print_profile/; 
-our @outcar   = qw/read_lattice read_final_magmom read_force read_phonon_eigen/; 
-our @xdatcar  = qw/read_traj4 read_traj5 save_traj retrieve_traj/; 
+our @doscar   = qw( read_doscar print_dos sum_dos ); 
+our @eigenval = qw( read_band ); 
+our @incar    = qw( read_init_magmom ); 
+our @kpoints  = qw( read_kpoints );  
+our @poscar   = qw( read_poscar print_poscar ); 
+our @potcar   = qw( read_potcar print_potcar make_potcar ); 
+our @oszicar  = qw( read_md print_md ); 
+our @outcar   = qw( read_cell read_final_magmom read_force read_phonon ); 
+our @xdatcar  = qw( read_xdatcar ); 
+our @vasp     = qw( run_vasp ); 
 
-our @ISA         = qw/Exporter/; 
-our @EXPORT      = ( );  
-our @EXPORT_OK   = ( @aimd, @doscar, @eigenval, @incar, @kpoints, @poscar, @potcar, @oszicar, @outcar, @xdatcar ); 
+our @ISA         = qw( Exporter );  
+our @EXPORT      = ();  
+our @EXPORT_OK   = ( @doscar, @eigenval, @incar, @kpoints, @poscar, @potcar, @oszicar, @outcar, @xdatcar, @vasp ); 
 our %EXPORT_TAGS = ( 
-    aimd     => \@aimd, 
     doscar   => \@doscar, 
     eigenval => \@eigenval, 
     incar    => \@incar, 
@@ -38,97 +38,8 @@ our %EXPORT_TAGS = (
     oszicar  => \@oszicar,
     outcar   => \@outcar, 
     xdatcar  => \@xdatcar, 
+    vasp     => \@vasp, 
 ); 
-
-#------#
-# AIMD #
-#------#
-
-# istep, T(K) and F(eV) from output of get_potential 
-# args  
-# -< profile.dat 
-# return 
-# -> potential hash (istep => [T,F])
-sub read_md { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'profile.dat'; 
-
-    my %md; 
-    for ( read_file($file) ) { 
-        next if /#/; 
-        next if /^\s+/; 
-        my ($istep, $temp, $pot) = (split)[0,-2,-1]; 
-        $md{$istep} = [$temp, $pot]; 
-    }
-
-    printf "=> Retrieve potential profile from %s\n", $file; 
-    printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
-
-    return %md; 
-}
-
-# sort the potential profile for local minimum and maximum 
-# args 
-# -< ref to potential hash (istep => [T,F])
-# -< period of ionic steps for sorting  
-# return
-# -> ref to array of local minima
-# -> ref to array of local maxima
-sub sort_md { 
-    my ( $md, $periodicity ) = @_; 
-
-    my ( @minima, @maxima ); 
-
-    # enumerate ionic steps
-    my @nsteps = sort { $a <=> $b } keys %$md; 
-
-    # split according to periodicity
-    while ( my @period = splice @nsteps, 0, $periodicity ) { 
-        # copy the sub hash (not optimal)
-        my %sub_md; 
-        @sub_md{@period} = @$md{@period}; 
-        my ( $local_minimum, $local_maximum ) = ( sort { $md->{$a}[1] <=> $md->{$b}[1] } keys %sub_md )[0,-1];  
-
-        push @minima, $local_minimum; 
-        push @maxima, $local_maximum;  
-    }
-
-    return ( \@minima, \@maxima ); 
-}
-
-# moving averages of potential profile 
-# ref: http://mathworld.wolfram.com/MovingAverage.html
-# args 
-# -< ref to potential hash (istep => [T,F])
-# -< period of ionic step to be averaged 
-# -< output file 
-# return 
-# -> null
-sub average_md { 
-    my ( $output, $md, $period, ) = @_; 
-
-    # extract array of potentials (last column)
-    my @potentials = map { $md->{$_}[-1] } sort{ $a <=> $b } keys %$md; 
-    
-    # total number of averages point
-    my $naverage = scalar(@potentials) - $period + 1; 
-
-    # calculating moving average 
-    print "=> $output: Short-time averages of potential energy over period of $period steps\n"; 
-
-    my $index = 0; 
-    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
-
-    for ( 1..$naverage ) { 
-        my $average = (sum(@potentials[$index..($index+$period-1)]))/$period; 
-        printf $fh "%d\t%10.5f\n", ++$index, $average; 
-    }
-
-    $fh->close; 
-
-    return; 
-}
 
 #--------# 
 # DOSCAR #
@@ -136,22 +47,21 @@ sub average_md {
 
 # read DOSCAR
 # args 
-# -< DOSCAR file (default)
+# -< DOSCAR 
 # return 
-# -> dos array 
+# -< array of dos (TOTAL_DOS, LDOS_*)
 sub read_doscar { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'DOSCAR'; 
+    my ( $file ) = @_;  
+
+    my @dos = (); 
 
     # 6th line: DOS header  
     # 7th line: Total DOS (3 or 5 columns)
-    my $doscar_6th = extract_file($file, 6); 
-    my $doscar_7th = extract_file($file, 7); 
-    
+    my ( $header, $dos_line ) = extract_file($file, 6, 7); 
+
     # min, max, nedos, fermi, spin ? 
-    my ( $max, $min, $nedos, $fermi, $colinear ) = split ' ', $doscar_6th; 
-   
+    my ( $max, $min, $nedos, $fermi, $colinear ) = split ' ', $header; 
+
     # DOS info 
     printf "NEDOS   = %d\n", $nedos; 
     printf "E_min   = %.3f eV\n", $min; 
@@ -160,71 +70,78 @@ sub read_doscar {
 
     # ISPIN = 1: 3 columns 
     # ISPIN = 2: 5 columns 
-    my @columns = split ' ', $doscar_7th; 
+    my @columns = split ' ', $dos_line; 
     printf "ISPIN   = %d\n", ( @columns == 3 ? 1 : 2 ); 
-   
+
     # dos array 
     # ldos[0]: total DOS  
     # ldos[n]: nth ion DOS 
-    my ( $header, @dos ) = split /$doscar_6th\n/, slurp_file($file); 
+    ( undef, @dos ) = split /$header\n/, slurp_file($file); 
 
-    return @dos; 
+    return @dos;  
 }
 
 # print DOS 
 # args 
-# -< filename
 # -< slurped dos
+# -< filename
 # return 
 # -> null
 sub print_dos { 
-    my ( $file, $dos ) = @_; 
+    my ( $dos => $output ) = @_; 
 
-    my $fh = IO::File->new($file, 'w'); 
-
+    open my $fh, '>', $output or die "Cannot write to $output\n"; 
     printf $fh $dos;  
-
-    $fh->close(); 
+    close $fh; 
 
     return; 
 }
 
 # sum LDOS  
 # args 
-# -< filehandler
-# -< LDOS files 
+# -< ref of array of LDOS files  
+# -< sum dos file 
 # return 
 # -> null 
 sub sum_dos { 
-    my ( $sum_file, @files ) = @_; 
+    my ( $dos => $sum_dos ) = @_; 
 
     # format depends on number of column in LDOS-*
-    my @columns = split ' ', extract_file($files[0],1);  
-    my $format = @columns == 10 ? '%11.3f,9%12.4E' : '%11.3f,18%12.4E';  
+    my $dos_line = extract_file($dos->[0], 0);  
+
+    my @columns = split ' ', $dos_line; 
+
+    # ISPIN 1: 10 
+    # ISPIN 2: 19 
+    my $format  = 
+    @columns == 10 ? 
+    fortran2perl('%11.3f,9%12.4E') : 
+    fortran2perl('%11.3f,18%12.4E');  
 
     # hash of array ref ( energy => [s p d] )
-    my %sum_dos; 
-    for my $ldos ( @files ) { 
+    my %sum_dos = ();  
+    for my $ldos ( @$dos ) { 
         my $slurped_dos = slurp_file($ldos); 
-        my $dos_fh = IO::File->new(\$slurped_dos, 'r'); 
-
+        
+        open my $dos_fh, '<', \$slurped_dos; 
         while ( <$dos_fh> ) { 
             my ( $energy, @dos ) = split;    
             for ( 0..$#dos ) {  
                 $sum_dos{$energy}[$_] += $dos[$_]; 
             }
         }
+        close $dos_fh;  
     }
 
-    my $fh = IO::File->new($sum_file, 'w'); 
+    # print %sum_dos to $sum_dos
+    open my $fh, '>', $sum_dos or die "Cannot write to $sum_dos\n"; 
 
-    # print DOS summation
     for ( sort { $a <=> $b } keys %sum_dos ) { 
-        print_array($fh, $format, $_, @{$sum_dos{$_}}); 
+        printf $fh "$format\n", $_, @{$sum_dos{$_}};  
     }
 
-    $fh->close; 
-
+    close $fh; 
+    
     return; 
 }
 
@@ -234,60 +151,61 @@ sub sum_dos {
 
 # extract eigenvalue for band plot 
 # args
-# -< EIGENVAL file (default)
+# -< EIGENVAL
+# -< ref of band hash { band# => [ eigenvalue ] }
 # return 
-# -> hash ref { band# => [ eigenvalue ] }
 sub read_band { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'EIGENVAL'; 
+    my ( $file ) = @_;  
+
+    my %eigenval = (); 
 
     # header and band block are separated by a blank line
     my ( $header, @bands ) = split /\n+\s*\n+/, slurp_file($file); 
-    
-    # last line of the header 
+
+    # eigenval information  
     my ( $nelectron, $nkpoint, $nband ) = split ' ', ( split /\n/, $header )[-1]; 
-   
-    my %eigen; 
+
+    # band info 
+    printf "NELEC   = %d\n", $nelectron;  
+    printf "NKPOINT = %d\n", $nkpoint;  
+    printf "NBAND   = %d\n", $nband;  
+
     my $count = 0; 
     for my $band ( @bands ) { 
         $count++; 
-        push @{$eigen{$count}}, map { ( split )[-1] } split /\n/, $band; 
+        push @{$eigenval{$count}}, map { ( split )[-1] } split /\n/, $band; 
         # remove header of band block
-        shift @{$eigen{$count}}; 
+        shift @{$eigenval{$count}}; 
     }
 
-    return %eigen; 
+    return %eigenval;  
 }
 
 #-------# 
 # INCAR #
 #-------# 
+
+# read initial magmom  
+# args 
+# -< INCAR 
+# return 
+# -< array of magmom 
 sub read_init_magmom { 
-    my ( $file ) = @_; 
+    my ( $file ) = @_;  
 
-    my @magmom = (); 
+    my @init_magmom = (); 
 
-    $file = defined $file ? $file : 'INCAR'; 
     for ( read_file($file) ) { 
-        # skip comment 
         if ( /^.*#/ ) { next } 
-        # magmom tag 
         if ( /MAGMOM/ ) { 
-            my ( $tag, $moment ) = split /=/; 
-            # expand the magmom array 
-            for ( split ' ', $moment ) { 
-                # with repetition
-                if ( /(\d+)\*(.*)/ ) { 
-                    push @magmom, ($2)x$1; 
-                } else { 
-                    push @magmom, $_; 
-                }
+            my ( undef, $magmom ) = split /=/; 
+            for ( split ' ', $magmom ) { 
+                push @init_magmom, ( /(\d+)\*(.*)/ ? ($2)x$1 : $_ );  
             }
         }
     }
 
-    return @magmom; 
+    return @init_magmom;  
 }
 
 #---------# 
@@ -296,28 +214,30 @@ sub read_init_magmom {
 
 # parse KPOINTS file 
 # args 
-# -< none (default: 'KPOINTS') 
+# -< KPOINTS 
+# -< ref of number of kpoint 
+# -< ref of mode 
+# -< ref of k mesh 
 # return 
-# -> mode (Cart/Direct/Line-mode)
-# -> ref to array of kpoint
+# -> null
 sub read_kpoints { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'KPOINTS'; 
+    my ( $file ) = @_;  
+
+    my ( %kpoint, @kblock ) = (); 
 
     # parse KPOINTS 
-    chomp ( my ( $comment, $nkpoint, $mode, @kblock ) = read_file($file) ); 
+    my @lines = read_file($file);  
+    chomp (( undef, $kpoint{nkpt}, $kpoint{mode}, @kblock ) = @lines ); 
 
     # automatic k-mesh generation
-    my @kpoints = (); 
-    if ( $nkpoint == 0 ) { 
-        @kpoints = split ' ', shift @kblock;  
+    if ( $kpoint{nkpt} == 0 ) { 
+        $kpoint{mesh} = [ split ' ', shift @kblock ];  
     } else { 
         # 4th column is kpoint weight
-        @kpoints = map { [(split)[0,1,2]] } @kblock; 
+        $kpoint{mesh} = [ map [ ( split )[0,1,2] ],  @kblock ];  
     }
 
-    return ( $nkpoint, $mode, \@kpoints ); 
+    return %kpoint;  
 }
 
 #--------#
@@ -335,124 +255,125 @@ sub read_kpoints {
 # -> selective dynamic (0 or 1)
 # -> type of coordinate (direct/cartesian)
 sub read_poscar { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'POSCAR'; 
+    my ( $file ) = @_;  
 
-    my ( $title, $scaling, @lat, @atom, $natom, $selective, $type, @geometry );  
+    # poscar hash  
+    my %poscar = (); 
     
+    # read_poscar; 
+    my @lines = read_file($file); 
+
+    # header/name/commnet 
+    $poscar{name}  = shift @lines; 
+
+    # scaling 
+    $poscar{scaling} = shift @lines; 
+
+    # lattice vectors ( 2d array ref ) 
+    map { $poscar{cell}[$_] = [split ' ', shift @lines] } 0..2;   
+
     # version checking: 6th line
-    my $version_string = extract_file($file, 6);  
-
-    # VASP4 or 5
-    if ( element_name((split ' ', $version_string)) ) {  
-        @atom = split ' ', $version_string; 
-        
-        # selective dynamics ?  
-        # vasp 5 ? (8th line)
-        if ( extract_file($file, 8) =~ /^\s*S/i ) { 
-            $selective = 1; 
-            ($title, $scaling, @lat[0..2], undef, $natom, undef, $type, @geometry) = read_file($file);  
-        } else { 
-            $selective = 0; 
-            ($title, $scaling, @lat[0..2], undef, $natom, $type, @geometry) = read_file($file);  
-        }
+    my $version_probe = shift @lines;  
+    if ( element_name(split ' ', $version_probe) ) {  
+        # VASP 5 :)
+        $poscar{version} = 5; 
+        $poscar{atom}    = [ split ' ', $version_probe ]; 
+        $poscar{natom}   = [ split ' ', shift @lines ]; 
     } else { 
-        # extract elements from POTCAR !
-        @atom = map $_->[1], read_potcar('POTCAR');  
-
-        # selective dynamics ?  
-        # vasp 4: 7th line
-        if ( extract_file($file, 7) =~ /^\s*S/i ) { 
-            $selective = 1; 
-            ($title, $scaling, @lat[0..2], $natom, undef, $type, @geometry) = read_file($file);  
-        } else { 
-            $selective = 0; 
-            ($title, $scaling, @lat[0..2], $natom, $type, @geometry) = read_file($file);  
-        }
-
+        # VASP 4 :(
+        $poscar{version} = 4; 
+        # extract elements from POSCAR ... 
+        my %pp = read_potcar('POTCAR'); 
+        $poscar{atom}  = [ list_potcar_element(\%pp) ];  
+        # one line offset  
+        $poscar{natom} = [ split ' ', $version_probe ]; 
     }
-    
-    # total number of atom
-    my @natom = split ' ', $natom; 
 
+    # selective dynamics 
+    my $selective_probe = shift @lines; 
+    if ( $selective_probe =~ /^\s*S/i ) { 
+        $poscar{selective} = 1; 
+        $poscar{type} = shift @lines; 
+    } else { 
+        $poscar{selective} = 0;  
+        # one line offset  
+        $poscar{type} = $selective_probe; 
+    } 
+
+    #-----------------# 
+    # post processing #
+    #-----------------# 
     # VASP4 sanity check
-    if ( @atom < @natom ) { die "VASP4: Mismatch between $file and POTCAR\n" }
+    if ( @{$poscar{atom}} < @{$poscar{natom}} ) { die "VASP4: Mismatch between $file and POTCAR\n" }
 
     # in case @atom > @natom, trim down the array 
-    @atom = splice @atom, 0, scalar(@natom); 
+    @{$poscar{atom}} = splice @{$poscar{atom}}, 0, scalar(@{$poscar{natom}}); 
 
-    # convert lattice block to 2d array with scaling constant
-    @lat = map [ (split) ], @lat; 
-    @lat = mscale($scaling, @lat); 
-    
+    # apply scaling to lattice vectors 
+    @{$poscar{cell}} = mscale($poscar{scaling}, $poscar{cell}); 
+
     # convert geometry block to 2d array 
-    @geometry = map [ (split) ], ( splice @geometry, 0, sum(@natom) );  
+    $poscar{geometry} = [ map [ (split) ], ( splice @lines, 0, sum(@{$poscar{natom}}) ) ]; 
 
     # if cartesian is used, apply scaling constant
     # cant use mscale here because of 'dynamic tag'
-    if ( $type =~ /^\s*c/i ) {  map { map { $_ *= $scaling } @$_[0..2] } @geometry } 
+    if ( $poscar{type} =~ /^\s*c/i ) { map { map { $_ *= $poscar{scaling} } @$_[0..2] } @{$poscar{geometry}} };  
 
-    return ( $title, $scaling, \@lat, \@atom, \@natom, $selective, $type, \@geometry ); 
+    return %poscar;  
 }
 
 # args  
-# -< output file (POSCAR)
-# -< structure name 
-# -< scaling 
-# -< ref to 2d array of lattice vectors
-# -< ref to array of atom
-# -< ref to array of number of atom
-# -< selective dynamic (0 or 1)
-# -< type of coordinate (direct/cartesian)
-# -< ref to 2d array of coordinates 
-# return 
+# -< hash ref of poscar 
+# -< POSCAR file 
+# return
 # -> null
 sub print_poscar { 
-    my ($file, $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $coordinate, $version) = @_; 
-
-    # default is VASP 5 format 
-    $version = defined $version ? $version : 5;  
+    my ( $poscar => $output ) = @_; 
 
     # format
-    my $format_1 = scalar(@$atom).'%5s';  
-    my $format_2 = scalar(@$natom).'%6d'; 
+    my $format_1 = scalar(@{$poscar->{atom}}).'%5s';  
+    my $format_2 = scalar(@{$poscar->{natom}}).'%6d'; 
+
     # coordinate 
-    my $format_3 = $dynamics ? '3%22.16f3%5s%6d' : '3%22.16f%5d';   
+    my $format_3 = $poscar->{selective} ? '3%22.16f3%5s%10d' : '3%22.16f%5d';   
 
     # write to POSCAR 
-    my $fh = IO::File->new($file, 'w'); 
-    printf $fh "%s\n", $title; 
-    printf $fh "%d\n", $scaling; 
+    open my $fh, '>', $output or die "Cannot write to $output\n"; 
+
+    # name 
+    printf $fh "%s\n", $poscar->{name}; 
+
+    # scaling 
+    printf $fh "%d\n", $poscar->{scaling}; 
 
     # lattice vector 
-    print_mat($fh, '3%22.16f', @$lat);  
+    print_mat($fh, '3%22.16f', $poscar->{cell});  
 
     # VASP 5 format
-    if ( $version == 5 ) { print_array($fh, $format_1, @$atom) }; 
-   
+    if ( $poscar->{version} == 5 ) { print_array($fh, $format_1, $poscar->{atom}) }; 
+
     # number of atom 
-    print_array($fh, $format_2, @$natom); 
+    print_array($fh, $format_2, $poscar->{natom}); 
 
     # selective dynamics 
-    if ( $dynamics ) { printf $fh "%s\n", 'Selective dynamics' }  
+    if ( $poscar->{selective} ) { printf $fh "%s\n", 'Selective dynamics' }  
 
     # direct || cartesian 
-    printf $fh "%s\n" , $type; 
-    
+    printf $fh "%s\n" , $poscar->{type}; 
+
     # geometry block
     my $count  = 0; 
-    if ( $dynamics ) { 
-        map { splice @$_, 3, 4, 'T', 'T', 'T', ++$count } @$coordinate; 
+    if ( $poscar->{selective} ) { 
+        map { splice @$_, 3, 4, 'T', 'T', 'T', ++$count } @{$poscar->{geometry}}; 
     } else { 
-        map { splice @$_, 3, 4, ++$count } @$coordinate; 
+        map { splice @$_, 3, 4, ++$count } @{$poscar->{geometry}}; 
     }
-    
+
     # print_coordinate 
-    print_mat($fh, $format_3, @$coordinate); 
+    print_mat($fh, $format_3, $poscar->{geometry}); 
 
     $fh->close; 
-    
+
     return; 
 }
 
@@ -464,43 +385,76 @@ sub print_poscar {
 # args  
 # -< POTCAR
 # return 
-# -> 2d array of pp => [ type, element, config ];  
+# -> hash of pseudopotention: PAW_PBE => [ Iron, Fe_pv, d7s1, 14Sep2000 ]
 sub read_potcar { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'POTCAR'; 
+    my ( $file ) = @_;  
 
-    my ( @pp, $shell_config );  
-    for( read_file($file) ) { 
-        if ( /VRHFIN/ ) { 
-            $shell_config = ( split /:/ )[-1]; 
+    my %pp = ();  
+    my ( $pseudo, $element, $config, $shell, $date );  
 
+    for ( read_file($file) ) { 
+        if ( /VRHFIN =(\w+):(.*)/ ) { 
+            $element = element_name($1);  
+            # valence shell 
+            if ( my @valence = ( $2 =~ /([spdf]\d+)/g ) ) {  
+                $shell = join '', @valence;               
+            } else { 
+                $shell = (split ' ', $2)[0];  
+            }
         }
+
         if ( /TITEL/ ) { 
-            my ( $type, $element ) = ( split )[2,3]; 
-            push @pp, [$type, $element, $shell_config]; 
+            ( $pseudo, $config, $date ) = ( split )[2,3,4]; 
+            $date = $date ? $date : '...'; 
+            push @{$pp{$pseudo}},[ $element, $config, $shell, $date ]; 
         }
     }
 
-    return @pp;  
+    return %pp;   
 } 
+
+# read list of element in POTCAR 
+# args 
+# -< hash ref of pseudopotential 
+# return 
+# -> array of element 
+sub list_potcar_element { 
+    my ( $pp ) = @_; 
+
+    # flatten the hash: 
+    my @pp = map @{$pp->{$_}}, sort keys %$pp; 
+
+    # atomic symbol 
+    my @symbols = map atomic_symbol($_), map $_->[0], @pp;  
+
+    return @symbols; 
+}
 
 # print elements in POTCAR 
 # args 
-# -> 2d array of pp => [ type, element, config, date ];  
+# -< hash ref of pseudo potention: PAW_PBE => [ Iron, Fe_pv, d7s1, 14Sep2000 ]
 # return 
 # -> null 
 sub print_potcar { 
-    my @pp = @_; 
+    my ( $pp ) = @_; 
 
-    # string format
-    my $elem_length  = length(map $_->[1], @pp);  
-    my $shell_length = length(map $_->[2], @pp);  
+    # empty array of pseudopotential 
+    if ( keys %$pp == 0 ) { return 0 }
 
-    print "=> Pseudopotential:\n";  
+    # flatten the hash: 
+    my @pp = map @{$pp->{$_}}, sort keys %$pp; 
 
-    for my $pp ( @pp ) { 
-        printf "=|%-s|=   %-${elem_length}s %-${shell_length}s\n", @$pp;  
+    # format 
+    my @formats = (); 
+    for my $index (0..3) { 
+        push @formats, length(map $_->[$index], @pp);  
+    }
+
+    for ( sort keys %$pp ) {  
+        printf  "Pseudopotential: <%s>\n", $_; 
+        for ( @{$pp->{$_}} ) { 
+            printf "-> %-$formats[0]s\t%-$formats[1]s\t%$formats[2]s\t%$formats[3]s\n", @$_; 
+        }
     }
 
     return; 
@@ -515,11 +469,15 @@ sub print_potcar {
 # return 
 # -> null 
 sub make_potcar { 
-    my ( $file, $dir, $potential, @element ) = @_; 
+    my ( $dir, $potential, $elements => $output ) = @_; 
 
-    my $fh = IO::File->new($file, 'w') or die "Cannot write to $file\n";  
+    # empty array of elements 
+    if ( @$elements == 0 ) { return 0 } 
 
-    for my $element ( @element ) { 
+    open my $fh, '>', $output or die "Cannot write to $output\n"; 
+
+
+    for my $element ( @$elements ) { 
         # list the available potentials 
         my @avail_pots = map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, <$dir/$potential/*>;
         printf "=> Pseudopotentials for %s: =| %s |=\n", element_name($element), join(' | ', @avail_pots); 
@@ -535,14 +493,13 @@ sub make_potcar {
             if ( grep { $choice eq $_ } @avail_pots ) { 
                 my $potcar = slurp_file(catfile($dir, $potential, $choice, 'POTCAR')); 
                 print $fh $potcar; 
-                # extra blank line
-                if ( $element ne $element[-1] ) { print "\n" }  
+                if ( $element ne $elements->[-1] ) { print "\n" }  
                 last; 
             }
         }
     }
 
-    $fh->close( ); 
+    close $fh; 
 
     return; 
 }
@@ -553,23 +510,22 @@ sub make_potcar {
 
 #read istep, T(K), F(eV) from OSZICAR 
 # args  
-# -< ref to array of lines 
+# -< OSZICAR 
 # return 
-# -> potential hash (istep => [T, F])
-sub read_profile { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'OSZICAR'; 
+# -> hash md profile (istep => [T, F])
+sub read_md { 
+    my ( $file ) = @_;  
 
-    my @md = map [(split)[0,2,6]], grep /T=/, read_file($file); 
+    # [istep, T, F]
+    my @md = map [ ( split )[0,2,6] ], grep /T=/, read_file($file); 
 
     # convert array to hash for easier index tracking 
     my %md = map { $_->[0] => [$_->[1], $_->[2] ] } @md; 
-    
+
     # total number of entry in hash
     print  "=> Retrieve ISTEP, T(K), and F(eV) from OSZICAR\n"; 
     printf "=> Hash contains %d entries\n\n", scalar(keys %md); 
-    
+
     return %md; 
 }
 
@@ -579,10 +535,10 @@ sub read_profile {
 # -< output file 
 # return 
 # -> null
-sub print_profile { 
-    my ( $output, $md ) = @_; 
+sub print_md { 
+    my ( $md => $output ) = @_; 
 
-    my $fh = IO::File->new($output, 'w') or die "Cannot write to $output\n";  
+    open my $fh, '>', $output or die "Cannot write to $output\n"; 
 
     print $fh "# Step  T(K)   F(eV)\n"; 
     map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
@@ -600,15 +556,13 @@ sub print_profile {
 # -< OUTCAR 
 # return 
 # -> array of optimized lattice vectors 
-sub read_lattice { 
-    my ( $file ) = @_; 
-
-    $file = defined $file ? $file : 'OUTCAR'; 
+sub read_cell { 
+    my ( $file ) = @_;  
 
     my $slurp_line = slurp_file($file); 
 
     # filehandler to scalar ref
-    my $fh = IO::File->new(\$slurp_line, 'r'); 
+    open my $fh, '<', \$slurp_line; 
 
     # direct lattice vector 
     my @lattices = ( ); 
@@ -631,39 +585,42 @@ sub read_lattice {
     return @lattices; 
 }
 
+# read final magmom 
+# args 
+# -< OUTCAR 
+# return 
+# -> array of final magmom 
 sub read_final_magmom { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'OUTCAR'; 
+    my ( $file ) = @_;  
 
-    my ( $nion, @magnetization ); 
-
+    my ( $nion, @magmom );  
     my $slurp_line = slurp_file($file); 
 
-    # spin polarization 
-    unless ( $slurp_line =~ /ISPIN\s*=\s*2/ ) { return } 
+    # spin polarization or not ?  
+    if ( ! $slurp_line =~ /ISPIN\s*=\s*2/ ) { return } 
 
     # number of ion (NIONS)
     if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
 
     # filehandler to scalar ref 
-    my $fh = IO::File->new(\$slurp_line, 'r'); 
+    open my $fh, '<', \$slurp_line; 
 
     while ( <$fh> ) { 
         if ( /magnetization \(x\)/ ) { 
-            my ( $line, @step_mag ); 
+            my ( $line, @imag ); 
             # skip 3 lines 
             for (1..3) { $line = <$fh> }
             for my $ion ( 0..$nion-1 ) { 
                 my $line = <$fh>; 
-                my $tot_mag = (split ' ', $line)[-1]; 
-                push @step_mag, $tot_mag; 
+                push @imag, ( split ' ', $line )[-1]; 
             }
-            push @magnetization, \@step_mag; 
+            push @magmom, \@imag;  
         }
     }
 
-    return @magnetization; 
+    close $fh; 
+
+    return @{$magmom[-1]};  
 }
 
 # read total forces of each ion step 
@@ -672,18 +629,16 @@ sub read_final_magmom {
 # return 
 # -> array of forces  
 sub read_force { 
-    my ( $file, $frozen ) = @_; 
-    
-    $file = defined $file ? $file : 'OUTCAR'; 
+    my ( $file, $frozen ) = @_;  
 
     my ( $nion, @max_forces ); 
     my $slurp_line = slurp_file($file); 
-    
+
     # number of ion (NIONS)
     if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
 
     # filehandler to scalar ref
-    my $fh = IO::File->new(\$slurp_line, 'r'); 
+    open my $fh, '<', \$slurp_line; 
 
     # force header: TOTAL-FORCE
     while ( <$fh> ) { 
@@ -706,7 +661,7 @@ sub read_force {
     }
 
     $fh->close; 
-    
+
     return @max_forces;  
 }
 
@@ -721,49 +676,35 @@ sub read_force {
 #        ]
 #      }, 
 # 2 => ...
-sub read_phonon_eigen { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'OUTCAR'; 
+sub read_phonon { 
+    my ( $file ) = @_;  
 
-    my ( $nion, $ndof, %eigen ); 
+    my ( $nion, %eigen ); 
     my $slurp_line = slurp_file($file);  
-    
+
     # number of ion (NIONS)
     if ( $slurp_line =~ /NIONS.+?(\d+)/ ) { $nion = $1 } 
 
-    # number of degree of freedom (DOF)
-    if ( $slurp_line =~ /DOF.+?(\d+)/ ) { $ndof = $1 } 
-
     # filehandler to scalar ref
-    my $fh = IO::File->new(\$slurp_line, 'r'); 
-    
+    open my $fh, '<', \$slurp_line; 
+
     while ( <$fh> ) { 
-        if ( /Eigenvectors and eigenvalues/ ) { 
-            my $line; 
-            # skip three lines 
-            for ( 1..3 ) { $line = <$fh> } 
+        if ( /\d+\s+f(\/i)?\s+=/ ) { 
+            # read eigenval 
+            my ( $dof, $eigenval ) = ( split )[0, -2]; 
+            $eigen{$dof}[0] = $eigenval; 
 
-            for my $dof ( 1..$ndof ) { 
-            #for my $dof ( 1..477 ) { 
-                # eigenvalue 
-                if ( ( $line = <$fh> ) =~ /\d+\s*f  =/ ) { $eigen{$dof}[0] = ( split ' ', $line )[-2] } 
+            # skip the X Y Z dx dy dz header 
+            my $line = <$fh>;     
 
-                # skip 'X  Y  Z' header
-                $line = <$fh>; 
-
-                # move record NIONS ahead 
-                for ( 1..$nion ) { 
-                    $line = <$fh>; 
-                    push @{$eigen{$dof}}, [( split ' ', $line )[-3,-2,-1]]; 
-                }
-                
-                # skip blank line
-                $line = <$fh>;     
+            # read eigenvector 
+            for ( 1..$nion ) { 
+                $line = <$fh>;
+                push @{$eigen{$dof}}, [( split ' ', $line )[-3,-2,-1]]; 
             }
         }
     }
-    
+
     return %eigen; 
 }
 
@@ -772,119 +713,111 @@ sub read_phonon_eigen {
 #---------#
 # read atomic coordinate blocks for each ionic step  
 # args 
-# -< XDATCAR (VASP 4)
+# -< XDATCAR
 # return
-# -> array of lattice, atom, natom, geometry
-sub read_traj4 { 
-    my ( $file ) = @_; 
+# -> XDATCAR hash 
+sub read_xdatcar { 
+    my ( $file ) = @_;  
 
-    $file = defined $file ? $file : 'XDATCAR'; 
+    my %xdatcar = (); 
 
-    chomp ( my $line_6th = extract_file($file, 6) ); 
-
-    # why three undef ? VASP4 is weired 
-    my (undef, undef, undef, @trajs) = split /$line_6th\n| Konfig=.+?\n/, slurp_file('XDATCAR'); 
-
-    # since there is no element info 
-    # get it from POSCAR 
-    my ( $title, $scaling, undef, $atom, $natom, $selective, $type, undef ) = read_poscar('POSCAR');  
-
-    # since there is no lattice vectors info 
-    # get it from the OUTCAR 
-    my @lat = read_lattice('OUTCAR'); 
-
-    # similar to ISIF = 3 (VASP5)
-    return ( 3, $title, $scaling, \@lat, $atom, $natom, \@trajs );  
-}
-
-# read atomic coordinate blocks for each ionic step  
-# args 
-# -< XDATCAR (VASP 5)
-# return
-# -> array of lattice, atom, natom, geometry
-sub read_traj5 { 
-    my ( $file ) = @_; 
-    
-    $file = defined $file ? $file : 'XDATCAR'; 
-
-    # ISIF checking, extract 8th line 
-    my $keyword = extract_file($file, 8);  
-    my $isif    = ( $keyword =~ /Direct configuration=/ ) ? 2 : 3; 
-
-    # ISIF = 2 
-    if ( $isif == 2 ) { 
-        my ( $cell, @trajs ) = split /Direct configuration=.*\d+\n/, slurp_file($file); 
-
-        # header  
-        my ( $title, $scaling, $latx, $laty, $latz, $atom, $natom ) = split /\n/, $cell;  
-
-        # cell info 
-        my @lat    = map { [split] } ( $latx, $laty, $latz ); 
-        my @atoms  = split ' ', $atom; 
-        my @natoms = split ' ', $natom; 
+    # probe version
+    if ( extract_file('XDATCAR', 4) =~ /CAR/ ) { 
+        # VASP 4 :( 
         
-        return ( $isif, $title, $scaling, \@lat, \@atoms, \@natoms, \@trajs );  
-    # ISIF = 3
-    } else  { 
-        my ( undef, $initial_cell, @structure ) = split /$keyword\s*\n/, slurp_file($file); 
+        # read name, scaling, atom, natom from POSCAR 
+        %xdatcar = read_poscar('POSCAR');  
         
-        # header from initial cell 
-        my ( $scaling, undef, undef, undef, $atom, $natom ) = split /\n/, $initial_cell;  
-        my @atoms  = split ' ', $atom; 
-        my @natoms = split ' ', $natom; 
+        # read cell info from the OUTCAR 
+        my @icell = read_cell('OUTCAR'); 
 
-        # (lattice + geometry)
-        my ( @lats, @trajs ); 
-        for ( @structure ) { 
-            my ( $cell, $geometry ) = split /Direct configuration=.*\d+\n/, $_;  
+        # keep trajs as scalars  
+        # avoid exciplit read in the file 
+        my $seperator = extract_file($file, 6);  
+        my ( undef, undef, undef, @geometry ) = split /$seperator\n| Konfig=.+?\n/, slurp_file('XDATCAR'); 
+        
+        # modify hash accordingly 
+        @xdatcar{qw(version cell type selective geometry)} = ( 4, \@icell, 'direct', 0, \@geometry ); 
+    } else { 
+        # VASP 5 :)
 
-            # lattice vector 
-            my ( undef, $latx, $laty, $latz ) = split /\n/, $cell; 
-            push @lats, [ map { [split] } ( $latx, $laty, $latz ) ];
-            push @trajs, $geometry; 
+        my $name = extract_file($file, 1); 
+        my ( undef, @block ) = split /$name\n|Direct configuration=.*\d+\n/, slurp_file('XDATCAR');
+
+        # precompiled regular expression 
+        my $regex_cell = qr/^\s*\d*(\.)?\d+\s*\n/;   
+        my $regex_geom = qr/^\s*(\d*(\.?)\d+\s*){3}\n/; 
+
+        my @icell     = grep /$regex_cell/, @block; 
+        my @igeometry = grep /$regex_geom/, @block; 
+
+        # ISIF =3 
+        if ( @icell > @igeometry ) { shift @icell };  
+
+        # what an ugly code  
+        $xdatcar{atom}  = [ $icell[0] =~ /([A-Za-z]+)+/g ];  
+        $xdatcar{natom} = [ ( $icell[0] =~ /(\d+)+/g )[-@{$xdatcar{atom}}..-1 ] ]; 
+
+        # cell block 
+        for my $cell ( @icell ) { 
+            my @clines = split /\n/, $cell; 
+
+            my $scaling = shift @clines; 
+            my @cell =  map { [ split ' ', shift @clines ] } 0..2;  
+
+            # scaling lattice vector 
+            @cell = mscale($scaling, \@cell);  
+
+            push @{$xdatcar{cell}}, \@cell; 
         }
 
-        return ( $isif, $keyword, $scaling, \@lats, \@atoms, \@natoms, \@trajs );  
+        # geometry block  
+        $xdatcar{geometry} = [ map { [ map [split], split /\n/ ] } @igeometry ];  
     }
-
-    return; 
+    
+    return %xdatcar; 
 }
 
-# save trajectory to disk
-# args  
-# -< ref to trajectory (array of ref to 2d coordinate) 
-# -< stored output
-# return: 
-# -> null
-sub save_traj { 
-    my ( $output, $traj, $save ) = @_; 
-
-    if ( $save ) { 
-        print  "=> Save trajectory as '$output'\n"; 
-        printf "=> Hash contains %d entries\n", scalar(keys %$traj); 
-        store $traj => $output;  
-    }
-
-    return; 
-}
-
-# retrieve trajectory to disk
+#------# 
+# VASP #
+#------# 
+# execute vasp 
 # args 
-# -< stored data 
+# -< working path 
+# -< hash ref of vasp binary => version => {gamma, complex} 
+# -< version 
+# -< sratch directory ( for iterative mode ) 
 # return 
-# -> traj hash 
-sub retrieve_traj { 
-    my ( $stored_traj ) = @_; 
+# -> null 
+sub run_vasp { 
+    my ( $path, $binary, $version, $scratch ) = @_; 
+    
+    my $vasp   = '';  
+    my $nprocs = `wc -l < $ENV{PBS_NODEFILE}`; 
+    my @inputs = qw( INCAR KPOINTS POSCAR POTCAR ); 
 
-    # trajectory is required 
-    unless ( -e $stored_traj ) { die "$stored_traj does not exists\n" } 
+    # relocate to calculation directory 
+    chdir $path;
 
-    # retored traj as hash reference 
-    my $traj = retrieve($stored_traj); 
-    print  "=> Retrieve trajectory from '$stored_traj'\n"; 
-    printf "=> Hash contains %d entries\n\n", scalar(keys %$traj); 
+    # iterative mode 
+    if ( defined $scratch && $path ne $scratch && -e 'OUTCAR' ) { return } 
+    
+    # INCAR, KPOINTS, POSCAR, POTCAR
+    if ( ( grep -e $_, @inputs ) == 4 ) { 
+        my %kpoint = read_kpoints('KPOINTS'); 
 
-    return %$traj; 
+        # explicit kpoint 
+        if ( $kpoint{nkpt} > 0 ) {  
+            $vasp = $binary->{$version}{'complex'};  
+        # automatic kpoint mesh 
+        } else { 
+            $vasp = int(product(@{$kpoint{mesh}})) == 1 ? $binary->{$version}{'gamma'} : $binary->{$version}{'complex'};  
+        }
+        
+        system 'mpirun', '-np', $nprocs, $vasp; 
+    }
+    
+    return; 
 }
 
 # last evaluated expression 

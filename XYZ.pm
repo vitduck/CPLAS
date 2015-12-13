@@ -4,21 +4,22 @@ use strict;
 use warnings; 
 
 use Exporter; 
-use IO::File; 
 
-use Math::Linalg qw/sum product ascale mat_mul inverse print_array print_mat/;  
-use Periodic qw/atomic_number/;  
-use Util qw/read_file/; 
+use Fortran qw( fortran2perl );  
+use Math::Linalg qw( sum product ascale mat_mul inverse);  
+use Periodic qw( atomic_number );  
+use Util qw( read_file );  
 
-our @geometry  = qw/cart_to_direct direct_to_cart set_pbc atom_distance color_magmom/; 
-our @xyz       = qw/info_xyz read_xyz print_xyz/; 
-our @visualize = qw/xmakemol/; 
+our @geometry  = qw( cart_to_direct direct_to_cart set_pbc atm_distance color_magmom );  
+our @xyz       = qw( read_xyz print_xyz tag_xyz ); 
+our @visualize = qw( xmakemol ); 
 
-our @ISA         = qw/Exporter/; 
-our @EXPORT      = ( );  
+our @ISA         = qw( Exporter );  
+our @EXPORT      = ();  
 our @EXPORT_OK   = ( @geometry, @xyz, @visualize ); 
 our %EXPORT_TAGS = (
     geometry  => \@geometry, 
+    xyz       => \@xyz, 
     visualize => \@visualize, 
 ); 
 
@@ -26,23 +27,45 @@ our %EXPORT_TAGS = (
 # GEOMETRY # 
 #----------#
 
+# shift direct coordinate  
+# args 
+# -< ref to 2d array of coordinates 
+# -< ref to 1d array of shifting 
+# return 
+# -> null
+sub set_pbc { 
+    my ($geometry, $dxyz) = @_; 
+
+    if ( @$dxyz == 0 ) { return }
+
+    for my $atom ( @$geometry ) { 
+        if ( $atom->[0] > $dxyz->[0] ) { $atom->[0] -= 1.0 } 
+        if ( $atom->[1] > $dxyz->[1] ) { $atom->[1] -= 1.0 } 
+        if ( $atom->[2] > $dxyz->[2] ) { $atom->[2] -= 1.0 } 
+    }
+
+    return; 
+}
+
 # convert cartesian to direct coordinate 
 # args 
+# -< poscar mode (cartesian||direct)
 # -< ref to 2d array of lattice vectors 
 # -< ref to 2d array of direct coordinates 
 # return
-# -> direct coordinates   
+# -> null
 sub cart_to_direct { 
-    my ( $lat, $cart ) = @_; 
-    
-    # remove selective dynamics tags and count
-    map { splice @$_, 3, 4 } @$cart; 
+    my ( $type, $lat, $cart ) = @_; 
 
-    # direct = cart x lat-1
-    my @inverse_lat = inverse(@$lat); 
-    my @direct = mat_mul($cart, \@inverse_lat);  
-    
-    return @direct; 
+    if ( $type =~ /^\s*[ck]/i ) {  
+        # remove selective dynamics tags and count
+        map { splice @$_, 3, 4 } @$cart; 
+
+        # direct = cart x lat-1
+        @$cart = mat_mul($cart, [inverse($lat)]);  
+    }
+
+    return; 
 }
 
 # convert POSCAR/CONTCAR/XDATCAR to xyz 
@@ -56,83 +79,80 @@ sub cart_to_direct {
 # return 
 # -> null 
 sub direct_to_cart { 
-    my ( $fh, $scaling, $lat, $label, $coor, $nx, $ny, $nz ) = @_; 
-    my ( $x, $y, $z ); 
+    my ( $cell, $geometry, $dxyz, $nxyz, $tag, $comment => $fh ) = @_; 
+    
+    # PBC shift 
+    set_pbc($geometry, $dxyz); 
+    
+    # total number of atom 
+    printf $fh "%d\n", scalar(@$tag);  
 
-    # atom index 
-    my $index = 0; 
+    # comment 
+    printf $fh "$comment\n"; 
 
-    for my $atom ( @$coor ) { 
+    # straight forward implementation to reduce subroutine calls
+    # to be replaced with Incline::C ?
+    my ( $index, $x, $y, $z); 
+    for my $atom ( @$geometry ) { 
         # expand the supercell
-        for my $iz (0..$nz-1) { 
-            for my $iy (0..$ny-1) { 
-                for my $ix (0..$nx-1) { 
+        for my $iz (0..$nxyz->[2]-1) { 
+            for my $iy (0..$nxyz->[1]-1) { 
+                for my $ix (0..$nxyz->[0]-1) { 
                     # hard coded convert to cartesian
-                    $x = $lat->[0][0]*($atom->[0]+$ix)+$lat->[1][0]*($atom->[1]+$iy)+$lat->[2][0]*($atom->[2]+$iz); 
-                    $y = $lat->[0][1]*($atom->[0]+$ix)+$lat->[1][1]*($atom->[1]+$iy)+$lat->[2][1]*($atom->[2]+$iz); 
-                    $z = $lat->[0][2]*($atom->[0]+$ix)+$lat->[1][2]*($atom->[1]+$iy)+$lat->[2][2]*($atom->[2]+$iz); 
-                    #print_array($fh, '%-3s3%10.3f', $label->[$index++], $x, $y, $z); 
-                    printf $fh "%-3s %10.3f %10.3f %10.3f\n", $label->[$index++], $x, $y, $z;  
+                    $x = $cell->[0][0]*($atom->[0]+$ix)+$cell->[1][0]*($atom->[1]+$iy)+$cell->[2][0]*($atom->[2]+$iz); 
+                    $y = $cell->[0][1]*($atom->[0]+$ix)+$cell->[1][1]*($atom->[1]+$iy)+$cell->[2][1]*($atom->[2]+$iz); 
+                    $z = $cell->[0][2]*($atom->[0]+$ix)+$cell->[1][2]*($atom->[1]+$iy)+$cell->[2][2]*($atom->[2]+$iz); 
+                    printf $fh "%-3s %10.3f %10.3f %10.3f\n", $tag->[$index++], $x, $y, $z;  
                 }
             }
         }
         
     }
-    
+
     return; 
 }
 
+# color xyz according to value of magmom 
+# args 
+# -< color mode (0|1) 
+# -< array ref of xyz tag 
+# -< array ref of magmom 
+# return 
+# -> null
 sub color_magmom { 
-    my ( $label, $magmom ) = @_;   
+    my ( $tag, $magmom ) = @_;   
 
+    my $cutoff = 0.5;  
+    
     my %color = ( 
         'zero' => 'Bh', 
         'up'   => 'Hs', 
         'down' => 'Mt'
     ); 
 
-    my $cutoff = 0.5;  
-
     for ( 0..$#$magmom ) { 
         # small magmom -> white 
         if ( abs($magmom->[$_] ) < $cutoff ) { 
-            $label->[$_] = $color{zero}; 
+            $tag->[$_] = $color{zero}; 
         # spin-up
         } elsif ( $magmom->[$_] > 0 ) { 
-            $label->[$_] = $color{up};  
+            $tag->[$_] = $color{up};  
         # spin-down 
         } else { 
-            $label->[$_] = $color{down}; 
+            $tag->[$_] = $color{down}; 
         }
     }
 
     return; 
 }
 
-# shift direct coordinate  
-# args 
-# -< ref to 2d array of coordinates 
-# -< ref to 1d array of shifting 
-# return 
-# -> null
-sub set_pbc { 
-    my ($geometry, $dx, $dy, $dz) = @_; 
-
-    for my $atom ( @$geometry ) { 
-        if ( $atom->[0] > $dx ) { $atom->[0] -= 1.0 } 
-        if ( $atom->[1] > $dy ) { $atom->[1] -= 1.0 } 
-        if ( $atom->[2] > $dz ) { $atom->[2] -= 1.0 } 
-    }
-
-    return; 
-}
 
 # distance between two atom
 # args 
 # -< ref to two cartesian vectors 
 # return
 # -> distance 
-sub atom_distance { 
+sub atm_distance { 
     my ($atm1, $atm2) = @_; 
 
     my $d12 = sqrt(($atm1->[1]-$atm2->[1])**2 + ($atm1->[2]-$atm2->[2])**2 + ($atm1->[3]-$atm2->[3])**2); 
@@ -143,22 +163,30 @@ sub atom_distance {
 #-----#
 # XYZ # 
 #-----#
-# xyz information 
+
+# atomic tag 
 # args 
-# -< ref to array of atom 
-# -< ref to array of natom 
-# -< nx, ny, nz 
+# -< array ref to array of atom 
+# -< array ref to array of natom 
+# -< array ref of expansion array 
 # return 
-# -> total number of atom 
-# -> xyz label
-sub info_xyz { 
-    my ( $atom, $natom, $nx, $ny, $nz ) = @_; 
+# -> array of atomic tag 
+sub tag_xyz { 
+    my ( $atom, $natom, $nxyz, $mode ) = @_;  
 
-    my @snatom = ascale(product($nx, $ny, $nz), @$natom); 
-    my $ntotal = sum(@snatom); 
-    my @label  = map { ( $atom->[$_] ) x $snatom[$_] } 0..$#$atom; 
+    # default pbc expansion 
+    if ( @$nxyz == 0 ) { @$nxyz = ( 1, 1, 1 ) }
+    
+    # tag of unitcell 
+    my @unitcell = map { ( $atom->[$_] ) x $natom->[$_] } 0..$#$atom;  
 
-    return ($ntotal, \@label) 
+    # apply supplementary data
+    if ( exists $mode->{magmom} ) { color_magmom(\@unitcell, $mode->{magmom} ) }
+
+    # expansion 
+    my @tags  = map { ( $_ ) x product(@$nxyz) } @unitcell; 
+
+    return @tags;  
 } 
 
 # read xyz coordinates 
@@ -172,51 +200,56 @@ sub info_xyz {
 sub read_xyz { 
     my ( $file )  = @_; 
 
-    my @lines = read_file($file); 
+    my ( %xyz, %geometry, @lines ) = (); 
 
-    my %struct; 
-    my $ntotal  = shift @lines; 
-    my $comment = shift @lines || ''; 
+    ( $xyz{ntot}, $xyz{name}, @lines ) = read_file($file);  
 
-    for ( @lines ) { 
-        my ( $element, $x, $y, $z ) = split; 
-        push @{$struct{$element}}, [ $x, $y, $z ]; 
+    # loop through geometry block
+    for my $index ( 0..$xyz{ntot}-1 ) { 
+        my ( $element, $x, $y, $z ) = split ' ', $lines[$index];  
+        # hash: element => coordinate 
+        push @{$geometry{$element}}, [ $x, $y, $z ]; 
     }
 
-    # sort element based on atomic number 
-    my @atoms    = sort { atomic_number($a) <=> atomic_number($b) } keys %struct;  
-    my @natoms   = map scalar(@{$struct{$_}}), @atoms;  
-    my @geometry = map @{$struct{$_}}, @atoms; 
+    # array of elements  
+    my @atoms = sort { atomic_number($a) <=> atomic_number($b) } keys %geometry; 
+
+    # array of number of atom per element 
+    my @natoms = map scalar(@{$geometry{$_}}), @atoms;  
+
+    # array of geometry 
+    my @geometry = map @{$geometry{$_}}, @atoms; 
+
+    # complete xyz hash 
+    @xyz{qw( atom natom geometry )} = ( \@atoms, \@natoms, \@geometry ); 
     
-    return ( $comment, \@atoms, \@natoms, \@geometry ); 
+    return %xyz; 
 }
 
 # print xyz coordinates 
 # args 
+# -< hash ref of xyz
 # -< output file
-# -< total number of atom 
-# -< xyz comment 
-# -< ref of array of atom 
-# -< ref of array of natom 
-# -< ref of 2d array of coordinate 
 # returns 
 # -> null 
 sub print_xyz { 
-    my ( $file, $comment, $atom, $natom, $geometry ) = @_;  
-
-    my $fh = IO::File->new($file, 'w') or die "Cannot write to $file\n"; 
+    my ( $xyz => $file ) = @_;  
 
     # xyz label 
-    my @labels = map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom;  
-       
+    my @tags = tag_xyz($xyz->{atom}, $xyz->{natom}, [1,1,1]);  
+
+    open my $fh, '>', $file or die "Cannot write to $file\n"; 
+
     # print header 
-    printf $fh "%d\n", sum(@$natom); 
-    printf $fh "%s\n", $comment; 
+    printf $fh "%d\n", sum(@{$xyz->{ntot}});  
+    printf $fh "%s\n", $xyz->{name}; 
 
     # print coordinate 
-    for  ( 0..$#labels ) { 
-        print_array($fh, '%-3s3%10.3f', $labels[$_], @{$geometry->[$_]}); 
+    for  ( 0..$#tags ) { 
+        print_array($fh,'%-3s3%10.3f', $tags[$_], $xyz->{geometry}[$_]);  
     }
+
+    close $fh; 
 
     return; 
 }
@@ -227,20 +260,19 @@ sub print_xyz {
 
 # visualize xyz file 
 # args 
-# -< xyz file 
 # -< quiet mode (0|1)
+# -< xyz file 
 # return : 
 # -> null
 sub xmakemol { 
-    my ( $file, $quiet )  = @_; 
+    my ( $quiet, $file )  = @_; 
 
-    $quiet = defined $quiet ? $quiet : 0; 
+    # quiet mode 
+    if ( $quiet ) { return }
 
-    unless ( $quiet ) { 
-        print "=> xmakemol $file ...\n"; 
-        my $bgcolor = $ENV{XMAKEMOL_BG} || '#D3D3D3'; 
-        system "xmakemol -c '$bgcolor' -f $file >/dev/null 2>&1 &" 
-    }    
+    print "=> xmakemol $file ...\n"; 
+    my $bgcolor = $ENV{XMAKEMOL_BG} || '#D3D3D3'; 
+    system "xmakemol -c '$bgcolor' -f $file >/dev/null 2>&1 &"; 
     
     return; 
 }

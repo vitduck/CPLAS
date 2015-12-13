@@ -7,14 +7,14 @@ use Getopt::Long;
 use IO::File; 
 use Pod::Usage; 
 
-use VASP qw/read_poscar read_final_magmom/;  
-use XYZ  qw/info_xyz cart_to_direct direct_to_cart set_pbc color_magmom xmakemol/; 
+use VASP qw( read_poscar read_final_magmom ); 
+use XYZ  qw( cart_to_direct direct_to_cart set_pbc color_magmom tag_xyz xmakemol );  
 
 my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
 
 # POD 
 =head1 NAME 
-contcar.pl: convert CONTCAR to contcar.xyz
+contcar.pl: convert CONTCAR to poscar.xyz
 
 =head1 SYNOPSIS
 
@@ -30,7 +30,7 @@ Print the help message and exit.
 
 =item B<-i> 
 
-input file (default: CONTCAR)
+input file (default: POSCAR)
 
 =item B<-c> 
 
@@ -38,7 +38,7 @@ Centralize the coordinate (default: no)
 
 =item B<-d> 
 
-PBC shifting 
+PBC shifting
 
 =item B<-x> 
 
@@ -50,7 +50,7 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 
 =item B<-m> 
 
-Show final MAGMOM 
+Show initial MAGMOM
 
 =back
 
@@ -58,69 +58,38 @@ Show final MAGMOM
 
 # default optional arguments
 my $help   = 0; 
-my $quiet  = 0; 
-my $magmom = 0; 
-
-my @nxyz   = ( );  
-my @dxyz   = ( );  
-
-# input & output
 my $input  = 'CONTCAR'; 
+my @dxyz   = ();  
+my @nxyz   = ();  
+my $quiet  = 0; 
+my %mode   = ();  
+
 my $xyz    = 'contcar.xyz'; 
 
 # parse optional arguments 
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input, 
-    'm'      => \$magmom, 
-    'c'      => sub { 
-        @dxyz = (0.5,0.5,0.5) 
-    },  
-    'd=f{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @dxyz, $arg;  
-    }, 
-    'x=i{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @nxyz, $arg; 
-    }, 
+    'c'      => sub { @dxyz = (0.5,0.5,0.5) },  
+    'd=f{3}' => \@dxyz,  
+    'x=i{3}' => \@nxyz,  
     'q'      => \$quiet, 
+    'm'      => sub { $mode{magmom} = [ read_final_magmom('OUTCAR') ] }, 
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # read CONTCAR
-my ( $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry ) = read_poscar($input); 
+my %contcar = read_poscar($input); 
 
-# supercell box
-my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
-
-# total number of atom in supercell 
-my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
-
-#write poscar.xyz
-my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
-
-# total number of atom 
-printf $fh "%d\n\n", $ntotal; 
-
-# convert to direct coordinate + pbc shift
-my @direct = ( $type =~ /^\s*c/i ) ? cart_to_direct($lat, $geometry) : @$geometry;  
-
-# PBC
-if ( @dxyz ) { set_pbc(\@direct, @dxyz) } 
-
-# magmom 
-if ( $magmom ) { 
-    my @magmom = read_final_magmom(); 
-    color_magmom($label, $magmom[-1]); 
-}
+# tag  
+my @tags = tag_xyz($contcar{atom}, $contcar{natom}, \@nxyz, \%mode);  
 
 # print coordinate to contcar.xyz
-direct_to_cart($fh, $scaling, $lat, $label, \@direct, $nx, $ny, $nz); 
-
-$fh->close; 
+open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
+direct_to_cart($contcar{cell}, $contcar{geometry}, \@dxyz, \@nxyz, \@tags, $contcar{name} => $fh); 
+close $fh; 
 
 # xmakemol
-xmakemol($xyz, $quiet); 
+xmakemol($quiet, $xyz); 

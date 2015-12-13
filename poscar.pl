@@ -4,13 +4,12 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use IO::File; 
 use Pod::Usage; 
 
-use VASP qw/read_poscar read_init_magmom/;  
-use XYZ  qw/info_xyz cart_to_direct direct_to_cart set_pbc color_magmom xmakemol/; 
+use VASP qw( read_poscar read_init_magmom ); 
+use XYZ  qw( cart_to_direct direct_to_cart set_pbc color_magmom tag_xyz xmakemol );  
 
-my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
+my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
 # POD 
 =head1 NAME 
@@ -58,69 +57,41 @@ Show initial MAGMOM
 
 # default optional arguments
 my $help   = 0; 
-my $quiet  = 0; 
-my $magmom = 0; 
-
-my @nxyz   = ( );  
-my @dxyz   = ( );  
-
-# input & output
 my $input  = 'POSCAR'; 
+my @dxyz   = ();  
+my @nxyz   = ();  
+my $quiet  = 0; 
+my %mode   = ();  
+
 my $xyz    = 'poscar.xyz'; 
 
 # parse optional arguments 
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input, 
-    'm'      => \$magmom, 
-    'c'      => sub { 
-        @dxyz = (0.5,0.5,0.5) 
-    },  
-    'd=f{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @dxyz, $arg;  
-    }, 
-    'x=i{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @nxyz, $arg; 
-    }, 
+    'c'      => sub { @dxyz = (0.5,0.5,0.5) },  
+    'd=f{3}' => \@dxyz,  
+    'x=i{3}' => \@nxyz,  
     'q'      => \$quiet, 
+    'm'      => sub { $mode{magmom} = [ read_init_magmom('INCAR') ] },
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # read POSCAR 
-my ( $title, $scaling, $lat, $atom, $natom, $dynamics, $type, $geometry ) = read_poscar($input); 
-
-# supercell box
-my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
-
-# total number of atom in supercell 
-my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
-
-#write poscar.xyz
-my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n";  
-
-# total number of atom 
-printf $fh "%d\n\n", $ntotal; 
+my %poscar = read_poscar($input); 
 
 # convert to direct coordinate + pbc shift
-my @direct = ( $type =~ /^\s*c/i ) ? cart_to_direct($lat, $geometry) : @$geometry;  
+cart_to_direct(@poscar{qw( type cell geometry )}); 
 
-# PBC
-if ( @dxyz ) { set_pbc(\@direct, @dxyz) } 
-
-# magmom 
-if ( $magmom ) { 
-    my @magmom = read_init_magmom(); 
-    color_magmom($label, \@magmom); 
-}
+# tag  
+my @tags = tag_xyz($poscar{atom}, $poscar{natom}, \@nxyz, \%mode);  
 
 # print coordinate to poscar.xyz
-direct_to_cart($fh, $scaling, $lat, $label, \@direct, $nx, $ny, $nz); 
-
-$fh->close; 
+open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
+direct_to_cart($poscar{cell}, $poscar{geometry}, \@dxyz, \@nxyz, \@tags, $poscar{name} => $fh); 
+close $fh; 
 
 # xmakemol
-xmakemol($xyz, $quiet); 
+xmakemol($quiet, $xyz); 

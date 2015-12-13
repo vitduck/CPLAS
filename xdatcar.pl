@@ -3,15 +3,17 @@
 use strict; 
 use warnings; 
 
+use Data::Dumper; 
 use Getopt::Long; 
 use IO::File; 
 use Pod::Usage; 
 
-use Util qw/extract_file/; 
-use VASP qw/read_lattice read_traj4 read_traj5 save_traj/;  
-use XYZ  qw/info_xyz direct_to_cart set_pbc xmakemol/; 
+use Util qw( extract_file );  
+use MD   qw( save_traj ); 
+use VASP qw( read_xdatcar );  
+use XYZ  qw( tag_xyz direct_to_cart set_pbc xmakemol ); 
 
-my @usages = qw/NAME SYSNOPSIS OPTIONS/;
+my @usages = qw( NAME SYSNOPSIS OPTIONS );
 
 # POD 
 =head1 NAME 
@@ -60,81 +62,53 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 
 # default optional arguments 
 my $help   = 0; 
+my $input  = 'XDATCAR'; 
+my @dxyz   = (); 
+my @nxyz   = (); 
 my $quiet  = 0; 
 my $save   = 0; 
-my @nxyz   = ( ); 
-my @dxyz   = ( ); 
 
-# input & output
-my $input  = 'XDATCAR'; 
 my $xyz    = 'ion.xyz'; 
+my $store  = 'traj.dat'; 
 
 # parse optional arguments 
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input,
-    'c'      => sub { 
-        @dxyz = (0.5,0.5,0.5) 
-    }, 
-    'd=f{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @dxyz, $arg;  
-    }, 
-    'x=i{3}' => sub { 
-        my ($opt, $arg) = @_; 
-        push @nxyz, $arg; 
-    }, 
+    'c'      => sub { @dxyz = (0.5,0.5,0.5) }, 
+    'd=f{3}' => \@dxyz, 
+    'x=i{3}' => \@nxyz,  
+    'q'      => \$quiet, 
     's'      => \$save, 
-    'q'      => \$quiet
 ) or pod2usage(-verbose => 1); 
 
 # help message
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) } 
 
-# determine the version of VASP 
-my ( $isif, $title, $scaling, $lat, $atom, $natom, $traj ) = 
-extract_file('XDATCAR', 4) =~ /CAR/ ? 
-read_traj4($input) :  
-read_traj5($input) ;   
+# read XDATCAR 
+my %xdatcar = read_xdatcar($input); 
 
-# supercell box
-my ($nx, $ny, $nz) = @nxyz ? @nxyz : (1,1,1);  
-
-# total number of atom in supercell 
-my ( $ntotal, $label ) = info_xyz($atom, $natom, $nx, $ny, $nz);  
-
-# save direct coordinate to hash for lookup
-my $count = 0;  
-my %traj  = (); 
-
-# write to xdatcar.xyz
-my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
-
-for ( @$traj ) { 
-    $count++; 
-    # scalar -> 2d array 
-    my $geometry = [ map [ split ], split /\n/, $_ ];  
-
-    # hash of original geometry
-    $traj{$count} = $geometry; 
+if ( $save ) { 
+    # save trajectory to disk  
+    my %trajectory = map { $_+1, $xdatcar{geometry}[$_] } 0..$#{$xdatcar{geometry}}; 
+    save_traj(\%trajectory => $store);   
+} else { 
+    # make ion.xyz 
+    my @tags = tag_xyz($xdatcar{atom}, $xdatcar{natom}, \@nxyz); 
     
-    # PBC
-    if ( @dxyz ) { set_pbc($geometry, @dxyz) } 
-
-    # print coordinate to ion.xyz
-    printf $fh "%d\n# Step: %d\n", $ntotal, $count;  
-    
-    # ISIF = 2|4
-    if ( $isif == 2 ) {    
-        direct_to_cart($fh, $scaling, $lat, $label, $geometry, $nx, $ny, $nz); 
-    # ISIF = 3 ( and VASP 4 )
-    } else { 
-        my $ilat = shift @$lat; 
-        direct_to_cart($fh, $scaling, $ilat, $label, $geometry, $nx, $ny, $nz); 
+    # write to xdatcar.xyz
+    my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
+    for ( 0.. $#{$xdatcar{geometry}} ) { 
+        my $comment = sprintf("Step: %d", $_+1); 
+        if ( @{$xdatcar{cell}} == 1 ) {  
+            # ISIF = 2|4 
+            direct_to_cart($xdatcar{cell}[0], $xdatcar{geometry}[$_], \@dxyz, \@nxyz, \@tags, $comment => $fh); 
+        } else { 
+            # ISIF = 3 
+            direct_to_cart($xdatcar{cell}[$_], $xdatcar{geometry}[$_], \@dxyz, \@nxyz, \@tags, $comment => $fh); 
+        }
     }
+    $fh->close; 
+
+    xmakemol($quiet, $xyz); 
 }
-
-$fh->close; 
-
-# store trajectory
-$save ? save_traj('traj.dat', \%traj, $save) : xmakemol($xyz, $quiet); 
