@@ -135,11 +135,9 @@ sub sum_dos {
 
     # print %sum_dos to $sum_dos
     open my $fh, '>', $sum_dos or die "Cannot write to $sum_dos\n"; 
-
     for ( sort { $a <=> $b } keys %sum_dos ) { 
         printf $fh "$format\n", $_, @{$sum_dos{$_}};  
     }
-
     close $fh; 
     
     return; 
@@ -562,10 +560,8 @@ sub read_cell {
     my $slurp_line = slurp_file($file); 
 
     # filehandler to scalar ref
-    open my $fh, '<', \$slurp_line; 
-
-    # direct lattice vector 
     my @lattices = ( ); 
+    open my $fh, '<', \$slurp_line; 
     while ( <$fh> ) { 
         if ( /direct lattice vectors/ ) { 
             my @lattice = ( );  
@@ -576,7 +572,6 @@ sub read_cell {
             push @lattices, \@lattice; 
         }
     } 
-
     $fh->close; 
 
     # the 1st lattice is from POSCAR! 
@@ -604,7 +599,6 @@ sub read_final_magmom {
 
     # filehandler to scalar ref 
     open my $fh, '<', \$slurp_line; 
-
     while ( <$fh> ) { 
         if ( /magnetization \(x\)/ ) { 
             my ( $line, @imag ); 
@@ -617,7 +611,6 @@ sub read_final_magmom {
             push @magmom, \@imag;  
         }
     }
-
     close $fh; 
 
     return @{$magmom[-1]};  
@@ -639,8 +632,6 @@ sub read_force {
 
     # filehandler to scalar ref
     open my $fh, '<', \$slurp_line; 
-
-    # force header: TOTAL-FORCE
     while ( <$fh> ) { 
         if ( /TOTAL-FORCE/ ) { 
             my @forces = ();  
@@ -659,7 +650,6 @@ sub read_force {
             push @max_forces, max(@forces);  
         }
     }
-
     $fh->close; 
 
     return @max_forces;  

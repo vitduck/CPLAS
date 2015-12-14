@@ -107,10 +107,10 @@ GetOptions(
     'm'      => \$movie, 
     's'      => \$sort, 
     'n=i'    => \$period, 
-    'c'      => sub { @dxyz = ( 0.5,0.5,0.5 ) },  
-    'd=f{3}' => \@dxyz,  
-    'x=i{3}' => \@nxyz,  
     'q'      => \$quiet, 
+    'd=f{3}' => \@dxyz,  
+    'c'      => sub { @dxyz = ( 0.5,0.5,0.5 ) },  
+    'x=i{3}' => sub { push @nxyz, [0..$_[1]-1] },  
 ) or pod2usage(-verbose => 1); 
 
 # help message 
@@ -127,6 +127,9 @@ my %profile = read_profile($profile);
 
 # geometry from trajectory
 my %traj = retrieve_traj($trajectory); 
+
+# pbc box 
+@nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
 
 # analysis
 my @analysis = (); 

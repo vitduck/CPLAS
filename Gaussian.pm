@@ -71,7 +71,8 @@ sub print_gaussian {
     my ( $gaussian => $file ); 
 
     # xyz label 
-    my @tags = tag_xyz($gaussian->{atom}, $gaussian->{natom}, [1,1,1]);  
+    my @nxyz = ( [0],[0],[0] ); 
+    my @tags = tag_xyz($gaussian->{atom}, $gaussian->{natom}, \@nxyz);  
 
     open my $fh, '>', $file or die "Cannot write to $file\n"; 
 

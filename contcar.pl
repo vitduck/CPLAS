@@ -70,10 +70,10 @@ my $xyz    = 'contcar.xyz';
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input, 
-    'c'      => sub { @dxyz = (0.5,0.5,0.5) },  
-    'd=f{3}' => \@dxyz,  
-    'x=i{3}' => \@nxyz,  
     'q'      => \$quiet, 
+    'd=f{3}' => \@dxyz,  
+    'c'      => sub { @dxyz = (0.5,0.5,0.5) },  
+    'x=i{3}' => sub { push @nxyz, [0..$_[1]-1] },  
     'm'      => sub { $mode{magmom} = [ read_final_magmom('OUTCAR') ] }, 
 ) or pod2usage(-verbose => 1); 
 
@@ -82,6 +82,9 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # read CONTCAR
 my %contcar = read_poscar($input); 
+
+# pbc box 
+@nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
 
 # tag  
 my @tags = tag_xyz($contcar{atom}, $contcar{natom}, \@nxyz, \%mode);  

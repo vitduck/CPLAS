@@ -75,11 +75,11 @@ my $store  = 'traj.dat';
 GetOptions(
     'h'      => \$help, 
     'i=s'    => \$input,
-    'c'      => sub { @dxyz = (0.5,0.5,0.5) }, 
-    'd=f{3}' => \@dxyz, 
-    'x=i{3}' => \@nxyz,  
-    'q'      => \$quiet, 
     's'      => \$save, 
+    'q'      => \$quiet, 
+    'd=f{3}' => \@dxyz, 
+    'c'      => sub { @dxyz = (0.5,0.5,0.5) }, 
+    'x=i{3}' => sub { push @nxyz, [0..$_[1]-1] }, 
 ) or pod2usage(-verbose => 1); 
 
 # help message
@@ -93,6 +93,9 @@ if ( $save ) {
     my %trajectory = map { $_+1, $xdatcar{geometry}[$_] } 0..$#{$xdatcar{geometry}}; 
     save_traj(\%trajectory => $store);   
 } else { 
+    # pbc box 
+    @nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
+
     # make ion.xyz 
     my @tags = tag_xyz($xdatcar{atom}, $xdatcar{natom}, \@nxyz); 
     

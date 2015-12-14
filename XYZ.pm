@@ -95,9 +95,9 @@ sub direct_to_cart {
     my ( $index, $x, $y, $z); 
     for my $atom ( @$geometry ) { 
         # expand the supercell
-        for my $iz (0..$nxyz->[2]-1) { 
-            for my $iy (0..$nxyz->[1]-1) { 
-                for my $ix (0..$nxyz->[0]-1) { 
+        for my $iz ( @{$nxyz->[2]} ) { 
+            for my $iy ( @{$nxyz->[1]} ) { 
+                for my $ix ( @{$nxyz->[0]} ) { 
                     # hard coded convert to cartesian
                     $x = $cell->[0][0]*($atom->[0]+$ix)+$cell->[1][0]*($atom->[1]+$iy)+$cell->[2][0]*($atom->[2]+$iz); 
                     $y = $cell->[0][1]*($atom->[0]+$ix)+$cell->[1][1]*($atom->[1]+$iy)+$cell->[2][1]*($atom->[2]+$iz); 
@@ -174,9 +174,6 @@ sub atm_distance {
 sub tag_xyz { 
     my ( $atom, $natom, $nxyz, $mode ) = @_;  
 
-    # default pbc expansion 
-    if ( @$nxyz == 0 ) { @$nxyz = ( 1, 1, 1 ) }
-    
     # tag of unitcell 
     my @unitcell = map { ( $atom->[$_] ) x $natom->[$_] } 0..$#$atom;  
 
@@ -184,7 +181,8 @@ sub tag_xyz {
     if ( exists $mode->{magmom} ) { color_magmom(\@unitcell, $mode->{magmom} ) }
 
     # expansion 
-    my @tags  = map { ( $_ ) x product(@$nxyz) } @unitcell; 
+    my @ncell = map { scalar(@$_) } @$nxyz; 
+    my @tags  = map { ( $_ ) x product(@ncell) } @unitcell; 
 
     return @tags;  
 } 
@@ -236,7 +234,8 @@ sub print_xyz {
     my ( $xyz => $file ) = @_;  
 
     # xyz label 
-    my @tags = tag_xyz($xyz->{atom}, $xyz->{natom}, [1,1,1]);  
+    my @nxyz = ( [0],[0],[0] ); 
+    my @tags = tag_xyz($xyz->{atom}, $xyz->{natom}, \@nxyz );  
 
     open my $fh, '>', $file or die "Cannot write to $file\n"; 
 
