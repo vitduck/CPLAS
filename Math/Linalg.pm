@@ -7,7 +7,7 @@ use Exporter;
 
 use Fortran qw( fortran2perl );  
 
-our @array  = qw( length max min sum product ascale dot triple vstack hstack print_array ); 
+our @array  = qw( length max min sum product ascale norm dot triple vstack hstack print_array ); 
 our @grid   = qw( mgrid );  
 our @matrix = qw( mat_dim det mat_add mscale mat_mul transpose inverse print_mat ); 
 
@@ -124,6 +124,17 @@ sub dot {
     return $dot; 
 }
 
+# vector norm 
+# args 
+# -< array 
+# return 
+# -> vector norm 
+sub norm { 
+    my @array = @_; 
+    
+    return sqrt(sum(map $_**2, @array)); 
+}
+
 # triple product
 # args 
 # -< refs of three vectors 
@@ -134,7 +145,7 @@ sub triple {
     my @mat = vstack(@_); 
 
     # calculate the determinant of resulting 3x3 matrix
-    return det(@mat); 
+    return det(\@mat); 
 }
 
 # stack arrays vertically 

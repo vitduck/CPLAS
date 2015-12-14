@@ -10,7 +10,7 @@ use Math::Linalg qw( sum product ascale mat_mul inverse);
 use Periodic qw( atomic_number );  
 use Util qw( read_file );  
 
-our @geometry  = qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc atm_distance color_magmom );  
+our @geometry  = qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc distance color_magmom );  
 our @xyz       = qw( read_xyz print_xyz tag_xyz ); 
 our @visualize = qw( xmakemol ); 
 
@@ -160,12 +160,10 @@ sub color_magmom {
 # -< ref to two cartesian vectors 
 # return
 # -> distance 
-sub atm_distance { 
+sub distance { 
     my ($atm1, $atm2) = @_; 
 
-    my $d12 = sqrt(($atm1->[1]-$atm2->[1])**2 + ($atm1->[2]-$atm2->[2])**2 + ($atm1->[3]-$atm2->[3])**2); 
-
-    return $d12; 
+    return sqrt(sum( map { ($atm1->[$_]-$atm2->[$_])**2 } 0..2));  
 }
 
 #-----#
