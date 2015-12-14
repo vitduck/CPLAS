@@ -9,7 +9,7 @@ use Storable qw(dclone);
 
 use MD qw( read_profile retrieve_traj is_valid_istep sort_profile moving_average print_trajectory ); 
 use VASP qw( read_poscar print_poscar ); 
-use XYZ qw( set_pbc tag_xyz direct_to_cart xmakemol );   
+use XYZ qw( set_pbc tag_xyz xmakemol );   
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 

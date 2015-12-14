@@ -8,7 +8,7 @@ use IO::File;
 use Pod::Usage; 
 
 use VASP qw( read_poscar read_final_magmom ); 
-use XYZ  qw( cart_to_direct direct_to_cart set_pbc color_magmom tag_xyz xmakemol );  
+use XYZ  qw(direct_to_cartesian print_cartesian set_pbc color_magmom tag_xyz xmakemol );  
 
 my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
 
@@ -91,7 +91,8 @@ my @tags = tag_xyz($contcar{atom}, $contcar{natom}, \@nxyz, \%mode);
 
 # print coordinate to contcar.xyz
 open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
-direct_to_cart($contcar{cell}, $contcar{geometry}, \@dxyz, \@nxyz, \@tags, $contcar{name} => $fh); 
+my @xyz = direct_to_cartesian($contcar{cell}, $contcar{geometry}, \@dxyz, \@nxyz); 
+print_cartesian($contcar{name}, \@tags, \@xyz => $fh);
 close $fh; 
 
 # xmakemol

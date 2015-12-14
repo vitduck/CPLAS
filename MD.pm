@@ -7,7 +7,7 @@ use Storable qw( store retrieve );
 
 use Math::Linalg qw( sum ); 
 use Util qw( read_file ); 
-use XYZ qw( set_pbc tag_xyz direct_to_cart ); 
+use XYZ qw( set_pbc tag_xyz direct_to_cartesian print_cartesian ); 
 
 our @profile     = qw( read_profile sort_profile merge_profile moving_average );  
 our @trajectory  = qw( save_traj retrieve_traj merge_traj );  
@@ -285,7 +285,8 @@ sub print_trajectory {
     # comments
     for my $istep ( @$step ) { 
         my $comment = sprintf("#%d:  T= %.1f  F= %-10.5f", $istep, @{$profile->{$istep}});  
-        direct_to_cart($ref->{cell}, $traj->{$istep}, $dxyz, $nxyz, \@tags, $comment => $fh); 
+        my @xyz = direct_to_cartesian($ref->{cell}, $traj->{$istep}, $dxyz, $nxyz); 
+        print_cartesian($comment, \@tags, \@xyz => $fh);  
     }
     close $fh; 
 

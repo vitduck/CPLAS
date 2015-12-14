@@ -7,7 +7,7 @@ use Getopt::Long;
 use Pod::Usage; 
 
 use VASP qw( read_poscar read_init_magmom ); 
-use XYZ  qw( cart_to_direct direct_to_cart set_pbc color_magmom tag_xyz xmakemol );  
+use XYZ  qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc color_magmom tag_xyz xmakemol );  
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
@@ -86,14 +86,17 @@ my %poscar = read_poscar($input);
 @nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
 
 # convert to direct coordinate + pbc shift
-cart_to_direct(@poscar{qw( type cell geometry )}); 
+if ( $poscar{type} =~ /^\s*[ck]/i ) { 
+    @{$poscar{geometry}} = cartesian_to_direct($poscar{cell}, $poscar{geometry}); 
+}
 
 # tag  
 my @tags = tag_xyz($poscar{atom}, $poscar{natom}, \@nxyz, \%mode);  
 
 # print coordinate to poscar.xyz
 open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
-direct_to_cart($poscar{cell}, $poscar{geometry}, \@dxyz, \@nxyz, \@tags, $poscar{name} => $fh); 
+my @xyz = direct_to_cartesian($poscar{cell}, $poscar{geometry}, \@dxyz, \@nxyz); 
+print_cartesian($poscar{name}, \@tags, \@xyz => $fh); 
 close $fh; 
 
 # xmakemol

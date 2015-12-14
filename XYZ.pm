@@ -10,7 +10,7 @@ use Math::Linalg qw( sum product ascale mat_mul inverse);
 use Periodic qw( atomic_number );  
 use Util qw( read_file );  
 
-our @geometry  = qw( cart_to_direct direct_to_cart set_pbc atm_distance color_magmom );  
+our @geometry  = qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc atm_distance color_magmom );  
 our @xyz       = qw( read_xyz print_xyz tag_xyz ); 
 our @visualize = qw( xmakemol ); 
 
@@ -51,21 +51,20 @@ sub set_pbc {
 # args 
 # -< poscar mode (cartesian||direct)
 # -< ref to 2d array of lattice vectors 
-# -< ref to 2d array of direct coordinates 
 # return
-# -> null
-sub cart_to_direct { 
-    my ( $type, $lat, $cart ) = @_; 
+# -< 2d array of direct coordinates 
+sub cartesian_to_direct { 
+    my ( $lat, $cart ) = @_; 
 
-    if ( $type =~ /^\s*[ck]/i ) {  
-        # remove selective dynamics tags and count
-        map { splice @$_, 3, 4 } @$cart; 
+    my @direct; 
 
-        # direct = cart x lat-1
-        @$cart = mat_mul($cart, [inverse($lat)]);  
-    }
+    # remove selective dynamics tags and count
+    map { splice @$_, 3, 4 } @$cart; 
 
-    return; 
+    # direct = cart x lat-1
+    @direct = mat_mul($cart, [inverse($lat)]);  
+
+    return @direct;  
 }
 
 # convert POSCAR/CONTCAR/XDATCAR to xyz 
@@ -78,20 +77,15 @@ sub cart_to_direct {
 # -< nx, ny, nz expansion
 # return 
 # -> null 
-sub direct_to_cart { 
-    my ( $cell, $geometry, $dxyz, $nxyz, $tag, $comment => $fh ) = @_; 
-    
+sub direct_to_cartesian { 
+    my ( $cell, $geometry, $dxyz, $nxyz ) = @_; 
+
     # PBC shift 
     set_pbc($geometry, $dxyz); 
     
-    # total number of atom 
-    printf $fh "%d\n", scalar(@$tag);  
-
-    # comment 
-    printf $fh "$comment\n"; 
-
     # straight forward implementation to reduce subroutine calls
     # to be replaced with Incline::C ?
+    my @xyz = (); 
     my ( $index, $x, $y, $z); 
     for my $atom ( @$geometry ) { 
         # expand the supercell
@@ -102,14 +96,28 @@ sub direct_to_cart {
                     $x = $cell->[0][0]*($atom->[0]+$ix)+$cell->[1][0]*($atom->[1]+$iy)+$cell->[2][0]*($atom->[2]+$iz); 
                     $y = $cell->[0][1]*($atom->[0]+$ix)+$cell->[1][1]*($atom->[1]+$iy)+$cell->[2][1]*($atom->[2]+$iz); 
                     $z = $cell->[0][2]*($atom->[0]+$ix)+$cell->[1][2]*($atom->[1]+$iy)+$cell->[2][2]*($atom->[2]+$iz); 
-                    printf $fh "%-3s %10.3f %10.3f %10.3f\n", $tag->[$index++], $x, $y, $z;  
+                    push @xyz, [ $x, $y, $z ]; 
                 }
             }
         }
-        
     }
 
-    return; 
+    return @xyz;  
+}
+
+sub print_cartesian { 
+    my ( $comment, $tag, $xyz => $fh ) = @_; 
+
+    # header 
+    printf $fh "%d\n", scalar(@$tag); 
+    printf $fh "%s\n", $comment;  
+
+    # geometry block 
+    for ( 0..$#$tag ) { 
+        printf $fh "%-3s %10.3f %10.3f %10.3f\n", $tag->[$_], @{$xyz->[$_]}; 
+    }
+    
+    return ; 
 }
 
 # color xyz according to value of magmom 

@@ -11,7 +11,7 @@ use Pod::Usage;
 use Util qw( extract_file );  
 use MD   qw( save_traj ); 
 use VASP qw( read_xdatcar );  
-use XYZ  qw( tag_xyz direct_to_cart set_pbc xmakemol ); 
+use XYZ  qw( tag_xyz direct_to_cartesian print_cartesian set_pbc xmakemol ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );
 
@@ -102,14 +102,18 @@ if ( $save ) {
     # write to xdatcar.xyz
     my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
     for ( 0.. $#{$xdatcar{geometry}} ) { 
+        my @xyz = ();  
         my $comment = sprintf("Step: %d", $_+1); 
+
         if ( @{$xdatcar{cell}} == 1 ) {  
             # ISIF = 2|4 
-            direct_to_cart($xdatcar{cell}[0], $xdatcar{geometry}[$_], \@dxyz, \@nxyz, \@tags, $comment => $fh); 
+            @xyz = direct_to_cartesian($xdatcar{cell}[0], $xdatcar{geometry}[$_], \@dxyz, \@nxyz); 
         } else { 
             # ISIF = 3 
-            direct_to_cart($xdatcar{cell}[$_], $xdatcar{geometry}[$_], \@dxyz, \@nxyz, \@tags, $comment => $fh); 
+            @xyz = direct_to_cartesian($xdatcar{cell}[$_], $xdatcar{geometry}[$_], \@dxyz, \@nxyz); 
         }
+        # print ot file 
+        print_cartesian($comment, \@tags, \@xyz => $fh);  
     }
     $fh->close; 
 
