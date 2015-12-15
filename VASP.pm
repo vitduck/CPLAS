@@ -313,6 +313,19 @@ sub read_poscar {
     # convert geometry block to 2d array 
     $poscar{geometry} = [ map [ (split) ], ( splice @lines, 0, sum(@{$poscar{natom}}) ) ]; 
 
+    # frozen atom: traverse the geometry array again
+    $poscar{frozen} = []; 
+    for ( @{$poscar{geometry}} ) { 
+        my @frozen = splice @$_, 3, 3;  
+        # genuine selective tags 
+        if ( grep /T|F/, @frozen ) { 
+            push @{$poscar{frozen}}, \@frozen; 
+        # fallback: default T T T
+        } else { 
+            push @{$poscar{frozen}}, [ qw( T T T) ]; 
+        }
+    }
+
     # if cartesian is used, apply scaling constant
     # cant use mscale here because of 'dynamic tag'
     if ( $poscar{type} =~ /^\s*c/i ) { map { map { $_ *= $poscar{scaling} } @$_[0..2] } @{$poscar{geometry}} };  
@@ -333,7 +346,7 @@ sub print_poscar {
     my $format_2 = scalar(@{$poscar->{natom}}).'%6d'; 
 
     # coordinate 
-    my $format_3 = $poscar->{selective} ? '3%22.16f3%5s%10d' : '3%22.16f%5d';   
+    my $format_3 = $poscar->{selective} ? '3%22.16f3%5s%6d' : '3%22.16f%6d';   
 
     # write to POSCAR 
     open my $fh, '>', $output or die "Cannot write to $output\n"; 
@@ -360,11 +373,12 @@ sub print_poscar {
     printf $fh "%s\n" , $poscar->{type}; 
 
     # geometry block
-    my $count  = 0; 
+    my $natom = sum(@{$poscar->{natom}}); 
+
     if ( $poscar->{selective} ) { 
-        map { splice @$_, 3, 4, 'T', 'T', 'T', ++$count } @{$poscar->{geometry}}; 
+        map { splice @{$poscar->{geometry}[$_]}, 3, 4, @{$poscar->{frozen}[$_]}, $_+1 } 0..$natom-1; 
     } else { 
-        map { splice @$_, 3, 4, ++$count } @{$poscar->{geometry}}; 
+        map { splice @{$poscar->{geometry}[$_]}, 3, 4, $_+1 } 0..$natom-1; 
     }
 
     # print_coordinate 

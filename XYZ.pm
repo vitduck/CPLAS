@@ -4,24 +4,87 @@ use strict;
 use warnings; 
 
 use Exporter; 
+use Switch; 
 
 use Fortran qw( fortran2perl );  
 use Math::Linalg qw( sum product ascale mat_mul inverse);  
 use Periodic qw( atomic_number );  
 use Util qw( read_file );  
 
-our @geometry  = qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc distance color_magmom );  
+our @color     = qw( color_frozen color_magmom ); 
+our @geometry  = qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc distance );  
 our @xyz       = qw( read_xyz print_xyz tag_xyz ); 
 our @visualize = qw( xmakemol ); 
 
 our @ISA         = qw( Exporter );  
 our @EXPORT      = ();  
-our @EXPORT_OK   = ( @geometry, @xyz, @visualize ); 
+our @EXPORT_OK   = ( @color, @geometry, @xyz, @visualize ); 
 our %EXPORT_TAGS = (
+    color     => \@color, 
     geometry  => \@geometry, 
     xyz       => \@xyz, 
     visualize => \@visualize, 
 ); 
+
+# overriding xyz tags 
+our %subref = ( 
+    frozen => \&color_frozen, 
+    magmom => \&color_magmom, 
+); 
+
+#-------#
+# COLOR # 
+#-------#
+# color xyz according to frozen list of atom
+# args 
+# -< array ref of xyz tag 
+# -< array ref of frozen
+# return 
+# -> null
+sub color_frozen { 
+    my ( $tag, $frozen ) = @_;   
+
+    my $frozen_atom = 'Hs';  
+    
+    for ( 0..$#$frozen ) { 
+        if ( grep /F/, @{$frozen->[$_]} ) { $tag->[$_] = $frozen_atom }
+    }
+
+    return; 
+
+}
+
+# color xyz according to value of magmom 
+# args 
+# -< array ref of xyz tag 
+# -< array ref of magmom 
+# return 
+# -> null
+sub color_magmom { 
+    my ( $tag, $magmom ) = @_;   
+    
+    my $cutoff = 0.5;  
+    my %color = ( 
+        'zero' => 'Bh', 
+        'up'   => 'Hs', 
+        'down' => 'Mt'
+    ); 
+
+    for ( 0..$#$magmom ) { 
+        # small magmom -> white 
+        if ( abs($magmom->[$_] ) < $cutoff ) { 
+            $tag->[$_] = $color{zero}; 
+        # spin-up
+        } elsif ( $magmom->[$_] > 0 ) { 
+            $tag->[$_] = $color{up};  
+        # spin-down 
+        } else { 
+            $tag->[$_] = $color{down}; 
+        }
+    }
+
+    return; 
+}
 
 #----------#
 # GEOMETRY # 
@@ -120,41 +183,6 @@ sub print_cartesian {
     return ; 
 }
 
-# color xyz according to value of magmom 
-# args 
-# -< color mode (0|1) 
-# -< array ref of xyz tag 
-# -< array ref of magmom 
-# return 
-# -> null
-sub color_magmom { 
-    my ( $tag, $magmom ) = @_;   
-
-    my $cutoff = 0.5;  
-    
-    my %color = ( 
-        'zero' => 'Bh', 
-        'up'   => 'Hs', 
-        'down' => 'Mt'
-    ); 
-
-    for ( 0..$#$magmom ) { 
-        # small magmom -> white 
-        if ( abs($magmom->[$_] ) < $cutoff ) { 
-            $tag->[$_] = $color{zero}; 
-        # spin-up
-        } elsif ( $magmom->[$_] > 0 ) { 
-            $tag->[$_] = $color{up};  
-        # spin-down 
-        } else { 
-            $tag->[$_] = $color{down}; 
-        }
-    }
-
-    return; 
-}
-
-
 # distance between two atom
 # args 
 # -< ref to two cartesian vectors 
@@ -178,13 +206,13 @@ sub distance {
 # return 
 # -> array of atomic tag 
 sub tag_xyz { 
-    my ( $atom, $natom, $nxyz, $mode ) = @_;  
+    my ( $atom, $natom, $nxyz, $mode, $override ) = @_;  
 
     # tag of unitcell 
     my @unitcell = map { ( $atom->[$_] ) x $natom->[$_] } 0..$#$atom;  
 
     # apply supplementary data
-    if ( exists $mode->{magmom} ) { color_magmom(\@unitcell, $mode->{magmom} ) }
+    if ( $mode ) { $subref{$mode}->(\@unitcell, $override) }
 
     # expansion 
     my @ncell = map { scalar(@$_) } @$nxyz; 

@@ -10,7 +10,7 @@ use Pod::Usage;
 
 use Util qw( extract_file );  
 use MD   qw( save_traj ); 
-use VASP qw( read_xdatcar );  
+use VASP qw( read_poscar read_xdatcar );  
 use XYZ  qw( tag_xyz direct_to_cartesian print_cartesian set_pbc xmakemol ); 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );
@@ -50,7 +50,11 @@ Generate nx x ny x nz supercell (default: 1 1 1)
 
 =item B<-s> 
 
-Save trajectory to disk in quiet mode (default: no) 
+Save trajectory to disk (default: no) 
+
+=item B<-f> 
+
+Show frozen atoms
 
 =item B<-q> 
 
@@ -65,11 +69,13 @@ my $help   = 0;
 my $input  = 'XDATCAR'; 
 my @dxyz   = (); 
 my @nxyz   = (); 
+my $mode   = ''; 
 my $quiet  = 0; 
 my $save   = 0; 
 
 my $xyz    = 'ion.xyz'; 
 my $store  = 'traj.dat'; 
+my %ref    = (); 
 
 # parse optional arguments 
 GetOptions(
@@ -78,6 +84,7 @@ GetOptions(
     's'      => \$save, 
     'q'      => \$quiet, 
     'd=f{3}' => \@dxyz, 
+    'f'      => sub { $mode = 'frozen'; %ref = read_poscar('POSCAR') }, 
     'c'      => sub { @dxyz = (0.5,0.5,0.5) }, 
     'x=i{3}' => sub { push @nxyz, [0..$_[1]-1] }, 
 ) or pod2usage(-verbose => 1); 
@@ -97,7 +104,7 @@ if ( $save ) {
     @nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
 
     # make ion.xyz 
-    my @tags = tag_xyz($xdatcar{atom}, $xdatcar{natom}, \@nxyz); 
+    my @tags = tag_xyz($xdatcar{atom}, $xdatcar{natom}, \@nxyz, $mode, $ref{frozen});  
     
     # write to xdatcar.xyz
     my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 

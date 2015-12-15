@@ -4,16 +4,17 @@ use strict;
 use warnings; 
 
 use Getopt::Long; 
-use IO::File; 
+use Switch; 
 use Pod::Usage; 
 
 use VASP qw( read_poscar read_final_magmom ); 
-use XYZ  qw(direct_to_cartesian print_cartesian set_pbc color_magmom tag_xyz xmakemol );  
+use XYZ  qw(direct_to_cartesian print_cartesian set_pbc tag_xyz xmakemol );  
 
-my @usages = qw/NAME SYSNOPSIS OPTIONS/;  
+my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
 # POD 
 =head1 NAME 
+
 contcar.pl: convert CONTCAR to poscar.xyz
 
 =head1 SYNOPSIS
@@ -44,13 +45,17 @@ PBC shifting
 
 Generate nx x ny x nz supercell (default: 1 1 1)
 
+=item B<-m> 
+
+Show final MAGMOM
+
+=item B<-f> 
+
+Show frozen atoms
+
 =item B<-q> 
 
 Quiet mode, i.e. do not launch xmakemol (default: no) 
-
-=item B<-m> 
-
-Show initial MAGMOM
 
 =back
 
@@ -62,7 +67,7 @@ my $input  = 'CONTCAR';
 my @dxyz   = ();  
 my @nxyz   = ();  
 my $quiet  = 0; 
-my %mode   = ();  
+my $mode   = '';  
 
 my $xyz    = 'contcar.xyz'; 
 
@@ -74,7 +79,8 @@ GetOptions(
     'd=f{3}' => \@dxyz,  
     'c'      => sub { @dxyz = (0.5,0.5,0.5) },  
     'x=i{3}' => sub { push @nxyz, [0..$_[1]-1] },  
-    'm'      => sub { $mode{magmom} = [ read_final_magmom('OUTCAR') ] }, 
+    'm'      => sub { $mode = 'magmom' },
+    'f'      => sub { $mode = 'frozen' },
 ) or pod2usage(-verbose => 1); 
 
 # help message 
@@ -87,7 +93,12 @@ my %contcar = read_poscar($input);
 @nxyz = ( @nxyz == 0 ? ([0], [0], [0]) : @nxyz );  
 
 # tag  
-my @tags = tag_xyz($contcar{atom}, $contcar{natom}, \@nxyz, \%mode);  
+my $override = [];  
+switch ( $mode ) { 
+    case 'magmom' { $override = [ read_final_magmom('OUTCAR') ] } 
+    case 'frozen' { $override = $contcar{frozen} }
+}
+my @tags = tag_xyz($contcar{atom}, $contcar{natom}, \@nxyz, $mode, $override); 
 
 # print coordinate to contcar.xyz
 open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 

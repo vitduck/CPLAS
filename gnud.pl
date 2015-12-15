@@ -14,6 +14,7 @@ my @usages = qw( NAME SYSNOPSIS OPTIONS );
 
 # POD 
 =head1 NAME 
+
 gnud.pl: gnuplot script watcher
 
 =head1 SYNOPSIS
