@@ -7,27 +7,29 @@ use Exporter;
 
 use Fortran qw( fortran2perl );  
 
-our @array  = qw( length max min sum product ascale norm dot triple vstack hstack print_array ); 
+our @array  = qw( ascale norm dot triple vstack hstack print_array ); 
+our @list   = qw( length max min sum product ); 
 our @grid   = qw( mgrid );  
 our @matrix = qw( mat_dim det mat_add mscale mat_mul transpose inverse print_mat ); 
 
 our @ISA         = qw/Exporter/; 
 our @EXPORT      = (); 
-our @EXPORT_OK   = ( @array, @grid, @matrix ); 
+our @EXPORT_OK   = ( @array, @list, @grid, @matrix ); 
 our %EXPORT_TAGS = ( 
     array  => \@array, 
+    list   => \@list, 
     grid   => \@grid,
     matrix => \@matrix, 
 ); 
 
-#-------#
-# ARRAY # 
-#-------#
-
+#------# 
+# LIST # 
+#------# 
+#
 # longest character length among array's elements 
 # override perl built-in length function 
 # args
-# -< array
+# -< list
 # return 
 # -> digit/character length 
 sub length { 
@@ -39,9 +41,9 @@ sub length {
     return $length; 
 }
 
-# min of array 
+# min of list
 # args 
-# -< array 
+# -< list
 # return 
 # -> min element
 sub min { 
@@ -52,7 +54,7 @@ sub min {
     return $min; 
 }
 
-# max of array 
+# max of list
 # args 
 # -< array 
 # return 
@@ -65,9 +67,9 @@ sub max {
     return $max; 
 }
 
-# numerical sum of all array's elements 
+# numerical sum of all memebers 
 # arg: 
-# -< array
+# -< list
 # return 
 # -> sum 
 sub sum { 
@@ -79,9 +81,9 @@ sub sum {
     return $sum; 
 }
 
-# numerical product of all array's elements 
+# numerical product of all memebers  
 # arg: 
-# -< array
+# -< list
 # return 
 # -> product 
 sub product { 
@@ -92,6 +94,10 @@ sub product {
 
     return $product; 
 }
+
+#-------#
+# ARRAY # 
+#-------#
 
 # scale array 
 # args 
@@ -130,9 +136,9 @@ sub dot {
 # return 
 # -> vector norm 
 sub norm { 
-    my @array = @_; 
+    my ( $array ) = @_; 
     
-    return sqrt(sum(map $_**2, @array)); 
+    return sqrt(sum(map $_**2, @$array)); 
 }
 
 # triple product

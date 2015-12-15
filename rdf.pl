@@ -75,9 +75,9 @@ my @unit_tags = tag_xyz($ref{atom}, $ref{natom}, [[0],[0],[0]]);
 my @unit_xyz  = direct_to_cartesian($ref{cell}, $ref{geometry}, [], [[0],[0],[0]]); 
 
 # Fake PBC box 
-my $fnx  = $radius/norm(@{$ref{cell}[0]})+1; 
-my $fny  = $radius/norm(@{$ref{cell}[1]})+1; 
-my $fnz  = $radius/norm(@{$ref{cell}[2]})+1; 
+my $fnx  = $radius/norm($ref{cell}[0])+1; 
+my $fny  = $radius/norm($ref{cell}[1])+1; 
+my $fnz  = $radius/norm($ref{cell}[2])+1; 
 my @fxyz = ( [-$fnx..$fnx], [-$fny..$fny],[-$fnz..$fnz] ); 
 
 # supercell 
