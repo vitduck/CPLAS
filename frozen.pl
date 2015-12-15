@@ -1,28 +1,25 @@
-#!/usr/bin/env perl 
+#!/usr/bin/perl 
 
 use strict; 
 use warnings; 
 
 use Getopt::Long; 
-use IO::File; 
-use List::Util qw(sum);  
 use Pod::Usage; 
 
-use GenUtil qw( read_line ); 
-use Math    qw ( elem_product dot_product); 
-use VASP    qw( read_cell read_geometry print_poscar ); 
-use XYZ     qw ( cart_to_direct direct_to_cart print_comment xmakemol );
+use Math::Linalg qw( sum ); 
+use VASP qw( read_poscar print_poscar ); 
+use XYZ  qw( cartesian_to_direct direct_to_cartesian print_cartesian set_pbc tag_xyz xmakemol );  
 
-my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
-
+my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
 # POD 
 =head1 NAME 
-frozen.pl: let it go!
+
+frozen.pl: by Elsa
 
 =head1 SYNOPSIS
 
-frozen.pl [-h] [-i] <POSCAR> [-f] <atomic order> [-c]
+frozen.pl [-h] [-i] <POSCAR> [-d dx dy dz] [-l 1 2 5 8] [-f x y z] [-q] 
 
 =head1 OPTIONS
 
@@ -36,17 +33,21 @@ Print the help message and exit.
 
 input file (default: POSCAR)
 
-=item B<-f> 
-
-List of unfrozen atoms
-
 =item B<-c> 
 
 Centralize the coordinate (default: no) 
 
 =item B<-d> 
 
-PBC shifting (default [1.0, 1.0. 1.0])
+PBC shifting
+
+=item B<-l> 
+
+List of atom to be frozen
+
+=item B<-f> 
+
+Component to be fixed (default: x y z)
 
 =item B<-q> 
 
@@ -57,57 +58,75 @@ Quiet mode, i.e. do not launch xmakemol (default: no)
 =cut
 
 # default optional arguments
-my $help  = 0; 
-my $quiet = 0; 
-my @nxyz  = (1, 1, 1); 
-my @dxyz  = (1.0,1.0,1.0); 
-my @free  = (); 
+my $help   = 0; 
+my $input  = 'POSCAR'; 
+my $quiet  = 0; 
+my @dxyz   = ();  
+my @list   = (); 
+my @frozen = ();  
 
-# input & output
-my $input = 'POSCAR'; 
-my $xyz   = 'frozen.xyz'; 
+my $poscar = 'POSCAR.frozen'; 
+my $xyz    = 'frozen.xyz'; 
+
+# corresponding indices 
+my %frozen = ( 
+    x => 0, 
+    y => 1, 
+    z => 2, 
+); 
 
 # parse optional arguments 
 GetOptions(
     'h'       => \$help, 
     'i=s'     => \$input, 
-    'f=i{1,}' => \@free, 
-    'c'       => sub { 
-        @dxyz = (0.5,0.5,0.5) 
-    },  
-    'd=f{3}'  => sub { 
-        my ($opt, $arg) = @_; 
-        shift @dxyz; 
-        push @dxyz, $arg;  
-    }, 
     'q'       => \$quiet, 
+    'd=f{3}'  => \@dxyz,  
+    'l=i{1,}' => \@list, 
+    'f=s{1,}' => \@frozen, 
+    'c'       => sub { @dxyz = (0.5,0.5,0.5) },  
 ) or pod2usage(-verbose => 1); 
 
 # help message 
-if ( $help or @free == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # read POSCAR 
-my $line = read_line($input); 
-my ($title, $scaling, $lat, $atom, $natom, $dynamics, $type) = read_cell($line); 
-my $geometry = read_geometry($line); 
+my %poscar = read_poscar($input); 
 
-# supercell box
-my ($nx, $ny, $nz) = map [0..$_-1], @nxyz; 
+# transform into  hash for easy indexing 
+my $natom = sum(@{$poscar{natom}}); 
+my %geometry = map { $_+1 => $poscar{frozen}[$_] } 0..$natom-1; 
 
-# total number of atom in supercell 
-$natom = dot_product(elem_product(\@nxyz), $natom); 
-my $ntotal = sum(@$natom);  
-my $label  = [map { ($atom->[$_]) x $natom->[$_] } 0..$#$atom];  
+# default frozen list 
+@frozen = ( @frozen == 0 ? qw( x y z ) : @frozen );  
 
-# frozen 
-my $count = 0; 
-for my $atom ( @$geometry ) { 
-    $count++; 
-    if ( grep $_ eq $count, @free ) { 
-        @$atom[3..5] = qw( T T T ); 
-    } else { 
-        @$atom[3..5] = qw( F F F ); 
-    }
+# let it go ! let it go !
+for my $atom ( @list ) { 
+    # sanity check 
+    if ( ! exists $geometry{$atom} ) { next } 
+    
+    map { $geometry{$atom}[$frozen{$_}] = 'F' } @frozen; 
 }
 
-print_poscar(*STDOUT, $title, $scaling, $lat, $atom, $natom, "Selective Dynamics", $type, $geometry); 
+# write frozen poscar 
+$poscar{selective} = 1; 
+print_poscar(\%poscar => $poscar); 
+
+# pbc box 
+my @nxyz = ([0], [0], [0]); 
+
+# convert to direct coordinate + pbc shift
+if ( $poscar{type} =~ /^\s*[ck]/i ) { 
+    @{$poscar{geometry}} = cartesian_to_direct($poscar{cell}, $poscar{geometry}); 
+}
+
+# tag  
+my @tags = tag_xyz($poscar{atom}, $poscar{natom}, \@nxyz, 'frozen', $poscar{frozen} ); 
+
+# print coordinate to poscar.xyz
+open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
+my @xyz = direct_to_cartesian($poscar{cell}, $poscar{geometry}, \@dxyz, \@nxyz); 
+print_cartesian($poscar{name}, \@tags, \@xyz => $fh); 
+close $fh; 
+
+# xmakemol
+xmakemol($quiet, $xyz); 
