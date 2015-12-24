@@ -3,6 +3,7 @@
 use strict; 
 use warnings; 
 
+use Data::Dumper; 
 use Getopt::Long;  
 use Pod::Usage; 
 
@@ -20,7 +21,7 @@ rdf.pl: calculate pair correlation function from CONTCAR
 
 =head1 SYNOPSIS
 
-rdf.pl [-h] [-a atm1] [-b atm2] [-r 10] 
+rdf.pl [-h] [-p Li Li] [-r 15] [-s 0.01]
 
 =head1 OPTIONS
 
@@ -30,13 +31,13 @@ rdf.pl [-h] [-a atm1] [-b atm2] [-r 10]
 
 Print the help message and exit.
 
-=item B<-a> 
+=item B<-p> 
 
-The reference atom of constructed sphere 
+Correlation pair
 
-=item B<-b> 
+=item B<-s> 
 
-The atom to be counted within the sphere 
+Gaussian smearing width
 
 =item B<-r> 
 
@@ -48,21 +49,23 @@ Radius of the sphere
 
 # default optional arguments
 my $help = 0; 
-my ($atm1, $atm2, $radius);  
+my (@pair, $radius);  
+my $sigma = 5.e-2; 
 my $ngrid  = 500; 
 
 # parse optional arguments 
 GetOptions(
-    'h'   => \$help, 
-    'a=s' => \$atm1, 
-    'b=s' => \$atm2, 
-    'r=f' => \$radius
+    'h'      => \$help, 
+    'p=s{2}' => \@pair, 
+    's=f'    => \$sigma,
+    'r=f'    => \$radius
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # forced $atm1, $atm2 and $radius to be defined by user
+my ( $atm1, $atm2 ) = @pair; 
 if ( (grep defined $_, ($atm1, $atm2, $radius)) != 3 ) { pod2usage(-verbose => 1) } 
 
 # read geometry
@@ -110,7 +113,6 @@ for my $i ( @unit_indices ) {
 }
 
 # dirac -> normalized gaussian 
-my $sigma = 1.e-2; 
 my $pi    = 3.14159265;
 my $norm  = 1/sqrt($sigma*$pi); 
 my %gr_gaussian; 
@@ -128,8 +130,8 @@ my $dr     = 0.5*$radius/$ngrid;
 my $ncoord = 0; 
 
 # number of reference particle
-my $N1     = scalar(@unit_indices); 
-my $N2     = scalar(grep { $unit_tags[$_] eq $atm2 } @unit_indices); 
+my $N1     = scalar(grep $_ eq $atm1, @unit_tags);  
+my $N2     = scalar(grep $_ eq $atm2, @unit_tags);  
 my $vcell  = triple(@{$ref{cell}}); 
 
 # output 
