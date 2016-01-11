@@ -749,11 +749,11 @@ sub read_xdatcar {
         my ( undef, @block ) = split /$name\n|Direct configuration=.*\d+\n/, slurp_file('XDATCAR');
 
         # precompiled regular expression 
-        my $regex_cell = qr/^\s*\d*(\.)?\d+\s*\n/;   
-        my $regex_geom = qr/^\s*(\d*(\.?)\d+\s*){3}\n/; 
+        my $regex_scaling = qr/^\s*\d*(\.)?\d+\s*\n/;   
+        my $regex_xyz     = qr/^\s*(-?\d*(\.?)\d+\s*){3}\n/; 
 
-        my @icell     = grep /$regex_cell/, @block; 
-        my @igeometry = grep /$regex_geom/, @block; 
+        my @icell     = grep /$regex_scaling/, @block; 
+        my @igeometry = grep /$regex_xyz/, @block; 
 
         # ISIF =3 
         if ( @icell > @igeometry ) { shift @icell };  
