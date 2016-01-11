@@ -405,7 +405,7 @@ sub read_potcar {
     my ( $pseudo, $element, $config, $shell, $date );  
 
     for ( read_file($file) ) { 
-        if ( /VRHFIN =(\w+):(.*)/ ) { 
+        if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
             $element = element_name($1);  
             # valence shell 
             if ( my @valence = ( $2 =~ /([spdf]\d+)/g ) ) {  
