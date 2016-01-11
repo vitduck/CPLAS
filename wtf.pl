@@ -58,7 +58,7 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 my %poscar = read_poscar('POSCAR'); 
 
 # frozen atom 
-my @frozen = grep { ( grep $_ =~ /F/, @{$poscar{geometry}[$_]} ) == 3 } 0..$#{$poscar{geometry}}; 
+my @frozen = grep { ( grep $_ =~ /F/, @{$poscar{frozen}[$_]} ) == 3 } 0..$#{$poscar{frozen}}; 
 
 # collect forces 
 my @forces = read_force($input, \@frozen); 
