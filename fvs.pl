@@ -10,16 +10,18 @@ use Util         qw( view_eps view_png );
 use XYZ          qw( xmakemol ); 
 use Math::Linalg qw( length ); 
 
+use Data::Dumper; 
+
 my @usages = qw(NAME SYSNOPSIS OPTIONS); 
 
 # POD 
 =head1 NAME 
  
-xep.pl: xyz/eps/png viewer
+fvs.pl: file visualizer (xyz/eps/png)
 
 =head1 SYNOPSIS
 
-xep.pl [-h] [-f format]
+fvs.pl [-h] [-x] [-p] [-x]
 
 =head1 OPTIONS
 
@@ -31,15 +33,15 @@ Print the help message and exit
 
 =item B<-e>
 
-Menu for eps selection
+eps files selection
 
 =item B<-p>
 
-Menu for png selection
+png files selection
 
 =item B<-x>
 
-Menu for xyz selection
+xyz files selection
 
 =back
 
@@ -48,8 +50,7 @@ Menu for xyz selection
 # default optional arguments 
 my $help = 0;
 my $menu = 0; 
-
-my %table = (); 
+my $format = '';  
 
 # sub_ref table
 my %view = (
@@ -64,55 +65,38 @@ if ( @ARGV == 0 ) { pod2usage(-verbose => 1) };
 # parse optional arguments 
 GetOptions(
     'h' => \$help, 
-    'e' => sub { 
-        my @eps     = <*.eps>; 
-        my %eps     = map { $_, $eps[$_] } 0..$#eps; 
-        $table{eps} = \%eps; 
-    }, 
-    'p' => sub { 
-        my @png     = <*.png>; 
-        my %png     = map { $_, $png[$_] } 0..$#png; 
-        $table{png} = \%png; 
-    }, 
-    'x' => sub { 
-        my @xyz     = <*.xyz>; 
-        my %xyz     = map { $_, $xyz[$_] } 0..$#xyz; 
-        $table{xyz} = \%xyz; 
-    }, 
+    'e' => sub { $format = 'eps' }, 
+    'p' => sub { $format = 'png' }, 
+    'x' => sub { $format = 'xyz' }, 
 ) or pod2usage(-verbose => 1); 
 
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }  
 
-# live or die, make your choice  
-for my $format ( sort keys %table ) {     
-    my $file   = $table{$format}; 
-    # next loop if hash is empty 
-    if ( keys %$file == 0 ) { next } 
-    # format [digit]
-    my $length = length(keys %$file); 
-    # print table
-    print "\n"; 
-    map { printf "[%${length}d]  %s\n", $_, $file->{$_++} } sort { $a <=> $b } keys %$file; 
-    while (1) { 
-        print "=> "; 
-        # remove newline, spaces, etc
-        chomp (my $choice = <STDIN>); 
-        $choice =~ s/\s+//g; 
-        # shift chioce by -1
-        if ( exists $file->{--$choice} ) {  
-            $view{$format}->($file->{$choice}); 
-            last; 
-        }
-    }
-}
+# construct table 
+my @files = <*.$format>; 
+my %table = map { $_+1, $files[$_] } 0..$#files;  
 
-# let's the game begin 
-for my $file ( @ARGV ) { 
-    if ( $file =~ /.*\.(eps|png|xyz)/ ) { 
-        my $format = $1; 
-        $view{$format}->($file); 
-    } else { 
-        print "$file is not supported!\n"; 
+# print table
+print "\n"; 
+my $length = length(keys %table); 
+map { printf "[%${length}d]  %s\n", $_, $table{$_} } sort { $a <=> $b } keys %table; 
+
+# choice loop
+while (1) { 
+    print "=> "; 
+    # remove newline, spaces, etc
+    chomp (my $choice = <STDIN>); 
+    $choice =~ s/\s+//g; 
+    
+    # glob :) 
+    # launch all files 
+    if ( $choice eq '*' ) { 
+        map { $view{$format}->($_) } @files; 
+        last; 
+    } elsif ( exists $table{$choice} ) {  
+        # sub deref
+        $view{$format}->($table{$choice}); 
+        last; 
     }
 }

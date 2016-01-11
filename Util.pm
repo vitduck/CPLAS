@@ -202,8 +202,8 @@ sub view_eps {
     $scale = defined $scale ? $scale : 2;     
     
     # lauch ghostview (gv)  
-    print "=> $eps\n"; 
-    system "gv -scale=$scale $eps"; 
+    print "=> gv -scale=$scale $eps\n"; 
+    system "gv -scale=$scale $eps &"; 
 
     return; 
 }
@@ -217,8 +217,8 @@ sub view_png {
     my ( $png ) = @_; 
 
     # lauch feh
-    print "=> $png\n"; 
-    system "feh $png"; 
+    print "=> feh $png\n"; 
+    system "feh $png &"; 
 
     return; 
 }
