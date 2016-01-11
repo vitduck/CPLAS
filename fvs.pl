@@ -6,9 +6,9 @@ use warnings;
 use Getopt::Long; 
 use Pod::Usage; 
 
-use GenUtil qw( view_eps view_png ); 
-use XYZ     qw( xmakemol ); 
-use Math    qw( max_length ); 
+use Util         qw( view_eps view_png ); 
+use XYZ          qw( xmakemol ); 
+use Math::Linalg qw( length ); 
 
 my @usages = qw(NAME SYSNOPSIS OPTIONS); 
 
@@ -90,7 +90,7 @@ for my $format ( sort keys %table ) {
     # next loop if hash is empty 
     if ( keys %$file == 0 ) { next } 
     # format [digit]
-    my $length = max_length(keys %$file); 
+    my $length = length(keys %$file); 
     # print table
     print "\n"; 
     map { printf "[%${length}d]  %s\n", $_, $file->{$_++} } sort { $a <=> $b } keys %$file; 

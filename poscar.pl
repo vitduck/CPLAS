@@ -112,4 +112,4 @@ print_cartesian($poscar{name}, \@tags, \@xyz => $fh);
 close $fh; 
 
 # xmakemol
-xmakemol($quiet, $xyz); 
+if ( $quiet == 0 ) { xmakemol($xyz) } 

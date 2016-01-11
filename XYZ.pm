@@ -292,16 +292,12 @@ sub print_xyz {
 #-----------#
 
 # visualize xyz file 
-# args 
-# -< quiet mode (0|1)
+# argsm
 # -< xyz file 
 # return : 
 # -> null
 sub xmakemol { 
-    my ( $quiet, $file )  = @_; 
-
-    # quiet mode 
-    if ( $quiet ) { return }
+    my ( $file )  = @_; 
 
     print "=> xmakemol $file ...\n"; 
     my $bgcolor = $ENV{XMAKEMOL_BG} || '#D3D3D3'; 

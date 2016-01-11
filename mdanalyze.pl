@@ -182,5 +182,5 @@ $sort && do {
 for ( @analysis ) { 
     my ( $step, $xyz, $quiet ) = @$_; 
     print_trajectory($step, \%profile, \%traj, \%reference, \@dxyz, \@nxyz => $xyz);  
-    xmakemol($quiet, $xyz); 
+    if ( $quiet == 0 ) { xmakemol($xyz) }  
 }

@@ -124,5 +124,5 @@ if ( $save ) {
     }
     $fh->close; 
 
-    xmakemol($quiet, $xyz); 
+    if ( $quiet == 0 ) { xmakemol($xyz) } 
 }
