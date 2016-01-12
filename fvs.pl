@@ -75,6 +75,10 @@ if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # construct table 
 my @files = <*.$format>; 
+
+# no available file
+if ( @files == 0 ) { pod2usage(-verbose => 99, -section => \@usages) }  
+
 my %table = map { $_+1, $files[$_] } 0..$#files;  
 
 # print table
@@ -87,16 +91,18 @@ while (1) {
     print "=> "; 
     # remove newline, spaces, etc
     chomp (my $choice = <STDIN>); 
-    $choice =~ s/\s+//g; 
     
     # glob :) 
     # launch all files 
     if ( $choice eq '*' ) { 
         map { $view{$format}->($_) } @files; 
         last; 
-    } elsif ( exists $table{$choice} ) {  
-        # sub deref
-        $view{$format}->($table{$choice}); 
+    # multiple choice
+    } else {  
+        my @choices = grep exists $table{$_}, (split ' ', $choice); 
+        print "@choices\n"; 
+        #sub deref
+        for ( @choices ) { $view{$format}->($table{$_}) } 
         last; 
     }
 }
