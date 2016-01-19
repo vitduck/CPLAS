@@ -162,7 +162,10 @@ sub sum_ldos_files {
 # -< ref of array of orbital 
 # -< column-wised sum LDOS file
 sub sum_ldos_cols { 
-    my ( $file, $ispin, $orbital => $sum_dos ) = @_; 
+    my ( $file, $orbital => $sum_dos ) = @_; 
+
+    # default
+    my $ispin = 1; 
 
     # LDOS column information 
     # 1: non-spin polarized 
@@ -172,6 +175,11 @@ sub sum_ldos_cols {
         '2' => { 's' => [1,2], 'p' => [3..8], 'd' => [9..18], 'f' => [19..32] }, 
     ); 
    
+    # probe file for ispin 
+    my $dos_line  = extract_file($file, 1); 
+    my @columns = split ' ', $dos_line; 
+    if ( @columns == 19 || @columns == 33 ) { $ispin = 2 } 
+
     # slurp the LDOS file 
     # scalar ref to slurped ldos 
     my $slurped_dos = slurp_file($file); 
