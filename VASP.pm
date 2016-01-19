@@ -14,7 +14,7 @@ use Math::Linalg qw( max sum product length print_array mscale print_mat );
 use Periodic qw( element_name atomic_symbol );  
 use Util qw( read_file slurp_file paragraph_file extract_file );  
 
-our @doscar   = qw( read_doscar print_dos sum_dos ); 
+our @doscar   = qw( read_doscar print_proj_dos sum_dos ); 
 our @eigenval = qw( read_band ); 
 our @incar    = qw( read_init_magmom ); 
 our @kpoints  = qw( read_kpoints );  
@@ -49,36 +49,46 @@ our %EXPORT_TAGS = (
 # args 
 # -< DOSCAR 
 # return 
-# -< array of dos (TOTAL_DOS, LDOS_*)
+# -> hash of doscar
 sub read_doscar { 
     my ( $file ) = @_;  
 
-    my @dos = (); 
+    my %dos = (); 
 
-    # 6th line: DOS header  
+    # 1th line: header 
+    # 6th line: DOS info
     # 7th line: Total DOS (3 or 5 columns)
-    my ( $header, $dos_line ) = extract_file($file, 6, 7); 
+    my ( $header, $info, $dos_line ) = extract_file($file, 1, 6, 7); 
+
+    # nion 
+    @dos{qw(nion)} = (split ' ', $header)[0]; 
 
     # min, max, nedos, fermi, spin ? 
-    my ( $max, $min, $nedos, $fermi, $colinear ) = split ' ', $header; 
-
-    # DOS info 
-    printf "NEDOS   = %d\n", $nedos; 
-    printf "E_min   = %.3f eV\n", $min; 
-    printf "E_max   = %.3f eV\n", $max; 
-    printf "E_fermi = %.3f eV\n", $fermi; 
+    @dos{qw( max min nedos fermi )} = split ' ', $info; 
 
     # ISPIN = 1: 3 columns 
     # ISPIN = 2: 5 columns 
     my @columns = split ' ', $dos_line; 
-    printf "ISPIN   = %d\n", ( @columns == 3 ? 1 : 2 ); 
+    $dos{ispin} = ( @columns == 3 ? 1 : 2 ); 
+    
+    # DOS info 
+    printf "NION    = %d\n", $dos{nion}; 
+    printf "NEDOS   = %d\n", $dos{nedos}; 
+    printf "E_min   = %.3f eV\n", $dos{min}; 
+    printf "E_max   = %.3f eV\n", $dos{max}; 
+    printf "E_fermi = %.3f eV\n", $dos{fermi}; 
+    printf "ISPIN   = %d\n", $dos{ispin}; 
 
-    # dos array 
-    # ldos[0]: total DOS  
-    # ldos[n]: nth ion DOS 
-    ( undef, @dos ) = split /$header\n/, slurp_file($file); 
+    # dos blocks
+    my @proj_dos = (); 
+    ( undef, @proj_dos ) = split /$info\n/, slurp_file($file); 
+    
+    # indexing 
+    # 0: total DOS  
+    # n: nth ion DOS 
+    @dos{0..scalar(@proj_dos)} = @proj_dos; 
 
-    return @dos;  
+    return %dos; 
 }
 
 # print DOS 
@@ -87,14 +97,14 @@ sub read_doscar {
 # -< filename
 # return 
 # -> null
-sub print_dos { 
+sub print_proj_dos { 
     my ( $dos => $output ) = @_; 
 
     open my $fh, '>', $output or die "Cannot write to $output\n"; 
     printf $fh $dos;  
     close $fh; 
 
-    return; 
+    return;
 }
 
 # sum LDOS  
@@ -104,7 +114,7 @@ sub print_dos {
 # return 
 # -> null 
 sub sum_dos { 
-    my ( $dos => $sum_dos ) = @_; 
+    my ( $ispin, $dos => $sum_dos ) = @_; 
 
     # format depends on number of column in LDOS-*
     my $dos_line = extract_file($dos->[0], 0);  
