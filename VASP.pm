@@ -14,7 +14,7 @@ use Math::Linalg qw( max sum product length print_array mscale print_mat );
 use Periodic qw( element_name atomic_symbol );  
 use Util qw( read_file slurp_file paragraph_file extract_file );  
 
-our @doscar   = qw( read_doscar print_proj_dos sum_dos ); 
+our @doscar   = qw( read_doscar print_ldos sum_ldos_files sum_ldos_cols ); 
 our @eigenval = qw( read_band ); 
 our @incar    = qw( read_init_magmom ); 
 our @kpoints  = qw( read_kpoints );  
@@ -97,7 +97,7 @@ sub read_doscar {
 # -< filename
 # return 
 # -> null
-sub print_proj_dos { 
+sub print_ldos { 
     my ( $dos => $output ) = @_; 
 
     open my $fh, '>', $output or die "Cannot write to $output\n"; 
@@ -110,47 +110,117 @@ sub print_proj_dos {
 # sum LDOS  
 # args 
 # -< ref of array of LDOS files  
-# -< sum dos file 
+# -< sum LDOS file 
 # return 
 # -> null 
-sub sum_dos { 
-    my ( $ispin, $dos => $sum_dos ) = @_; 
+sub sum_ldos_files { 
+    my ( $dos => $sum_dos ) = @_; 
 
-    # format depends on number of column in LDOS-*
+    # probe LDOS for number of column 
     my $dos_line = extract_file($dos->[0], 0);  
+    my @ncolumn = split ' ', $dos_line; 
+    my $dos_nc  = scalar(@ncolumn)-1; 
 
-    my @columns = split ' ', $dos_line; 
+    # output format  
+    my $format  = fortran2perl("%11.3f,${dos_nc}%12.4E"); 
 
-    # ISPIN 1: 10 
-    # ISPIN 2: 19 
-    my $format  = 
-    @columns == 10 ? 
-    fortran2perl('%11.3f,9%12.4E') : 
-    fortran2perl('%11.3f,18%12.4E');  
-
-    # hash of array ref ( energy => [s p d] )
+    # hash of array ref ( energy => [s p d f] )
     my %sum_dos = ();  
     for my $ldos ( @$dos ) { 
+        # slurp the LDOS file 
         my $slurped_dos = slurp_file($ldos); 
-        
+       
+        # scalar ref to slurped ldos 
         open my $dos_fh, '<', \$slurped_dos; 
+
         while ( <$dos_fh> ) { 
             my ( $energy, @dos ) = split;    
+            # accumulate LDOS 
             for ( 0..$#dos ) {  
                 $sum_dos{$energy}[$_] += $dos[$_]; 
             }
         }
+
         close $dos_fh;  
     }
 
     # print %sum_dos to $sum_dos
     open my $fh, '>', $sum_dos or die "Cannot write to $sum_dos\n"; 
+
     for ( sort { $a <=> $b } keys %sum_dos ) { 
         printf $fh "$format\n", $_, @{$sum_dos{$_}};  
     }
+
     close $fh; 
     
     return; 
+}
+
+# sum LDOS column 
+# args 
+# -< LDOS file 
+# -< ref of array of orbital 
+# -< column-wised sum LDOS file
+sub sum_ldos_cols { 
+    my ( $file, $ispin, $orbital => $sum_dos ) = @_; 
+
+    # LDOS column information 
+    # 1: non-spin polarized 
+    # 2: spin  polarized 
+    my %column = ( 
+        '1' => { 's' => [1],   'p' => [2..4], 'd' => [5..9],  'f' => [10..16] }, 
+        '2' => { 's' => [1,2], 'p' => [3..8], 'd' => [9..18], 'f' => [19..32] }, 
+    ); 
+   
+    # slurp the LDOS file 
+    # scalar ref to slurped ldos 
+    my $slurped_dos = slurp_file($file); 
+    open my $dos_fh, '<', \$slurped_dos; 
+    
+    my %ldos_sum = (); 
+    while ( <$dos_fh> ) { 
+        my @csplit = split; 
+        # energy: 1st col 
+        my $energy = $csplit[0]; 
+
+        # loop through set of l QM ( too ugly )
+        for my $l ( @$orbital ) {  
+            # projected f is not always exists 
+            my @ldos = grep defined, @csplit[@{$column{$ispin}{$l}}]; 
+
+            # 1: non-spin 
+            if ( $ispin == 1 ) { 
+                push @{$ldos_sum{$energy}}, ( @ldos == 0 ? 0 : sum(@ldos) ); 
+            # 2: spin-polarized 
+            } else { 
+                if ( @ldos == 0 ) { 
+                    push @{$ldos_sum{$energy}}, 0, 0; 
+                } else { 
+                    # too ugly 
+                    my @up   = grep { ($_ % 2) == 0 } 0..$#{$column{$ispin}{$l}}; 
+                    my @down = grep { ($_ % 2) == 1 } 0..$#{$column{$ispin}{$l}}; 
+                    push @{$ldos_sum{$energy}}, sum(@ldos[@up]), sum(@ldos[@down]); 
+                }
+            }
+        } 
+    }
+
+    close $dos_fh; 
+    
+    # format 
+    my $format = 
+    $ispin == 1 ?  
+    fortran2perl('%11.3f,'.scalar(@$orbital).'%12.4E'):  
+    fortran2perl('%11.3f,'.(2*scalar(@$orbital)).'%12.4E'); 
+
+    # filehandler to output 
+    open my $sum_fh, '>', $sum_dos or die "Cannot write to $sum_dos\n"; 
+
+    for my $energy ( sort { $a <=> $b } keys %ldos_sum ) { 
+        printf $sum_fh "$format\n", $energy, @{$ldos_sum{$energy}}; 
+    }
+
+    close $sum_dos; 
 }
 
 #----------# 
