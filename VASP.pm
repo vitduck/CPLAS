@@ -824,9 +824,7 @@ sub read_xdatcar {
         my @icell = read_cell('OUTCAR'); 
 
         # keep trajs as scalars  
-        # avoid exciplit read in the file 
-        my $seperator = extract_file($file, 6);  
-        my ( undef, undef, undef, @geometry ) = split /$seperator\n| Konfig=.+?\n/, slurp_file('XDATCAR'); 
+        my ( undef, @geometry ) = split /\n+\s*\n+| Konfig=.+?\n/, slurp_file('XDATCAR'); 
         
         # modify hash accordingly 
         @xdatcar{qw(version cell type selective geometry)} = ( 4, \@icell, 'direct', 0, \@geometry ); 
@@ -864,8 +862,12 @@ sub read_xdatcar {
         }
 
         # geometry block  
-        $xdatcar{geometry} = [ map { [ map [split], split /\n/ ] } @igeometry ];  
+        $xdatcar{geometry} = \@igeometry; 
     }
+
+    # geometry block  
+    # string to 2d array ref 
+    $xdatcar{geometry} = [ map { [ map [split], split /\n/ ] } @{$xdatcar{geometry}} ];  
     
     return %xdatcar; 
 }
