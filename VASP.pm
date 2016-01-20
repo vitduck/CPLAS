@@ -472,7 +472,7 @@ sub print_poscar {
     # print_coordinate 
     print_mat($fh, $format_3, $poscar->{geometry}); 
 
-    $fh->close; 
+    close $fh;  
 
     return; 
 }
@@ -643,7 +643,7 @@ sub print_md {
     print $fh "# Step  T(K)   F(eV)\n"; 
     map { printf $fh "%d  %.1f  %10.5f\n", $_, @{$md->{$_}} } sort {$a <=> $b} keys %$md;  
 
-    $fh->close; 
+    close $fh;  
 
     return; 
 }
@@ -674,7 +674,7 @@ sub read_cell {
             push @lattices, \@lattice; 
         }
     } 
-    $fh->close; 
+    close $fh;  
 
     # the 1st lattice is from POSCAR! 
     shift @lattices; 
@@ -752,7 +752,7 @@ sub read_force {
             push @max_forces, max(@forces);  
         }
     }
-    $fh->close; 
+    close $fh;  
 
     return @max_forces;  
 }

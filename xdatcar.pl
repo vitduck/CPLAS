@@ -107,7 +107,8 @@ if ( $save ) {
     my @tags = tag_xyz($xdatcar{atom}, $xdatcar{natom}, \@nxyz, $mode, $ref{frozen});  
     
     # write to xdatcar.xyz
-    my $fh = IO::File->new($xyz, 'w') or die "Cannot write to $xyz\n"; 
+    open my $fh, '>', $xyz or die "Cannot write to $xyz\n"; 
+    
     for ( 0.. $#{$xdatcar{geometry}} ) { 
         my @xyz = ();  
         my $comment = sprintf("Step: %d", $_+1); 
@@ -122,7 +123,8 @@ if ( $save ) {
         # print ot file 
         print_cartesian($comment, \@tags, \@xyz => $fh);  
     }
-    $fh->close; 
+
+    close $fh;  
 
     if ( $quiet == 0 ) { xmakemol($xyz) } 
 }
