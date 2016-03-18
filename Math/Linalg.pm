@@ -10,7 +10,7 @@ use Fortran qw( fortran2perl );
 our @array  = qw( ascale norm dot triple vstack hstack print_array ); 
 our @list   = qw( length max min sum product ); 
 our @grid   = qw( mgrid );  
-our @matrix = qw( mat_dim det mat_add mscale mat_mul transpose inverse print_mat ); 
+our @matrix = qw( mat_dim det mat_add mscale mat_mul column_sum transpose inverse print_mat ); 
 
 our @ISA         = qw/Exporter/; 
 our @EXPORT      = (); 
@@ -354,6 +354,18 @@ sub mat_mul {
     }
 
     return @product; 
+}
+
+# column summation 
+sub column_sum { 
+    my ( $mat, $index ) = @_; 
+    
+    # shift index ( 0-based )
+    $index--; 
+    my @extracted_column = map { $_->[$index] } @$mat; 
+
+    return sum(@extracted_column); 
+
 }
 
 # transpose 2d matrix 

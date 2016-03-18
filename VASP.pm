@@ -781,7 +781,7 @@ sub read_phonon {
     open my $fh, '<', \$slurp_line; 
 
     while ( <$fh> ) { 
-        if ( /\d+\s+f(\/i)?\s+=/ ) { 
+        if ( /\d+\s+f(\/i)?\s*=/ ) { 
             # read eigenval 
             my ( $dof, $eigenval ) = ( split )[0, -2]; 
             $eigen{$dof}[0] = $eigenval; 
