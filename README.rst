@@ -1,2 +1,2 @@
-# VASP
-Generic VASP utilities
+# CPLAS
+Comprehensive Perl Libraries for Ab-initio Simulations
