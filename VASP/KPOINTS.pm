@@ -18,7 +18,7 @@ use experimental qw(signatures);
 with 'IO::Read'; 
 
 # Moose attributes 
-has '_read_kpoints', ( 
+has '_read_KPOINTS', ( 
     is       => 'ro', 
     traits   => ['Hash'], 
     lazy     => 1, 
@@ -61,7 +61,7 @@ has 'nkpt', (
 
 # Moose methods
 sub BUILD ( $self, @args ) { 
-    $self->_read_kpoints; 
+    $self->_read_KPOINTS; 
 } 
 
 # speed-up object construction 
