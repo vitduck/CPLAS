@@ -21,7 +21,7 @@ has '_read_OUTCAR', (
     init_arg => undef, 
 
     default  => sub ( $self ) { 
-        return $self->slurp_file('OUTCAR'); 
+        return $self->slurp('OUTCAR'); 
     }, 
 ); 
 
@@ -34,7 +34,8 @@ has 'forces', (
         my $force = [];  
 
         # match the force block 
-        # (need furthur improvement)
+        # TODO: is it possible to capture the final three columns 
+        #       without explicit spliting later ? 
         my $regex = 
         qr/
             # beginning 
@@ -52,16 +53,15 @@ has 'forces', (
             )
         /xs; 
 
+        # regex in list context 
+        # loop through each force block
         for my $fblock ( $self->_read_OUTCAR =~ /$regex/g ) { 
             my $iforce = []; 
 
-            # fh to string; 
-            open my $fh, '<', \$fblock; 
-            while ( <$fh> ) { 
-                push $iforce->@*, [ (split)[3,4,5] ]; 
+            # open fh to string and loop over deref 
+            for ( $self->readline($fblock)->@* ) { 
+                push $iforce->@*, [(split)[3,4,5]]; 
             } 
-            close $fh; 
-
             push $force->@*, $iforce; 
         } 
 
