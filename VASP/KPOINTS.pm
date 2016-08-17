@@ -18,7 +18,7 @@ use experimental qw(signatures);
 with 'IO::Read'; 
 
 # Moose attributes 
-has '_read_KPOINTS', ( 
+has 'read_KPOINTS', ( 
     is       => 'ro', 
     isa      => 'ArrayRef[Str]', 
     traits   => ['Array'], 
