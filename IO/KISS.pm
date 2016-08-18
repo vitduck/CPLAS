@@ -9,7 +9,7 @@ use Moose;
 use namespace::autoclean; 
 
 # features
-use experimental qw(signatures); 
+use experimental qw/signatures/; 
 
 # Moose attributes 
 has 'input', ( 

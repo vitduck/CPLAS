@@ -5,12 +5,15 @@ use autodie;
 use warnings FATAL => 'all'; 
 
 # cpan 
-use PDL qw(); 
+use PDL qw//; 
 use Moose::Role; 
 use namespace::autoclean; 
 
 # features
-use experimental qw(signatures); 
+use experimental qw/signatures/; 
+
+# Moose class 
+use IO::KISS; 
 
 has 'forces', ( 
     is       => 'ro', 
@@ -37,11 +40,14 @@ has 'forces', (
 
         # regex in list context 
         # loop through each force block
-        for my $fblock ( $self->read_OUTCAR =~ /$regex/g ) { 
-            my $iforce = []; 
+        for my $fblock ( $self->slurp =~ /$regex/g ) { 
+            chomp $fblock; 
 
-            # open fh to string and loop over deref 
-            for ( $self->readline($fblock)->@* ) { 
+            # open fh to string 
+            my $string = IO::KISS->new($fblock); 
+
+            my $iforce = []; 
+            for ( $string->get_lines ) { 
                 push $iforce->@*, [(split)[3,4,5]]; 
             } 
             push $force->@*, $iforce; 
@@ -59,7 +65,9 @@ has 'max_forces', (
 
     default  => sub ( $self ) { 
         my $pforce = PDL->new($self->forces); 
-        my $max_force = ((($pforce*$pforce)->sumover)->sqrt)->maximum; 
+        my $max_force = ($pforce*$pforce)->sumover
+                                         ->sqrt
+                                         ->maximum; 
 
         return [ $max_force->list ]; 
     }, 

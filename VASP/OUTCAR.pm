@@ -9,25 +9,30 @@ use Moose;
 use namespace::autoclean; 
 
 # features
-use experimental qw(signatures); 
+use experimental qw/signatures/; 
+
+# Moose class 
+use IO::KISS; 
 
 # Moose roles 
-with 'IO::Read', 'VASP::Force'; 
+with qw/VASP::Force/; 
 
 # Moose attributes 
-has 'read_OUTCAR', ( 
-    is       => 'ro', 
-    isa      => 'Str', 
+has 'OUTCAR', ( 
+    is       => 'ro',
+    isa      => 'IO::KISS', 
     init_arg => undef, 
 
     default  => sub ( $self ) { 
-        return $self->slurp('OUTCAR'); 
+        return IO::KISS->new('OUTCAR'); 
     }, 
+
+    handles => [ qw/slurp/ ],  
 ); 
 
 # Moose methods
 sub BUILD ( $self, @args ) { 
-    $self->read_OUTCAR; 
+    $self->OUTCAR; 
 } 
 
 # speed-up object construction 
