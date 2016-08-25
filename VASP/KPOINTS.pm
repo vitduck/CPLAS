@@ -1,9 +1,5 @@
 package VASP::KPOINTS; 
 
-# pragma
-use autodie; 
-use warnings FATAL => 'all'; 
-
 # core 
 use List::Util qw/product/; 
 
@@ -11,92 +7,64 @@ use List::Util qw/product/;
 use Moose;  
 use namespace::autoclean; 
 
-# features
+# pragma
+use autodie; 
+use warnings FATAL => 'all'; 
 use experimental qw/signatures/; 
 
-# Moose class 
-use IO::KISS; 
+# Moose role 
+with 'VASP::Parser'; 
 
 # Moose attributes 
-has 'KPOINTS', ( 
-    is       => 'ro', 
-    isa      => 'IO::KISS',  
-    lazy     => 1, 
-    init_arg => undef, 
-
-    default  => sub ( $self ) { 
-        return IO::KISS->new('KPOINTS');  
-    },  
-
-    handles => [ qw/get_line get_lines/ ], 
+has '+file', ( 
+    default  => 'KPOINTS', 
 ); 
 
-has 'comment', ( 
-    is       => 'ro', 
-    isa      => 'Str', 
-    lazy     => 1, 
-    init_arg => undef, 
-
-    default  => sub ( $self ) { 
-        return $self->get_line;  
-    } 
-); 
-
-has 'mode', (  
-    is       => 'ro', 
-    isa      => 'Int', 
-    lazy     => 1, 
-    init_arg => undef, 
-
-    default  => sub ( $self ) { 
-        return $self->get_line;  
-    } 
-); 
-
-has 'scheme', (  
-    is       => 'ro', 
-    isa      => 'Str', 
-    lazy     => 1, 
-    init_arg => undef, 
-
-    default  => sub ( $self ) { 
-        return $self->get_line =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered'; 
-    } 
-); 
-
-has 'mesh', ( 
+has '_parse_KPOINTS', ( 
     is       => 'ro', 
     lazy     => 1, 
-    init_arg => undef, 
+    traits   => ['Hash'],  
+    init_arg => undef,  
 
     default  => sub ( $self ) { 
-        # automatic k-mesh generation ? 
-        if ( $self->mode == 0 ) { 
-            return [ map int, map split, $self->get_line ]; 
-        # manual k-mesh 
-        } elsif ( $self->mode > 0 ) {  
-            my $k = []; 
-            while ( local $_ = $self->get_line ) {   
-                push $k->@*, [(split)[0,1,2]],
+        my $kp    = {}; 
+        my @lines = $self->parse->@*; 
+
+        # comment 
+        $kp->{comment} = shift @lines; 
+
+        # mode ( automatic|manual|line ) 
+        $kp->{kmode}    = shift @lines; 
+
+        # scheme  
+        $kp->{scheme}  = 
+            ( shift @lines ) =~ /^M/ ? 
+            'Monkhorst-Pack' : 
+            'Gamma-centered';
+
+        # k-mesh 
+        if ( $kp->{kmode} == 0 ) { 
+            # automatic k-mesh generation 
+            $kp->{mesh} = [ map int, map split, shift @lines ];
+        } elsif ( $kp->{kmode} > 0 ) { 
+            # maunal k-mesh 
+            for ( @lines ) {
+                push $kp->{mesh}->@*, [(split)[0,1,2]]; 
             }
-            return $k; 
-        # line-mode ( band calculation ) 
         } else { 
             ...
         } 
-    } 
-); 
 
-has 'shift', ( 
-    is       => 'ro', 
-    isa      => 'ArrayRef[Str]', 
-    lazy     => 1, 
-    init_arg => undef, 
+        # k-shift 
+        if ( $kp->{kmode} == 0 ) { 
+            $kp->{shift} = [ map split, shift @lines ]
+        }
 
-    default  => sub ( $self ) { 
-        if ( $self->mode == 0 ) {    
-            return [ map split, $self->get_line ]; 
-        } 
+        return $kp; 
+    },   
+
+    handles => { 
+        map { $_ => [ get => $_ ] } qw/comment kmode scheme mesh shift/  
     }, 
 ); 
 
@@ -107,24 +75,12 @@ has 'nkpt', (
     init_arg => undef, 
 
     default  => sub ( $self )  { 
-        # automatic k-mesh generation ? 
-        if ( $self->mode == 0 ) {  
-            return product($self->mesh->@*); 
-        } elsif ( $self->mode > 0 ) { 
-            return $self->mode; 
-        } else { 
-            ...
-        } 
-    } 
+        return 
+            $self->kmode == 0 ? 
+            product($self->mesh->@*) :  
+            $self->mode; 
+    }
 ); 
-
-# Moose methods
-sub BUILD ( $self, @args ) { 
-    $self->KPOINTS; 
-    
-    # parsing order 
-    for ( qw/comment mode scheme mesh shift/ ) { $self->$_ } 
-} 
 
 # speed-up object construction 
 __PACKAGE__->meta->make_immutable;

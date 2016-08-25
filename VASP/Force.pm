@@ -1,15 +1,14 @@
 package VASP::Force; 
 
-# pragma
-use autodie; 
-use warnings FATAL => 'all'; 
-
 # cpan 
-use PDL qw//; 
+use PDL::Lite; 
+use PDL::Math; 
 use Moose::Role; 
 use namespace::autoclean; 
 
-# features
+# pragma
+use autodie; 
+use warnings FATAL => 'all'; 
 use experimental qw/signatures/; 
 
 # Moose class 
@@ -20,7 +19,7 @@ has 'forces', (
     lazy     => 1, 
     init_arg => undef, 
 
-    default  => sub ( $self ) {
+    default  => sub ( $self ) { 
         my $force = [];  
 
         # match the force block 
@@ -40,7 +39,7 @@ has 'forces', (
 
         # regex in list context 
         # loop through each force block
-        for my $fblock ( $self->slurp =~ /$regex/g ) { 
+        for my $fblock ( $self->parse =~ /$regex/g ) { 
             chomp $fblock; 
 
             # open fh to string 
@@ -59,17 +58,19 @@ has 'forces', (
 
 has 'max_forces', ( 
     is       => 'ro', 
-    isa      => 'ArrayRef[Str]', 
+    # isa      => 'ArrayRef[Str]', 
     lazy     => 1, 
     init_arg => undef, 
 
     default  => sub ( $self ) { 
-        my $pforce = PDL->new($self->forces); 
-        my $max_force = ($pforce*$pforce)->sumover
-                                         ->sqrt
-                                         ->maximum; 
-
-        return [ $max_force->list ]; 
+        my $force = PDL->new($self->forces); 
+        
+        return [ 
+            ($force*$force)->sumover
+                            ->sqrt
+                            ->maximum 
+                            ->list 
+        ]
     }, 
 ); 
 
