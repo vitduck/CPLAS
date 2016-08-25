@@ -39,11 +39,11 @@ has 'forces', (
 
         # regex in list context 
         # loop through each force block
-        for my $fblock ( $self->parse =~ /$regex/g ) { 
+        for my $fblock ( $self->content =~ /$regex/g ) { 
             chomp $fblock; 
 
             # open fh to string 
-            my $string = IO::KISS->new($fblock); 
+            my $string = IO::KISS->new($fblock, 'r'); 
 
             my $iforce = []; 
             for ( $string->get_lines ) { 
@@ -58,7 +58,7 @@ has 'forces', (
 
 has 'max_forces', ( 
     is       => 'ro', 
-    # isa      => 'ArrayRef[Str]', 
+    isa      => 'ArrayRef[Str]', 
     lazy     => 1, 
     init_arg => undef, 
 

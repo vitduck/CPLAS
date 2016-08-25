@@ -18,7 +18,7 @@ has '+file', (
     default   => 'OUTCAR' 
 ); 
 
-has '+mode', ( 
+has '+parse_mode', ( 
     default   => 'slurp'
 ); 
 

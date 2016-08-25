@@ -28,7 +28,7 @@ has '_parse_KPOINTS', (
 
     default  => sub ( $self ) { 
         my $kp    = {}; 
-        my @lines = $self->parse->@*; 
+        my @lines = $self->content->@*; 
 
         # comment 
         $kp->{comment} = shift @lines; 

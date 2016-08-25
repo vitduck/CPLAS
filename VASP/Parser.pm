@@ -2,6 +2,7 @@ package VASP::Parser;
 
 # cpan 
 use Moose::Role; 
+use MooseX::Types;  
 use namespace::autoclean; 
 
 # pragma 
@@ -17,23 +18,26 @@ has 'file', (
     init_arg  => undef, 
 ); 
 
-has 'mode', ( 
+# default is line by line process 
+# excepts for very large file 
+has 'parse_mode', ( 
     is        => 'ro', 
-    isa       => 'Str', 
+    isa       => enum([ qw/slurp line paragraph/ ]), 
     init_arg  => undef, 
 
     default   => 'line', 
 ); 
 
-has 'parse', ( 
+has 'content', ( 
     is        => 'ro', 
     lazy      => 1, 
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        my $io = IO::KISS->new($self->file); 
+        my $io   = IO::KISS->new($self->file, 'r'); 
+        my $mode = $self->parse_mode;  
 
-        return $io->${\$self->mode}; 
+        return $io->$mode; 
     } 
 );  
 
