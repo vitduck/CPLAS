@@ -10,16 +10,11 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose roles 
-with 'VASP::Parser',  
-     'VASP::Force'; 
+with qw/VASP::Parser VASP::Force/;  
 
 # Moose attributes 
 has '+file', ( 
     default   => 'OUTCAR' 
-); 
-
-has '+parse_mode', ( 
-    default   => 'slurp'
 ); 
 
 # speed-up object construction 

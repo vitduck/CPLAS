@@ -10,6 +10,7 @@ use autodie;
 use warnings FATAL => 'all'; 
 use experimental qw/signatures/;
 
+# Moose class
 use IO::KISS; 
 
 has 'file', ( 
@@ -18,27 +19,20 @@ has 'file', (
     init_arg  => undef, 
 ); 
 
-# default is line by line process 
-# excepts for very large file 
-has 'parse_mode', ( 
+# delegate I/O to IO::KISS
+has 'read', ( 
     is        => 'ro', 
-    isa       => enum([ qw/slurp line paragraph/ ]), 
-    init_arg  => undef, 
-
-    default   => 'line', 
-); 
-
-has 'content', ( 
-    is        => 'ro', 
+    does      => 'IO::KISS', 
     lazy      => 1, 
     init_arg  => undef, 
-
-    default   => sub ( $self ) { 
-        my $io   = IO::KISS->new($self->file, 'r'); 
-        my $mode = $self->parse_mode;  
-
-        return $io->$mode; 
-    } 
+    default   => sub ( $self ) {  
+        return IO::KISS->new($self->file, 'r');  
+    },  
+    handles   => [ 
+        qw/slurp/,   
+        qw/get_line get_lines/, 
+        qw/get_paragraph get_paragraph/, 
+    ], 
 );  
 
 1; 

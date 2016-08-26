@@ -20,49 +20,38 @@ has '+file', (
     default  => 'KPOINTS', 
 ); 
 
-has '_parse_KPOINTS', ( 
+has 'read_KPOINTS', ( 
     is       => 'ro', 
     lazy     => 1, 
     traits   => ['Hash'],  
     init_arg => undef,  
-
     default  => sub ( $self ) { 
-        my $kp    = {}; 
-        my @lines = $self->content->@*; 
-
-        # comment 
-        $kp->{comment} = shift @lines; 
-
-        # mode ( automatic|manual|line ) 
-        $kp->{kmode}    = shift @lines; 
-
-        # scheme  
-        $kp->{scheme}  = 
-            ( shift @lines ) =~ /^M/ ? 
-            'Monkhorst-Pack' : 
-            'Gamma-centered';
+        my $kp         = {}; 
+        # header 
+        $kp->{comment} =   $self->get_line; 
+        $kp->{kmode}   =   $self->get_line;  
+        $kp->{scheme}  = ( $self->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
 
         # k-mesh 
         if ( $kp->{kmode} == 0 ) { 
             # automatic k-mesh generation 
-            $kp->{mesh} = [ map int, map split, shift @lines ];
+            $kp->{mesh} = [ map int, map split, $self->get_line ];
         } elsif ( $kp->{kmode} > 0 ) { 
             # maunal k-mesh 
-            for ( @lines ) {
+            while ( local $_ = $self->get_line ) {
                 push $kp->{mesh}->@*, [(split)[0,1,2]]; 
             }
         } else { 
+            # line mode ( band calculation )
             ...
         } 
 
         # k-shift 
         if ( $kp->{kmode} == 0 ) { 
-            $kp->{shift} = [ map split, shift @lines ]
+            $kp->{shift} = [ map split, $self->get_line ]
         }
-
         return $kp; 
     },   
-
     handles => { 
         map { $_ => [ get => $_ ] } qw/comment kmode scheme mesh shift/  
     }, 
@@ -75,10 +64,7 @@ has 'nkpt', (
     init_arg => undef, 
 
     default  => sub ( $self )  { 
-        return 
-            $self->kmode == 0 ? 
-            product($self->mesh->@*) :  
-            $self->mode; 
+        return $self->kmode == 0 ? product($self->mesh->@*) : $self->mode; 
     }
 ); 
 

@@ -2,7 +2,6 @@ package VASP::Force;
 
 # cpan 
 use PDL::Lite; 
-use PDL::Math; 
 use Moose::Role; 
 use namespace::autoclean; 
 
@@ -14,17 +13,16 @@ use experimental qw/signatures/;
 # Moose class 
 use IO::KISS; 
 
-has 'forces', ( 
+# match the force block 
+# TODO: is it possible to capture the final three columns 
+#       without explicit spliting later ? 
+has 'read_forces', ( 
     is       => 'ro', 
     lazy     => 1, 
     init_arg => undef, 
 
     default  => sub ( $self ) { 
-        my $force = [];  
-
-        # match the force block 
-        # TODO: is it possible to capture the final three columns 
-        #       without explicit spliting later ? 
+        # compiled regex for force block
         my $regex = 
         qr/
             (?:
@@ -36,23 +34,14 @@ has 'forces', (
                 \ -+\n
             )
         /xs; 
-
-        # regex in list context 
-        # loop through each force block
-        for my $fblock ( $self->content =~ /$regex/g ) { 
+        # slurp OUTCAR and perform regex in list context 
+        my @forces; 
+        for my $fblock ( $self->slurp =~ /$regex/g ) { 
             chomp $fblock; 
-
-            # open fh to string 
             my $string = IO::KISS->new($fblock, 'r'); 
-
-            my $iforce = []; 
-            for ( $string->get_lines ) { 
-                push $iforce->@*, [(split)[3,4,5]]; 
-            } 
-            push $force->@*, $iforce; 
+            push @forces, [ map [ (split)[3,4,5] ], $string->get_lines ];   
         } 
-
-        return $force; 
+        return \@forces; 
     }, 
 ); 
 
@@ -61,16 +50,9 @@ has 'max_forces', (
     isa      => 'ArrayRef[Str]', 
     lazy     => 1, 
     init_arg => undef, 
-
     default  => sub ( $self ) { 
-        my $force = PDL->new($self->forces); 
-        
-        return [ 
-            ($force*$force)->sumover
-                            ->sqrt
-                            ->maximum 
-                            ->list 
-        ]
+        my $force = PDL->new($self->read_forces); 
+        return [ ($force*$force)->sumover->sqrt->maximum->list ] 
     }, 
 ); 
 
