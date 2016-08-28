@@ -7,7 +7,6 @@ use MooseX::Types::Moose qw(Str);
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
 
 my %table = (
       1 => [ 'H',      'Hydrogen', '0.32', '1.00'],

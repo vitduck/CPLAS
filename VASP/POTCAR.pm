@@ -6,7 +6,7 @@ use File::Spec::Functions;
 
 # cpan
 use Moose;  
-use MooseX::Types; 
+use MooseX::Types::Moose qw/ArrayRef HashRef Str/;  
 use namespace::autoclean; 
 
 # pragma
@@ -17,126 +17,118 @@ use experimental qw/signatures/;
 # Moose class 
 use IO::KISS;  
 
+# Moose type 
+use VASP::Periodic qw/Element/; 
+use VASP::Exchange qw/VASP/; 
+
 # Moose roles 
-with 'VASP::Parser', 'VASP::Periodic';  
+with qw/VASP::Parser/; 
 
 # Moose attributes 
-has 'dir', ( 
+has 'pot_dir', ( 
     is        => 'ro', 
-    isa       => 'Str', 
-    init_arg  => 1, 
-
-    default   => sub ( $self ) {  
-        return $ENV{POTCAR};  
-    } 
+    isa       => Str, 
+    init_arg  => undef, 
+    default   => $ENV{POT_DIR} 
 ); 
 
 has 'exchange', ( 
     is        => 'ro', 
-    isa       => enum([ qw/PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA/ ]), 
-    default   => 'PAW_PBE',  
+    isa       => VASP, 
+    required  => 1, 
 ); 
 
-has 'element', ( 
+has 'elements', ( 
     is        => 'ro', 
-    isa       => 'Str', 
-    required  => 1,   
-); 
-
-has 'potcars', ( 
-    is       => 'ro', 
-    isa      => 'ArrayRef[Str]',  
-    init_arg => undef, 
-    lazy     => 1, 
-
-    default  => sub ( $self ) { 
-        my $dir      = $self->dir; 
-        my $exchange = $self->exchange; 
-        my $element  = $self->element; 
-
-        return [ 
-            map { basename $_ } grep /\/($element)(\z|\d|_|\.)/, <$dir/$exchange/*>     
-        ]
+    isa       => ArrayRef[Element], 
+    traits    => ['Array'], 
+    required  => 1, 
+    handles   => { 
+        list_elements => 'elements', 
     }, 
 ); 
 
-# from VASP::Parser
-# make it lazy ( blame the hash ) 
-has '+file', ( 
-    lazy      => 1, 
+has 'available_potcars', ( 
+    is        => 'ro', 
+    isa       => HashRef, 
+    traits    => ['Hash'], 
+    init_arg  => undef, 
+    default   => sub ( $self ) { {} },  
+    handles   => { 
+        set_available_potcars  => 'set',  
+        list_available_potcars => 'get',  
+    }
+); 
 
-    default   => sub ( $self ) { 
-        my $element = $self->element; 
-        my $name    = $self->element_name($element); 
+has 'selected_potcars', ( 
+    is        => 'ro', 
+    isa       => HashRef, 
+    traits    => ['Hash'], 
+    init_arg  => undef, 
+    default   => sub ( $self ) { {} },  
+    handles   => { 
+        set_selected_potcars => 'set',  
+        get_selected_potcars => 'get', 
+    }
+); 
 
-        printf "\n=> Pseudopotentials for %s: =| %s |=\n", $name, join(' | ', $self->potcars->@*);
+# Moose private method 
+sub _construct_available_potcars( $self, $element ) { 
+    $self->set_available_potcars( 
+        $element => [ 
+            map basename($_), 
+            grep /\/($element)(\z|\d|_|\.)/, 
+            glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+        ]  
+    );  
+} 
 
-        # Promp user to choose potential 
-        while ( 1 ) { 
-            print "=> Choice: "; 
+sub _construct_selected_potcars( $self, $element ) { 
+    my @potcars = $self->list_available_potcars($element)->@*; 
+    
+    # prompt 
+    printf 
+        "\n=> Pseudopotentials for %s: =| %s |=\n", 
+        $element, join(' | ', @potcars );  
 
-            # remove newline, spaces, etc
-            chomp ( my $choice = <STDIN> ); 
-            $choice =~ s/\s+//g; 
-
-            if ( grep { $choice eq $_ } $self->potcars->@* ) {  
-                return catfile($self->dir, $self->exchange, $choice, 'POTCAR') 
-            }
+    # construct full path to file
+    while ( 1 ) { 
+        print "=> Choice: "; 
+        chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
+        if ( grep $choice eq $_ , @potcars ) {  
+            $self->set_selected_potcars(
+                $element => catfile($self->pot_dir, $self->exchange, $choice, 'POTCAR') 
+            );  
+            last; 
         }
     } 
-); 
+} 
 
-has 'history', ( 
-    is       => 'ro', 
-    isa      => 'HashRef[Str]',  
-    traits   => ['Hash'], 
-    init_arg => undef, 
-    lazy     => 1, 
-
-    default  => sub ( $self ) { 
-        my $info = {}; 
-
-        for ( $self->content->@* ) { 
-            if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
-                # valence shell 
-                if ( my @valence = ( $2 =~ /([spdf]\d+)/g ) ) {  
-                    $info->{shell} = join '', @valence;               
-                } else { 
-                    $info->{shell} = (split ' ', $2)[0];  
-                }
-            }
-
-            if ( /TITEL/ ) { 
-                $info->@{qw/config date/} = ( split )[3,4]; 
-                $info->{date} //= '...'; 
-            }
-        } 
-            
-        return $info;  
-    },  
-
-    # delegations 
-    handles => { 
-        map { $_ => [ get => $_ ] } qw/config shell date/  
-    }, 
-);  
-
-# Moose sub 
+# Moose method 
 sub make_potcar ( $self ) { 
-    # append mode 
-    my $io = IO::KISS->new('POTCAR', 'a');     
+    my $POTCAR = IO::KISS->new('POTCAR', 'w');      
 
-    for ( $self->content->@* ) { 
-        $io->print($_); 
-    } 
+    for my $element ( $self->list_elements ) { 
+        $POTCAR->print(
+            IO::KISS->new($self->get_selected_potcars($element), 'r')->slurp 
+        )
+    }
 } 
 
 sub BUILD ( $self, @args ) { 
     # check if potential directory is accessible 
-    if ( not -d $self->dir  ) { 
+    if ( not -d $self->pot_dir  ) { 
         die "Please export location of POTCAR files in .bashrc\n
-        For example: export POTCAR=/opt/VASP/POTCAR\n";
+        For example: export POT_DIR=/opt/VASP/POTCAR\n";
     }
+    
+    # after element is added, simultaneously 
+    # set two attributes available_potcars and selected_potcars 
+    for my $element ( $self->list_elements ) { 
+        $self->_construct_available_potcars($element); 
+        $self->_construct_selected_potcars($element); 
+    } 
+
 } 
 
 # speed-up object construction 

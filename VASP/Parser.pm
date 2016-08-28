@@ -20,7 +20,7 @@ has 'file', (
 ); 
 
 # delegate I/O to IO::KISS
-has 'read', ( 
+has 'io', ( 
     is        => 'ro', 
     does      => 'IO::KISS', 
     lazy      => 1, 
