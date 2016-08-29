@@ -2,7 +2,7 @@ package VASP::Periodic;
 
 # cpan
 use MooseX::Types -declare => [ qw/Element/ ];   
-use MooseX::Types::Moose qw(Str); 
+use MooseX::Types::Moose qw/Str/; 
 
 # pragma
 use autodie; 

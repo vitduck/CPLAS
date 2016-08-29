@@ -2,7 +2,7 @@ package VASP::Parser;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types;  
+use MooseX::Types::Moose qw/Str/;  
 use namespace::autoclean; 
 
 # pragma 
@@ -15,7 +15,7 @@ use IO::KISS;
 
 has 'file', ( 
     is        => 'ro', 
-    isa       => 'Str', 
+    isa       => Str, 
     init_arg  => undef, 
 ); 
 
@@ -23,8 +23,8 @@ has 'file', (
 has 'io', ( 
     is        => 'ro', 
     does      => 'IO::KISS', 
-    lazy      => 1, 
     init_arg  => undef, 
+    lazy      => 1, 
     default   => sub ( $self ) {  
         return IO::KISS->new($self->file, 'r');  
     },  

@@ -25,6 +25,38 @@ use VASP::Exchange qw/VASP/;
 with qw/VASP::Parser/; 
 
 # Moose attributes 
+has '+file', ( 
+    lazy      => 1, 
+    default   => 'POTCAR', 
+); 
+
+has 'info', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        my $info = [];  
+        my ( $exchange, $potcar, $shell, $date ); 
+        my @valences; 
+        for ( $self->get_lines ) { 
+            if ( /VRHFIN =\w+\s*:(.*)/ ) { 
+                $shell = 
+                    ( @valences = ($1 =~ /([spdf]\d+)/g) ) ?  
+                    join '', @valences : 
+                    (split ' ', $1)[0]; 
+            }
+            if ( /TITEL/ ) { 
+                ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
+                $date //= '---'; 
+                push $info->@*, [ $exchange, $potcar, $shell, $date ]; 
+            }
+        }
+        return $info; 
+    }, 
+    handles  => {  } 
+);  
+
 has 'pot_dir', ( 
     is        => 'ro', 
     isa       => Str, 
@@ -35,14 +67,14 @@ has 'pot_dir', (
 has 'exchange', ( 
     is        => 'ro', 
     isa       => VASP, 
-    required  => 1, 
+    predicate => 'has_exchange', 
 ); 
 
 has 'elements', ( 
     is        => 'ro', 
     isa       => ArrayRef[Element], 
     traits    => ['Array'], 
-    required  => 1, 
+    predicate => 'has_elements', 
     handles   => { 
         list_elements => 'elements', 
     }, 
@@ -53,6 +85,7 @@ has 'available_potcars', (
     isa       => HashRef, 
     traits    => ['Hash'], 
     init_arg  => undef, 
+    lazy      => 1, 
     default   => sub ( $self ) { {} },  
     handles   => { 
         set_available_potcars  => 'set',  
@@ -65,6 +98,7 @@ has 'selected_potcars', (
     isa       => HashRef, 
     traits    => ['Hash'], 
     init_arg  => undef, 
+    lazy      => 1, 
     default   => sub ( $self ) { {} },  
     handles   => { 
         set_selected_potcars => 'set',  
@@ -124,11 +158,12 @@ sub BUILD ( $self, @args ) {
     
     # after element is added, simultaneously 
     # set two attributes available_potcars and selected_potcars 
-    for my $element ( $self->list_elements ) { 
-        $self->_construct_available_potcars($element); 
-        $self->_construct_selected_potcars($element); 
+    if ( $self->has_elements && $self->has_exchange ) { 
+        for my $element ( $self->list_elements ) { 
+            $self->_construct_available_potcars($element); 
+            $self->_construct_selected_potcars($element); 
+        } 
     } 
-
 } 
 
 # speed-up object construction 

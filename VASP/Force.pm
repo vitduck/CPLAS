@@ -3,6 +3,7 @@ package VASP::Force;
 # cpan 
 use PDL::Lite; 
 use Moose::Role; 
+use MooseX::Types::Moose qw/ArrayRef Str/; 
 use namespace::autoclean; 
 
 # pragma
@@ -18,8 +19,9 @@ use IO::KISS;
 #       without explicit spliting later ? 
 has 'read_forces', ( 
     is       => 'ro', 
-    lazy     => 1, 
+    isa      => ArrayRef, 
     init_arg => undef, 
+    lazy     => 1, 
 
     default  => sub ( $self ) { 
         # compiled regex for force block
@@ -47,9 +49,9 @@ has 'read_forces', (
 
 has 'max_forces', ( 
     is       => 'ro', 
-    isa      => 'ArrayRef[Str]', 
-    lazy     => 1, 
+    isa      => ArrayRef[Str], 
     init_arg => undef, 
+    lazy     => 1, 
     default  => sub ( $self ) { 
         my $force = PDL->new($self->read_forces); 
         return [ ($force*$force)->sumover->sqrt->maximum->list ] 

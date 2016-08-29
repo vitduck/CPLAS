@@ -5,6 +5,7 @@ use List::Util qw/product/;
 
 # cpan
 use Moose;  
+use MooseX::Types::Moose qw/HashRef Int/; 
 use namespace::autoclean; 
 
 # pragma
@@ -22,9 +23,10 @@ has '+file', (
 
 has 'read_KPOINTS', ( 
     is       => 'ro', 
-    lazy     => 1, 
+    isa      => HashRef, 
     traits   => ['Hash'],  
     init_arg => undef,  
+    lazy     => 1, 
     default  => sub ( $self ) { 
         my $kp         = {}; 
         # header 
@@ -59,9 +61,9 @@ has 'read_KPOINTS', (
 
 has 'nkpt', ( 
     is       => 'ro', 
-    isa      => 'Int', 
-    lazy     => 1, 
+    isa      => Int, 
     init_arg => undef, 
+    lazy     => 1, 
 
     default  => sub ( $self )  { 
         return $self->kmode == 0 ? product($self->mesh->@*) : $self->mode; 
