@@ -12,6 +12,8 @@ use Data::Printer;
 use autodie; 
 use strict; 
 use warnings; 
+use feature  qw/switch/; 
+use experimental qw/smartmatch/; 
 
 # Moose class 
 use VASP::POTCAR; 
@@ -25,9 +27,7 @@ makepp.pl: generate VASP pseudo potential
 
 =head1 SYNOPSIS
 
-makepot.pl [-h] [-l] [-t PAW_PBE] [-e C H O] 
-
-Available potentials: PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA
+makepot.pl [-h] [-i] [-e PAW_PBE] C H O 
 
 =head1 OPTIONS
 
@@ -37,37 +37,38 @@ Available potentials: PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA
 
 Print the help message and exit.
 
-=item B<-t> 
+=item B<-i> 
 
-Type of pseudopential (default: PAW_PBE) 
+List information regarding POTCAR 
 
 =item B<-e> 
 
-List of elements 
+Available potentials: PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA
 
 =back 
 
 =cut 
 
 # default optional arguments 
-my $help     = 0; 
+my $mode;  
 my $exchange = 'PAW_PBE'; 
-my @elements = ();  
 
 # default output 
 if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
 
 # optional args
-GetOptions(
-    'h'       => \$help, 
-    't=s'     => \$exchange,
-    'e=s{1,}' => \@elements, 
+GetOptions( 
+    'h'   => sub { $mode = 'help' }, 
+    'i'   => sub { $mode = 'info' }, 
+    'e=s' => \$exchange, 
 ) or pod2usage(-verbose => 1); 
 
-# help message 
-if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }; 
-
-# object construction 
-my $POTCAR = VASP::POTCAR->new(elements => \@elements, exchange => $exchange);  
-
-$POTCAR->make_potcar; 
+given ( $mode ) { 
+    when ( 'help' ) { pod2usage(-verbose => 99, -section => \@usages) }
+    when ( 'info' ) { VASP::POTCAR->new->info }  
+    default { 
+        my $PP = VASP::POTCAR->new(elements => [@ARGV], exchange => $exchange); 
+        $PP->make_potcar; 
+        $PP->info; 
+    } 
+} 

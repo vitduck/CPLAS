@@ -5,6 +5,7 @@ use File::Basename;
 use File::Spec::Functions; 
 
 # cpan
+use Data::Printer; 
 use Moose;  
 use MooseX::Types::Moose qw/ArrayRef HashRef Str/;  
 use namespace::autoclean; 
@@ -12,7 +13,7 @@ use namespace::autoclean;
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental qw/signatures postderef_qq/; 
 
 # Moose class 
 use IO::KISS;  
@@ -30,31 +31,37 @@ has '+file', (
     default   => 'POTCAR', 
 ); 
 
-has 'info', ( 
+has 'read_POTCAR', ( 
     is        => 'ro', 
-    isa       => ArrayRef, 
+    isa       => HashRef, 
+    traits    => ['Hash'],  
     init_arg  => undef, 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        my $info = [];  
-        my ( $exchange, $potcar, $shell, $date ); 
-        my @valences; 
+        my $info = {};  
+        my ( $exchange, $element, $potcar, $config, $date ); 
+        my @valences;  
         for ( $self->get_lines ) { 
-            if ( /VRHFIN =\w+\s*:(.*)/ ) { 
-                $shell = 
-                    ( @valences = ($1 =~ /([spdf]\d+)/g) ) ?  
+            # Ex: VRHFIN =C: s2p2
+            if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
+                $element = $1; 
+                $config  = 
+                    ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
                     join '', @valences : 
-                    (split ' ', $1)[0]; 
+                    (split ' ', $2)[0]; 
             }
+            # Ex: TITEL  = PAW_PBE C_s 06Sep2000
             if ( /TITEL/ ) { 
                 ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
                 $date //= '---'; 
-                push $info->@*, [ $exchange, $potcar, $shell, $date ]; 
+
+                push $info->{$exchange}->@*, [ $element, $potcar, $config, $date ]; 
             }
         }
+        # transformation 
         return $info; 
     }, 
-    handles  => {  } 
+    handles  => { get_pseudo_info => 'get' }
 );  
 
 has 'pot_dir', ( 
@@ -65,19 +72,28 @@ has 'pot_dir', (
 ); 
 
 has 'exchange', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => VASP, 
     predicate => 'has_exchange', 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return (keys $self->read_POTCAR->%*)[0];  
+    } 
 ); 
 
 has 'elements', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => ArrayRef[Element], 
     traits    => ['Array'], 
     predicate => 'has_elements', 
+    lazy      => 1, 
     handles   => { 
         list_elements => 'elements', 
     }, 
+    default   => sub ( $self ) { 
+        my $pseudo = $self->read_POTCAR->{$self->exchange}; 
+        return [ map $_->[0], $pseudo->@* ]  
+    } 
 ); 
 
 has 'available_potcars', ( 
@@ -149,6 +165,16 @@ sub make_potcar ( $self ) {
     }
 } 
 
+sub info ( $self ) { 
+    my $exchange = $self->exchange; 
+    printf  "\nPseudopotential: %s\n", $exchange; 
+    for my $pseudo ( $self->get_pseudo_info($exchange) ) {  
+        for my $row ( $pseudo->@* ) { 
+            printf "%3s => ( %-7s %-10s %-s )\n", $row->@*; 
+        } 
+    } 
+} 
+
 sub BUILD ( $self, @args ) { 
     # check if potential directory is accessible 
     if ( not -d $self->pot_dir  ) { 
@@ -156,14 +182,14 @@ sub BUILD ( $self, @args ) {
         For example: export POT_DIR=/opt/VASP/POTCAR\n";
     }
     
-    # after element is added, simultaneously 
+    # if a arrayref element is passed to the constructor,  
     # set two attributes available_potcars and selected_potcars 
     if ( $self->has_elements && $self->has_exchange ) { 
         for my $element ( $self->list_elements ) { 
             $self->_construct_available_potcars($element); 
             $self->_construct_selected_potcars($element); 
         } 
-    } 
+    }
 } 
 
 # speed-up object construction 
