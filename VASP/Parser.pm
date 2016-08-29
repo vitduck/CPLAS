@@ -2,7 +2,7 @@ package VASP::Parser;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types::Moose qw/Str/;  
+use MooseX::Types::Moose qw/HashRef Str/;  
 use namespace::autoclean; 
 
 # pragma 
@@ -34,5 +34,16 @@ has 'io', (
         qw/get_paragraph get_paragraph/, 
     ], 
 );  
+
+has 'parser', ( 
+    isa       => 'ro', 
+    isa       => HashRef, 
+    traits    => ['Hash'],
+    init_arg  => undef, 
+    handles   => { 
+        parse   => 'get', 
+        keyword => 'keys',  
+    },   
+); 
 
 1; 

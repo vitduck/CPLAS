@@ -5,7 +5,7 @@ use List::Util qw/product/;
 
 # cpan
 use Moose;  
-use MooseX::Types::Moose qw/HashRef Int/; 
+use MooseX::Types::Moose qw/ArrayRef HashRef Str Int/; 
 use namespace::autoclean; 
 
 # pragma
@@ -17,28 +17,24 @@ use experimental qw/signatures/;
 with 'VASP::Parser'; 
 
 # Moose attributes 
+# From VASP::Parser
 has '+file', ( 
     default  => 'KPOINTS', 
 ); 
 
-has 'read_KPOINTS', ( 
-    is       => 'ro', 
-    isa      => HashRef, 
-    traits   => ['Hash'],  
-    init_arg => undef,  
+has '+parser', ( 
     lazy     => 1, 
     default  => sub ( $self ) { 
         my $kp         = {}; 
         # header 
         $kp->{comment} =   $self->get_line; 
-        $kp->{kmode}   =   $self->get_line;  
+        $kp->{mode}    =   $self->get_line;  
         $kp->{scheme}  = ( $self->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
-
         # k-mesh 
-        if ( $kp->{kmode} == 0 ) { 
+        if ( $kp->{mode} == 0 ) { 
             # automatic k-mesh generation 
             $kp->{mesh} = [ map int, map split, $self->get_line ];
-        } elsif ( $kp->{kmode} > 0 ) { 
+        } elsif ( $kp->{mode} > 0 ) { 
             # maunal k-mesh 
             while ( local $_ = $self->get_line ) {
                 push $kp->{mesh}->@*, [(split)[0,1,2]]; 
@@ -47,16 +43,52 @@ has 'read_KPOINTS', (
             # line mode ( band calculation )
             ...
         } 
-
         # k-shift 
-        if ( $kp->{kmode} == 0 ) { 
+        if ( $kp->{mode} == 0 ) { 
             $kp->{shift} = [ map split, $self->get_line ]
         }
         return $kp; 
     },   
-    handles => { 
-        map { $_ => [ get => $_ ] } qw/comment kmode scheme mesh shift/  
-    }, 
+); 
+
+has 'comment', ( 
+    is       => 'ro', 
+    isa      => Str, 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self->parse('comment') },   
+); 
+
+has 'mode', ( 
+    is       => 'ro', 
+    isa      => Str, 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self->parse('mode') },   
+); 
+
+has 'scheme', ( 
+    is       => 'ro', 
+    isa      => Str, 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self->parse('comment') },   
+); 
+
+has 'mesh', ( 
+    is       => 'ro', 
+    isa      => ArrayRef, 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self-> parse('mesh') }, 
+); 
+
+has 'shift', ( 
+    is       => 'ro', 
+    isa      => ArrayRef, 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self-> parse('mesh') }, 
 ); 
 
 has 'nkpt', ( 
@@ -64,9 +96,8 @@ has 'nkpt', (
     isa      => Int, 
     init_arg => undef, 
     lazy     => 1, 
-
     default  => sub ( $self )  { 
-        return $self->kmode == 0 ? product($self->mesh->@*) : $self->mode; 
+        return $self->mode == 0 ? product($self->mesh->@*) : $self->mode; 
     }
 ); 
 

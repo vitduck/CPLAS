@@ -19,23 +19,26 @@ use experimental qw/signatures postderef_qq/;
 use IO::KISS;  
 
 # Moose type 
-use VASP::Periodic qw/Element/; 
 use VASP::Exchange qw/VASP/; 
 
 # Moose roles 
-with qw/VASP::Parser/; 
+with qw/VASP::Parser VASP::Geometry/; 
 
 # Moose attributes 
+has 'pot_dir', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    init_arg  => undef, 
+    default   => $ENV{POT_DIR} 
+); 
+
+# VASP::Parser
 has '+file', ( 
     lazy      => 1, 
     default   => 'POTCAR', 
 ); 
 
-has 'read_POTCAR', ( 
-    is        => 'ro', 
-    isa       => HashRef, 
-    traits    => ['Hash'],  
-    init_arg  => undef, 
+has '+parser', ( 
     lazy      => 1, 
     default   => sub ( $self ) { 
         my $info = {};  
@@ -61,14 +64,16 @@ has 'read_POTCAR', (
         # transformation 
         return $info; 
     }, 
-    handles  => { get_pseudo_info => 'get' }
 );  
 
-has 'pot_dir', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    init_arg  => undef, 
-    default   => $ENV{POT_DIR} 
+# VASP::Geometry
+has '+elements', ( 
+    predicate => 'has_elements', 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        my $pseudo = $self->parse($self->exchange);  
+        return [ map $_->[0], $pseudo->@* ]  
+    } 
 ); 
 
 has 'exchange', ( 
@@ -77,24 +82,10 @@ has 'exchange', (
     predicate => 'has_exchange', 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return (keys $self->read_POTCAR->%*)[0];  
+        return ($self->keyword)[0]   
     } 
 ); 
 
-has 'elements', ( 
-    is        => 'rw', 
-    isa       => ArrayRef[Element], 
-    traits    => ['Array'], 
-    predicate => 'has_elements', 
-    lazy      => 1, 
-    handles   => { 
-        list_elements => 'elements', 
-    }, 
-    default   => sub ( $self ) { 
-        my $pseudo = $self->read_POTCAR->{$self->exchange}; 
-        return [ map $_->[0], $pseudo->@* ]  
-    } 
-); 
 
 has 'available_potcars', ( 
     is        => 'ro', 
@@ -168,7 +159,7 @@ sub make_potcar ( $self ) {
 sub info ( $self ) { 
     my $exchange = $self->exchange; 
     printf  "\nPseudopotential: %s\n", $exchange; 
-    for my $pseudo ( $self->get_pseudo_info($exchange) ) {  
+    for my $pseudo ( $self->parse($exchange) ) {  
         for my $row ( $pseudo->@* ) { 
             printf "%3s => ( %-7s %-10s %-s )\n", $row->@*; 
         } 
