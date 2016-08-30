@@ -17,7 +17,7 @@ use IO::KISS;
 # match the force block 
 # TODO: is it possible to capture the final three columns 
 #       without explicit spliting later ? 
-has 'forces', ( 
+has 'force', ( 
     is       => 'ro', 
     isa      => ArrayRef, 
     init_arg => undef, 
@@ -36,24 +36,27 @@ has 'forces', (
             )
         /xs; 
         # slurp OUTCAR and perform regex in list context 
-        my @forces; 
+        my $force = []; 
         for my $fblock ( $self->slurp =~ /$regex/g ) { 
-            chomp $fblock; 
-            my $string = IO::KISS->new($fblock, 'r'); 
-            push @forces, [ map [ (split)[3,4,5] ], $string->get_lines ];   
+            push $force->@*, [ map [ (split)[3,4,5] ], IO::KISS->new($fblock, 'r')->get_lines ];   
         } 
-        return \@forces; 
+        return $force;  
     }, 
 ); 
 
-has 'max_forces', ( 
-    is       => 'ro', 
-    isa      => ArrayRef[Str], 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { 
-        my $force = PDL->new($self->forces); 
+has 'max_force', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[Str], 
+    traits    => ['Array'], 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        my $force = PDL->new($self->force); 
         return [ ($force*$force)->sumover->sqrt->maximum->list ] 
+    }, 
+    handles   => {  
+        get_max_force  => 'shift', 
+        get_max_forces => 'elements', 
     }, 
 ); 
 

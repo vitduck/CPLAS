@@ -1,13 +1,16 @@
 #!/usr/bin/env perl 
 
-use strict; 
-use warnings; 
-
+# core 
 use Getopt::Long; 
 use Pod::Usage; 
 
-use Math::Linalg qw( length ); 
-use VASP qw( read_poscar read_force ); 
+# pragma
+use autodie;  
+use strict; 
+use warnings FATAL => 'all';  
+
+# Moose class 
+use VASP::OUTCAR;  
 
 my @usages = qw(NAME SYSNOPSIS OPTIONS); 
 
@@ -54,14 +57,9 @@ GetOptions(
 # help message 
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
-# check selective tags in 
-my %poscar = read_poscar('POSCAR'); 
-
-# frozen atom 
-my @frozen = grep { ( grep $_ =~ /F/, @{$poscar{frozen}[$_]} ) == 3 } 0..$#{$poscar{frozen}}; 
-
 # collect forces 
-my @forces = read_force($input, \@frozen); 
+my $outcar = VASP::OUTCAR->new; 
+my @forces = $outcar->get_max_forces; 
 
 # table format
 my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol; 
@@ -70,7 +68,7 @@ my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol;
 my @indices = sort { $a % $nrow <=> $b % $nrow } 0..$#forces; 
 
 # print forces
-my $digit   = length(scalar(@forces)); 
+my $digit = length(scalar(@forces)); 
 
 for my $i (0..$#indices) { 
     printf "%${digit}d: f = %.2e    ", $indices[$i]+1, $forces[$indices[$i]]; 
