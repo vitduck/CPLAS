@@ -16,7 +16,6 @@ use IO::KISS;
 has 'file', ( 
     is        => 'ro', 
     isa       => Str, 
-    init_arg  => undef, 
 ); 
 
 # delegate I/O to IO::KISS
@@ -35,14 +34,16 @@ has 'io', (
     ], 
 );  
 
-has 'parser', ( 
-    isa       => 'ro', 
+has 'parse', ( 
+    is        => 'ro', 
     isa       => HashRef, 
     traits    => ['Hash'],
     init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { return {} }, 
     handles   => { 
-        parse   => 'get', 
-        keyword => 'keys',  
+        keywords => 'keys',  
+        extract  => 'get', 
     },   
 ); 
 

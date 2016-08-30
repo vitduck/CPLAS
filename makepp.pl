@@ -67,7 +67,7 @@ given ( $mode ) {
     when ( 'help' ) { pod2usage(-verbose => 99, -section => \@usages) }
     when ( 'info' ) { VASP::POTCAR->new->info }  
     default { 
-        my $PP = VASP::POTCAR->new(elements => [@ARGV], exchange => $exchange); 
+        my $PP = VASP::POTCAR->new(element => [@ARGV], exchange => $exchange); 
         $PP->make_potcar; 
         $PP->info; 
     } 

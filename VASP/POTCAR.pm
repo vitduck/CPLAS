@@ -7,7 +7,7 @@ use File::Spec::Functions;
 # cpan
 use Data::Printer; 
 use Moose;  
-use MooseX::Types::Moose qw/ArrayRef HashRef Str/;  
+use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
 use namespace::autoclean; 
 
 # pragma
@@ -29,25 +29,23 @@ has 'pot_dir', (
     is        => 'ro', 
     isa       => Str, 
     init_arg  => undef, 
-    default   => $ENV{POT_DIR} 
+    default   => $ENV{POT_DIR}, 
 ); 
 
 # VASP::Parser
 has '+file', ( 
-    lazy      => 1, 
     default   => 'POTCAR', 
 ); 
 
-has '+parser', ( 
-    lazy      => 1, 
+has '+parse', ( 
     default   => sub ( $self ) { 
         my $info = {};  
         my ( $exchange, $element, $potcar, $config, $date ); 
-        my @valences;  
         for ( $self->get_lines ) { 
             # Ex: VRHFIN =C: s2p2
             if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
                 $element = $1; 
+                my @valences;  
                 $config  = 
                     ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
                     join '', @valences : 
@@ -57,7 +55,6 @@ has '+parser', (
             if ( /TITEL/ ) { 
                 ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
                 $date //= '---'; 
-
                 push $info->{$exchange}->@*, [ $element, $potcar, $config, $date ]; 
             }
         }
@@ -67,12 +64,10 @@ has '+parser', (
 );  
 
 # VASP::Geometry
-has '+elements', ( 
-    predicate => 'has_elements', 
-    lazy      => 1, 
+has '+element', ( 
+    predicate => 'has_element', 
     default   => sub ( $self ) { 
-        my $pseudo = $self->parse($self->exchange);  
-        return [ map $_->[0], $pseudo->@* ]  
+        return [ map $_->[0], $self->extract($self->exchange)->@* ]
     } 
 ); 
 
@@ -82,86 +77,68 @@ has 'exchange', (
     predicate => 'has_exchange', 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return ($self->keyword)[0]   
+        return ($self->keywords)[0]   
     } 
 ); 
 
+for my $name ( qw/config potcar/ ) { 
+    has $name, ( 
+        is        => 'ro', 
+        isa       => ArrayRef, 
+        traits    => ['Array'], 
+        init_arg  => undef, 
+        lazy      => 1, 
+        default   => sub ( $self ) { return [] },  
+        handles   => { 
+            'add_'.$name     => 'push', 
+            'get_'.$name     => 'shift',  
+            'get_'.$name.'s' => 'elements',  
+        }
+    ); 
+}
 
-has 'available_potcars', ( 
-    is        => 'ro', 
-    isa       => HashRef, 
-    traits    => ['Hash'], 
-    init_arg  => undef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { {} },  
-    handles   => { 
-        set_available_potcars  => 'set',  
-        list_available_potcars => 'get',  
-    }
-); 
+# Moose method 
+sub config_potcar( $self, $element ) { 
+    my $config = [ 
+        map basename($_), 
+        grep /\/($element)(\z|\d|_|\.)/, 
+        glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+    ];  
 
-has 'selected_potcars', ( 
-    is        => 'ro', 
-    isa       => HashRef, 
-    traits    => ['Hash'], 
-    init_arg  => undef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { {} },  
-    handles   => { 
-        set_selected_potcars => 'set',  
-        get_selected_potcars => 'get', 
-    }
-); 
-
-# Moose private method 
-sub _construct_available_potcars( $self, $element ) { 
-    $self->set_available_potcars( 
-        $element => [ 
-            map basename($_), 
-            grep /\/($element)(\z|\d|_|\.)/, 
-            glob "${\$self->pot_dir}/${\$self->exchange}/*" 
-        ]  
-    );  
+    $self->add_config($config); 
 } 
 
-sub _construct_selected_potcars( $self, $element ) { 
-    my @potcars = $self->list_available_potcars($element)->@*; 
-    
-    # prompt 
-    printf 
-        "\n=> Pseudopotentials for %s: =| %s |=\n", 
-        $element, join(' | ', @potcars );  
+sub select_potcar( $self ) { 
+    for my $config ( $self->get_configs ) { 
+        # prompt 
+        # $config itselft is a ArrayRef
+        printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
 
-    # construct full path to file
-    while ( 1 ) { 
-        print "=> Choice: "; 
-        chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
-        if ( grep $choice eq $_ , @potcars ) {  
-            $self->set_selected_potcars(
-                $element => catfile($self->pot_dir, $self->exchange, $choice, 'POTCAR') 
-            );  
-            last; 
-        }
-    } 
+        # construct full path to file
+        while ( 1 ) { 
+            chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
+            if ( grep $choice eq $_ , $config->@* ) {  
+                $self->add_potcar(catfile($self->pot_dir, $self->exchange, $choice, 'POTCAR'));  
+                last; 
+            }
+        } 
+    }
 } 
 
 # Moose method 
 sub make_potcar ( $self ) { 
     my $POTCAR = IO::KISS->new('POTCAR', 'w');      
 
-    for my $element ( $self->list_elements ) { 
-        $POTCAR->print(
-            IO::KISS->new($self->get_selected_potcars($element), 'r')->slurp 
-        )
+    for my $potcar ( $self->get_potcars ) { 
+        $POTCAR->print( IO::KISS->new($potcar, 'r')->slurp ); 
     }
 } 
 
 sub info ( $self ) { 
-    my $exchange = $self->exchange; 
-    printf  "\nPseudopotential: %s\n", $exchange; 
-    for my $pseudo ( $self->parse($exchange) ) {  
-        for my $row ( $pseudo->@* ) { 
-            printf "%3s => ( %-7s %-10s %-s )\n", $row->@*; 
+    printf  "\nPseudopotential: %s\n", $self->exchange; 
+    for my $pseudo ( $self->extract($self->exchange) ) {  
+        for my $element ( $pseudo->@* ) { 
+            printf "%3s => ( %-7s %-10s %-s )\n", $element->@*; 
         } 
     } 
 } 
@@ -174,12 +151,11 @@ sub BUILD ( $self, @args ) {
     }
     
     # if a arrayref element is passed to the constructor,  
-    # set two attributes available_potcars and selected_potcars 
-    if ( $self->has_elements && $self->has_exchange ) { 
-        for my $element ( $self->list_elements ) { 
-            $self->_construct_available_potcars($element); 
-            $self->_construct_selected_potcars($element); 
+    if ( $self->has_element && $self->has_exchange ) { 
+        for my $element ( $self->get_elements ) { 
+            $self->config_potcar($element); 
         } 
+        $self->select_potcar; 
     }
 } 
 
