@@ -17,12 +17,11 @@ use IO::KISS;
 # match the force block 
 # TODO: is it possible to capture the final three columns 
 #       without explicit spliting later ? 
-has 'read_forces', ( 
+has 'forces', ( 
     is       => 'ro', 
     isa      => ArrayRef, 
     init_arg => undef, 
     lazy     => 1, 
-
     default  => sub ( $self ) { 
         # compiled regex for force block
         my $regex = 
@@ -53,7 +52,7 @@ has 'max_forces', (
     init_arg => undef, 
     lazy     => 1, 
     default  => sub ( $self ) { 
-        my $force = PDL->new($self->read_forces); 
+        my $force = PDL->new($self->forces); 
         return [ ($force*$force)->sumover->sqrt->maximum->list ] 
     }, 
 ); 

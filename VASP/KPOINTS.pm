@@ -22,7 +22,7 @@ has '+file', (
     default  => 'KPOINTS', 
 ); 
 
-has '+parser', ( 
+has '+parse', ( 
     lazy     => 1, 
     default  => sub ( $self ) { 
         my $kp         = {}; 
@@ -33,11 +33,11 @@ has '+parser', (
         # k-mesh 
         if ( $kp->{mode} == 0 ) { 
             # automatic k-mesh generation 
-            $kp->{mesh} = [ map int, map split, $self->get_line ];
+            $kp->{grid} = [ map int, map split, $self->get_line ];
         } elsif ( $kp->{mode} > 0 ) { 
             # maunal k-mesh 
             while ( local $_ = $self->get_line ) {
-                push $kp->{mesh}->@*, [(split)[0,1,2]]; 
+                push $kp->{grid}->@*, [(split)[0,1,2]]; 
             }
         } else { 
             # line mode ( band calculation )
@@ -51,45 +51,30 @@ has '+parser', (
     },   
 ); 
 
-has 'comment', ( 
-    is       => 'ro', 
-    isa      => Str, 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self->parse('comment') },   
-); 
+for my $name ( qw/comment mode scheme/ ) { 
+    has $name, ( 
+        is       => 'ro', 
+        isa      => Str, 
+        init_arg => undef, 
+        lazy     => 1, 
+        default  => sub ( $self ) { $self->extract($name) },   
+    ); 
+}
 
-has 'mode', ( 
-    is       => 'ro', 
-    isa      => Str, 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self->parse('mode') },   
-); 
-
-has 'scheme', ( 
-    is       => 'ro', 
-    isa      => Str, 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self->parse('comment') },   
-); 
-
-has 'mesh', ( 
-    is       => 'ro', 
-    isa      => ArrayRef, 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self-> parse('mesh') }, 
-); 
-
-has 'shift', ( 
-    is       => 'ro', 
-    isa      => ArrayRef, 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self-> parse('mesh') }, 
-); 
+for my $name ( qw/grid shift/ ) { 
+    has $name, ( 
+        is       => 'ro', 
+        isa      => ArrayRef, 
+        traits   => ['Array'], 
+        init_arg => undef, 
+        lazy     => 1, 
+        default  => sub ( $self ) { $self->extract($name) },   
+        handles => { 
+            'get_'.$name     => 'shift', 
+            'get_'.$name.'s' => 'elements', 
+        }, 
+    ); 
+}
 
 has 'nkpt', ( 
     is       => 'ro', 
@@ -97,7 +82,7 @@ has 'nkpt', (
     init_arg => undef, 
     lazy     => 1, 
     default  => sub ( $self )  { 
-        return $self->mode == 0 ? product($self->mesh->@*) : $self->mode; 
+        return $self->mode == 0 ? product($self->get_grids) : $self->mode; 
     }
 ); 
 
