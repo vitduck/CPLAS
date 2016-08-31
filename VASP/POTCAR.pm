@@ -22,7 +22,7 @@ use IO::KISS;
 use VASP::Exchange qw/VASP/; 
 
 # Moose roles 
-with qw/VASP::IO VASP::Geometry/; 
+with qw/VASP::IO Geometry::Basic/; 
 
 # Moose attributes 
 has 'pot_dir', ( 
@@ -63,7 +63,7 @@ has '+parse', (
     }, 
 );  
 
-# VASP::Geometry
+# Geometry::Basic
 has '+element', ( 
     predicate => 'has_element', 
     default   => sub ( $self ) { 

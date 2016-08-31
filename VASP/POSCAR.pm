@@ -15,13 +15,13 @@ use warnings FATAL => 'all';
 use experimental qw/signatures postderef_qq/; 
 
 # Moose type
-use VASP::Periodic qw/Element/; 
+use Periodic::Element qw/Element/; 
 
 # Moose class 
 use VASP::POTCAR; 
 
 # Moose role
-with qw/VASP::Geometry VASP::IO/;  
+with qw/VASP::IO Geometry::Basic VASP::Format/ ;  
 
 # Moose attribute  
 # From VASP::IO
@@ -150,18 +150,6 @@ has 'constraint', (
     } 
 ); 
 
-has 'coordinate_format', ( 
-    is       => 'ro', 
-    isa      => Str, 
-    lazy     => 1, 
-    default  => sub ( $self ) { 
-        return 
-            $self->selective ? 
-            "%22.16f%22.16f%22.16f%5s%5s%5s%6d\n" :  
-            "%22.16f%22.16f%22.16f%6d\n"
-    } 
-); 
-
 sub write ( $self ) { 
     $self->write_vasp_lattice; 
     $self->write_vasp_element; 
@@ -170,16 +158,17 @@ sub write ( $self ) {
 
 sub write_vasp_lattice ( $self ) { 
     $self->printf("%s\n", $self->comment); 
-    $self->printf("%f\n", $self->scaling); 
-    $self->printf("%22.16f%22.16f%22.16f\n", @$_) for $self->get_lattices;  
+    $self->printf($self->scaling_format, $self->scaling); 
+    $self->printf($self->lattice_format, @$_) for $self->get_lattices;  
 } 
 
 sub write_vasp_element ( $self ) { 
-    $self->printf("%s\n", (join "\t", $self->get_elements)) if $self->version == 5;  
-    $self->printf("%s\n", (join "\t", $self->get_natoms));  
+    $self->printf($self->element_format, $self->get_elements) if $self->version == 5;  
+    $self->printf($self->natom_format, $self->get_natoms); 
 }
 
 sub write_vasp_coordinate ( $self ) { 
+    # constructing geometry block 
     my @table = 
         $self->selective ? 
         map [ 
@@ -191,6 +180,7 @@ sub write_vasp_coordinate ( $self ) {
 
     $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
     $self->printf("%s\n", $self->type); 
+
     $self->printf($self->coordinate_format, @$_) for @table; 
 } 
 

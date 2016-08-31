@@ -1,4 +1,4 @@
-package VASP::Geometry; 
+package Geometry::Basic; 
 
 # cpan 
 use Moose::Role; 
@@ -11,7 +11,7 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose type 
-use VASP::Periodic qw/Element/; 
+use Periodic::Element qw/Element/; 
 
 # Moose attribute 
 has 'comment', ( 

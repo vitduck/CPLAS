@@ -1,4 +1,4 @@
-package VASP::Periodic; 
+package Periodic::Element; 
 
 # cpan
 use MooseX::Types -declare => [ qw/Element/ ];   
