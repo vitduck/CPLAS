@@ -14,15 +14,15 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose role 
-with 'VASP::IO'; 
+with 'IO::Proxy'; 
 
 # Moose attributes 
-# From VASP::IO
+# From IO::Proxy
 has '+file', ( 
     default  => 'KPOINTS', 
 ); 
 
-has '+parse', ( 
+has '+parser', ( 
     lazy     => 1, 
     default  => sub ( $self ) { 
         my $kp         = {}; 

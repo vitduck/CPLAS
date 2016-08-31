@@ -22,7 +22,7 @@ use IO::KISS;
 use VASP::Exchange qw/VASP/; 
 
 # Moose roles 
-with qw/VASP::IO Geometry::Basic/; 
+with qw/IO::Proxy Geometry::Basic/; 
 
 # Moose attributes 
 has 'pot_dir', ( 
@@ -37,7 +37,7 @@ has '+file', (
     default   => 'POTCAR', 
 ); 
 
-has '+parse', ( 
+has '+parser', ( 
     default   => sub ( $self ) { 
         my $info = {};  
         my ( $exchange, $element, $potcar, $config, $date ); 

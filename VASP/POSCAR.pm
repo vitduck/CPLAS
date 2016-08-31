@@ -21,7 +21,7 @@ use Periodic::Element qw/Element/;
 use VASP::POTCAR; 
 
 # Moose role
-with qw/VASP::IO Geometry::Basic VASP::Format/ ;  
+with qw/IO::Proxy Geometry::Basic VASP::Format/ ;  
 
 # Moose attribute  
 # From VASP::IO
@@ -29,7 +29,7 @@ has '+file', (
     required  => 1, 
 ); 
 
-has '+parse', ( 
+has '+parser', ( 
     lazy     => 1, 
     default  => sub ( $self ) { 
         my $poscar = {}; 

@@ -1,4 +1,4 @@
-package VASP::IO; 
+package IO::Proxy; 
 
 # cpan 
 use Moose::Role; 
@@ -45,7 +45,7 @@ has 'writer', (
     handles   => [ qw/print printf/ ], 
 ); 
 
-has 'parse', ( 
+has 'parser', ( 
     is        => 'ro', 
     isa       => HashRef, 
     traits    => ['Hash'],

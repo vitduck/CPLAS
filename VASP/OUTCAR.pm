@@ -10,7 +10,7 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose roles 
-with qw/VASP::IO VASP::Force/;  
+with qw/IO::Proxy VASP::Force/;  
 
 # Moose attributes 
 has '+file', ( 
