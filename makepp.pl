@@ -11,8 +11,8 @@ use Data::Printer;
 # pragma 
 use autodie; 
 use strict; 
-use warnings; 
-use feature  qw/switch/; 
+use warnings FATAL => 'all'; 
+use feature qw/switch/; 
 use experimental qw/smartmatch/; 
 
 # Moose class 

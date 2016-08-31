@@ -1,4 +1,4 @@
-package VASP::Parser; 
+package VASP::IO; 
 
 # cpan 
 use Moose::Role; 
@@ -19,9 +19,9 @@ has 'file', (
 ); 
 
 # delegate I/O to IO::KISS
-has 'io', ( 
+has 'reader', ( 
     is        => 'ro', 
-    does      => 'IO::KISS', 
+    isa      => 'IO::KISS', 
     init_arg  => undef, 
     lazy      => 1, 
     default   => sub ( $self ) {  
@@ -33,6 +33,17 @@ has 'io', (
         qw/get_paragraph get_paragraph/, 
     ], 
 );  
+
+has 'writer', ( 
+    is        => 'ro', 
+    isa      => 'IO::KISS', 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) {  
+        return IO::KISS->new($self->file, 'w');  
+    },  
+    handles   => [ qw/print printf/ ], 
+); 
 
 has 'parse', ( 
     is        => 'ro', 

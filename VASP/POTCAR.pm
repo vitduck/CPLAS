@@ -22,7 +22,7 @@ use IO::KISS;
 use VASP::Exchange qw/VASP/; 
 
 # Moose roles 
-with qw/VASP::Parser VASP::Geometry/; 
+with qw/VASP::IO VASP::Geometry/; 
 
 # Moose attributes 
 has 'pot_dir', ( 
@@ -32,7 +32,7 @@ has 'pot_dir', (
     default   => $ENV{POT_DIR}, 
 ); 
 
-# VASP::Parser
+# VASP::IO
 has '+file', ( 
     default   => 'POTCAR', 
 ); 

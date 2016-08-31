@@ -14,10 +14,10 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose role 
-with 'VASP::Parser'; 
+with 'VASP::IO'; 
 
 # Moose attributes 
-# From VASP::Parser
+# From VASP::IO
 has '+file', ( 
     default  => 'KPOINTS', 
 ); 
