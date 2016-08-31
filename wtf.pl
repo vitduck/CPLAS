@@ -21,23 +21,23 @@ wtf.pl: what the (Hellmann-Feynman) forces
 
 =head1 SYNOPSIS
 
-wtf.pl [-h] [-s] [-i OUTCAR] -p 
+wtf.pl [-h] [-s] [-i OUTCAR] 
 
 =head1 OPTIONS
 
 =over 8 
 
-=item B<-h> 
+=item B<--help, -h> 
 
 Print the help message and exit.
 
-=item B<-i>
+=item B<--input, -i>
 
 Input file (default: OUTCAR) 
 
-=item B<-c> 
+=item B<--column, -c> 
 
-Number of column in force table 
+Number of column of the force table 
 
 =back 
 
@@ -49,9 +49,9 @@ my $ncol  = 5;
 my $input = 'OUTCAR'; 
 
 GetOptions(
-    'h'   => \$help, 
-    'i=s' => \$input,
-    'c=i' => \$ncol,
+    'help'     => \$help, 
+    'input=s'  => \$input,
+    'column=i' => \$ncol,
 ) or pod2usage(-verbose => 1); 
 
 # help message 

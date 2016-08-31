@@ -138,7 +138,7 @@ sub info ( $self ) {
     printf  "\nPseudopotential: %s\n", $self->exchange; 
     for my $pseudo ( $self->extract($self->exchange) ) {  
         for my $element ( $pseudo->@* ) { 
-            printf "%3s => ( %-7s %-10s %-s )\n", $element->@*; 
+            printf "%-6s %-6s %-s\n", $element->@[1..3]; 
         } 
     } 
 } 
