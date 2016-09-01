@@ -3,15 +3,15 @@ package VASP::Force;
 # cpan 
 use PDL::Lite; 
 use Moose::Role; 
-use MooseX::Types::Moose qw( ArrayRef Str ); 
+use MooseX::Types::Moose qw//; 
 use namespace::autoclean; 
 
 # pragma
-use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw( signatures ); 
+use experimental qw/signatures/;  
 
 # Moose class 
+use VASP::POSCAR;  
 use IO::KISS; 
 
 # match the force block 
@@ -19,7 +19,7 @@ use IO::KISS;
 #       without explicit spliting later ? 
 has 'force', ( 
     is       => 'ro', 
-    isa      => ArrayRef, 
+    isa      => 'PDL', 
     init_arg => undef, 
     lazy     => 1, 
     default  => sub ( $self ) { 
@@ -36,28 +36,27 @@ has 'force', (
             )
         /xs; 
         # slurp OUTCAR and perform regex in list context 
-        my $force = []; 
-        for my $fblock ( $self->slurp =~ /$regex/g ) { 
-            push $force->@*, [ map [ (split)[3,4,5] ], IO::KISS->new(\$fblock, 'r')->get_lines ];   
-        } 
-        return $force;  
+        my $force =  PDL->new( 
+            map [ map [ (split)[3,4,5] ], IO::KISS->new(\$_, 'r')->get_lines ], ( $self->slurp =~ /$regex/g )
+        ); 
+
+        # constraint from POSCAR
+        my @true_indices = VASP::POSCAR->new()->get_true_indices;  
+
+        return $force->dice('X',[ @true_indices ], 'X'); 
     }, 
 ); 
 
 has 'max_force', ( 
     is        => 'ro', 
-    isa       => ArrayRef[Str], 
-    traits    => ['Array'], 
+    isa       => 'PDL', 
     init_arg  => undef, 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        my $force = PDL->new($self->force); 
-        return [ ($force*$force)->sumover->sqrt->maximum->list ] 
+        my $force = $self->force; 
+        return ($force*$force)->sumover->sqrt->maximum; 
     }, 
-    handles   => {  
-        get_max_force  => 'shift', 
-        get_max_forces => 'elements', 
-    }, 
+    handles   => { get_max_forces => 'list' }, 
 ); 
 
 1; 

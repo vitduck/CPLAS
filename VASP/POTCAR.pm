@@ -7,22 +7,22 @@ use File::Spec::Functions;
 # cpan
 use Data::Printer; 
 use Moose;  
-use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
+use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw( signatures postderef_qq );  
+use experimental qw/signatures postderef_qq/;  
 
 # Moose class 
 use IO::KISS;  
 
 # Moose type 
-use VASP::Exchange qw ( VASP );  
+use VASP::Exchange qw /VASP/;  
 
 # Moose roles 
-with qw( IO::Proxy Geometry::Basic );  
+with qw/IO::Proxy Geometry::Basic/;  
 
 # Moose attributes 
 has 'pot_dir', ( 

@@ -1,32 +1,32 @@
 package VASP::POSCAR; 
 
 # core 
-use List::Util qw( sum ); 
-use File::Copy qw( copy );  
+use List::Util qw/sum/; 
+use File::Copy qw/copy/;  
 
 # cpan
 use Moose;  
-use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
+use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/;  
+use Try::Tiny; 
 use namespace::autoclean; 
 
 # pragma
-use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw( signatures postderef_qq );  
+use experimental qw/signatures postderef_qq/;  
 
 # Moose type
-use Periodic::Element qw( Element );  
+use Periodic::Element qw/Element/;  
 
 # Moose class 
 use VASP::POTCAR; 
 
 # Moose role
-with qw( IO::Proxy Geometry::Basic VASP::Format );  
+with qw/IO::Proxy Geometry::Basic VASP::Format/;  
 
 # Moose attribute  
-# From VASP::IO
+# From IO::Proxy
 has '+file', (  
-    required  => 1, 
+    default   => 'POSCAR',  
 ); 
 
 has '+parser', ( 
@@ -74,7 +74,7 @@ has '+parser', (
             # the POSCAR contains no selective dynamics block 
             push $poscar->{constraint}->@*, (
                 @columns == 0 || @columns == 1 ? 
-                [ qw/T T T/ ] :
+                [ qw( T T T ) ] :
                 [ splice @columns, 0, 3 ]
             ); 
         } 
@@ -82,13 +82,16 @@ has '+parser', (
     },  
 ); 
 
-# From VASP::Geometry
+# From Geometry::Basic
 for my $name ( qw/comment element natom lattice coordinate/ ) { 
     has '+'.$name, (  
-        default   => sub ( $self ) { return $self->extract($name) }
+        default   => sub ( $self ) { 
+            return $self->extract($name) 
+        }
     ); 
 } 
 
+# native 
 has 'total_natom', ( 
     is        => 'ro', 
     isa       => Int, 
@@ -126,15 +129,6 @@ has 'selective', (
     } 
 ); 
 
-has 'type', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    lazy      => 1,  
-    default   => sub ( $self ) { 
-        return $self->extract('type') 
-    }
-); 
-
 has 'constraint', ( 
     is       => 'ro', 
     isa      => ArrayRef, 
@@ -144,8 +138,75 @@ has 'constraint', (
         return $self->extract('constraint') 
     },  
     handles  => { 
-        get_constrain  => 'shift', 
-        get_constrains => 'elements', 
+        get_constraint  => 'shift', 
+        get_constraints => 'elements', 
+    } 
+); 
+
+has 'false_indices', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+    init_arg  => undef,
+    default   => sub ( $self ) { 
+        my @constraints = $self->get_constraints; 
+        my %indices     = %constraints[0..$#constraints]; 
+        return [ grep { grep { $_ eq 'F' } $indices{$_}->@* } sort { $a <=> $b } keys %indices ] 
+    }, 
+    handles   => { 
+        get_false_index   => 'shift', 
+        get_false_indices => 'elements', 
+    }, 
+); 
+
+has 'true_indices', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+    init_arg  => undef,
+    default   => sub ( $self ) { 
+        my @constraints  = $self->get_constraints; 
+        my @true_indices = (); 
+        # intersection between true and false indices 
+        for my $index ( 0..$#constraints ) { 
+            if ( grep $index eq $_, $self->get_false_indices ) { next } 
+            push @true_indices, $index; 
+        } 
+        return \@true_indices; 
+    }, 
+    handles   => { 
+        get_true_index   => 'shift', 
+        get_true_indices => 'elements', 
+    }, 
+);  
+
+has 'type', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    lazy      => 1,  
+    default   => sub ( $self ) { 
+        return $self->extract('type') 
+    }
+); 
+
+has 'save', ( 
+    is      => 'ro', 
+    isa     => Bool, 
+    lazy    => 1, 
+    default => 0, 
+    trigger => sub ( $self, @args ) { 
+        $self->save_original_poscar; 
+    } 
+); 
+
+has 'save_as', ( 
+    is      => 'ro', 
+    isa     => Str, 
+    lazy    => 1, 
+    default => sub ( $self ) { 
+        return join('.', $self->file, 'original'); 
     } 
 ); 
 
@@ -153,6 +214,7 @@ sub write ( $self ) {
     $self->write_vasp_lattice; 
     $self->write_vasp_element; 
     $self->write_vasp_coordinate; 
+    $self->close; 
 } 
 
 sub write_vasp_lattice ( $self ) { 
@@ -183,8 +245,13 @@ sub write_vasp_coordinate ( $self ) {
     $self->printf($self->get_format('coordinate'), @$_) for @table; 
 } 
 
-sub backup ( $self ) { 
-    copy $self->file => ${\$self->file}.'old'; 
+sub save_original_poscar ( $self ) { 
+    copy $self->file => $self->save_as;  
+} 
+
+sub BUILD ( $self, @args ) { 
+    # parse POSCAR and cache 
+    try { $self->parser };  
 } 
 
 # speed-up object construction 

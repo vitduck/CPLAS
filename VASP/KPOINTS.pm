@@ -1,20 +1,20 @@
 package VASP::KPOINTS; 
 
 # core 
-use List::Util qw(product); 
+use List::Util qw/product/; 
 
 # cpan
 use Moose;  
-use MooseX::Types::Moose qw( ArrayRef HashRef Str Int ); 
+use MooseX::Types::Moose qw/Str Int ArrayRef HashRef/; 
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw( signatures ); 
+use experimental qw/signatures/; 
 
 # Moose role 
-with qw( IO::Proxy ); 
+with qw/IO::Proxy/; 
 
 # Moose attributes 
 # From IO::Proxy

@@ -2,12 +2,12 @@ package VASP::Format;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types::Moose qw( HashRef );  
+use MooseX::Types::Moose qw/HashRef/;  
 use namespace::autoclean; 
 
 # pragma
 use warnings FATAL => 'all'; 
-use experimental qw( signatures ); 
+use experimental qw/signatures/; 
 
 # VASP printing format 
 has 'format', ( 

@@ -28,9 +28,9 @@ has 'reader', (
         return IO::KISS->new($self->file, 'r');  
     },  
     handles   => [ 
-        qw/slurp/,   
-        qw/get_line get_lines/, 
-        qw/get_paragraph get_paragraph/, 
+        qw( slurp ),  
+        qw( get_line get_lines ),  
+        qw( get_paragraph get_paragraph ),   
     ], 
 );  
 
@@ -42,7 +42,10 @@ has 'writer', (
     default   => sub ( $self ) {  
         return IO::KISS->new($self->file, 'w');  
     },  
-    handles   => [ qw/print printf/ ], 
+    handles   => [ 
+        qw( print printf ),  
+        qw( close ), 
+    ], 
 ); 
 
 has 'parser', ( 
