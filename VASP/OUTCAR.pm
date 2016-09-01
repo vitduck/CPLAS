@@ -7,10 +7,10 @@ use namespace::autoclean;
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental 'signatures';
 
 # Moose roles 
-with qw/IO::Proxy VASP::Force/;  
+with qw( IO::Proxy VASP::Force );  
 
 # Moose attributes 
 has '+file', ( 

@@ -1,27 +1,27 @@
 package VASP::POSCAR; 
 
 # core 
-use List::Util qw/sum/; 
-use File::Copy qw/copy/;  
+use List::Util qw( sum ); 
+use File::Copy qw( copy );  
 
 # cpan
 use Moose;  
-use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/;  
+use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures postderef_qq/; 
+use experimental qw( signatures postderef_qq );  
 
 # Moose type
-use Periodic::Element qw/Element/; 
+use Periodic::Element qw( Element );  
 
 # Moose class 
 use VASP::POTCAR; 
 
 # Moose role
-with qw/IO::Proxy Geometry::Basic VASP::Format/ ;  
+with qw( IO::Proxy Geometry::Basic VASP::Format );  
 
 # Moose attribute  
 # From VASP::IO
@@ -30,7 +30,6 @@ has '+file', (
 ); 
 
 has '+parser', ( 
-    lazy     => 1, 
     default  => sub ( $self ) { 
         my $poscar = {}; 
         # geometry 
@@ -158,13 +157,13 @@ sub write ( $self ) {
 
 sub write_vasp_lattice ( $self ) { 
     $self->printf("%s\n", $self->comment); 
-    $self->printf($self->scaling_format, $self->scaling); 
-    $self->printf($self->lattice_format, @$_) for $self->get_lattices;  
+    $self->printf($self->get_format('scaling'), $self->scaling); 
+    $self->printf($self->get_format('lattice'), @$_) for $self->get_lattices;  
 } 
 
 sub write_vasp_element ( $self ) { 
-    $self->printf($self->element_format, $self->get_elements) if $self->version == 5;  
-    $self->printf($self->natom_format, $self->get_natoms); 
+    $self->printf($self->get_format('element'), $self->get_elements) if $self->version == 5;  
+    $self->printf($self->get_format('natom'),  $self->get_natoms); 
 }
 
 sub write_vasp_coordinate ( $self ) { 
@@ -181,7 +180,7 @@ sub write_vasp_coordinate ( $self ) {
     $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
     $self->printf("%s\n", $self->type); 
 
-    $self->printf($self->coordinate_format, @$_) for @table; 
+    $self->printf($self->get_format('coordinate'), @$_) for @table; 
 } 
 
 sub backup ( $self ) { 

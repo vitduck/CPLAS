@@ -2,16 +2,16 @@ package Geometry::Basic;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types::Moose qw/ArrayRef Str Int/; 
+use MooseX::Types::Moose qw( Str Int ArrayRef ); 
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 # Moose type 
-use Periodic::Element qw/Element/; 
+use Periodic::Element qw( Element );  
 
 # Moose attribute 
 has 'comment', ( 
@@ -55,7 +55,7 @@ has 'lattice', (
     traits    => ['Array'], 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return [ ] 
+        return [] 
     },  
     handles   => { 
         get_lattice  => 'shift', 

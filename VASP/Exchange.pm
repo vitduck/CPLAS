@@ -1,8 +1,8 @@
 package VASP::Exchange; 
 
 # cpan 
-use MooseX::Types -declare => [ qw/VASP/ ];   
-use MooseX::Types::Moose qw(Str); 
+use MooseX::Types -declare => [ qw( VASP ) ];   
+use MooseX::Types::Moose qw( Str ); 
 
 # pragma 
 use autodie; 

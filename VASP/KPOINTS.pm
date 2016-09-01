@@ -1,20 +1,20 @@
 package VASP::KPOINTS; 
 
 # core 
-use List::Util qw/product/; 
+use List::Util qw(product); 
 
 # cpan
 use Moose;  
-use MooseX::Types::Moose qw/ArrayRef HashRef Str Int/; 
+use MooseX::Types::Moose qw( ArrayRef HashRef Str Int ); 
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 # Moose role 
-with 'IO::Proxy'; 
+with qw( IO::Proxy ); 
 
 # Moose attributes 
 # From IO::Proxy
@@ -23,7 +23,6 @@ has '+file', (
 ); 
 
 has '+parser', ( 
-    lazy     => 1, 
     default  => sub ( $self ) { 
         my $kp         = {}; 
         # header 
@@ -57,7 +56,9 @@ for my $name ( qw/comment mode scheme/ ) {
         isa      => Str, 
         init_arg => undef, 
         lazy     => 1, 
-        default  => sub ( $self ) { $self->extract($name) },   
+        default  => sub ( $self ) { 
+            return $self->extract($name) 
+        },   
     ); 
 }
 
@@ -68,7 +69,9 @@ for my $name ( qw/grid shift/ ) {
         traits   => ['Array'], 
         init_arg => undef, 
         lazy     => 1, 
-        default  => sub ( $self ) { $self->extract($name) },   
+        default  => sub ( $self ) { 
+            return $self->extract($name) 
+        },   
         handles => { 
             'get_'.$name     => 'shift', 
             'get_'.$name.'s' => 'elements', 

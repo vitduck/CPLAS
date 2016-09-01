@@ -2,13 +2,13 @@ package IO::Proxy;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types::Moose qw/HashRef Str/;  
+use MooseX::Types::Moose qw( Str HashRef );  
 use namespace::autoclean; 
 
 # pragma 
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/;
+use experimental qw( signatures );
 
 # Moose class
 use IO::KISS; 
@@ -51,7 +51,9 @@ has 'parser', (
     traits    => ['Hash'],
     init_arg  => undef, 
     lazy      => 1, 
-    default   => sub ( $self ) { return {} }, 
+    default   => sub ( $self ) { 
+        return {} 
+    }, 
     handles   => { 
         keywords => 'keys',  
         extract  => 'get', 

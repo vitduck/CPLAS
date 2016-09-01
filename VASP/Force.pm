@@ -3,13 +3,13 @@ package VASP::Force;
 # cpan 
 use PDL::Lite; 
 use Moose::Role; 
-use MooseX::Types::Moose qw/ArrayRef Str/; 
+use MooseX::Types::Moose qw( ArrayRef Str ); 
 use namespace::autoclean; 
 
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 # Moose class 
 use IO::KISS; 
@@ -38,7 +38,7 @@ has 'force', (
         # slurp OUTCAR and perform regex in list context 
         my $force = []; 
         for my $fblock ( $self->slurp =~ /$regex/g ) { 
-            push $force->@*, [ map [ (split)[3,4,5] ], IO::KISS->new($fblock, 'r')->get_lines ];   
+            push $force->@*, [ map [ (split)[3,4,5] ], IO::KISS->new(\$fblock, 'r')->get_lines ];   
         } 
         return $force;  
     }, 

@@ -2,63 +2,36 @@ package VASP::Format;
 
 # cpan 
 use Moose::Role; 
-use MooseX::Types::Moose qw/Str/;  
+use MooseX::Types::Moose qw( HashRef );  
 use namespace::autoclean; 
 
 # pragma
-use autodie; 
 use warnings FATAL => 'all'; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 # VASP printing format 
-has "scaling_format", ( 
+has 'format', ( 
     is       => 'ro', 
-    isa      => Str, 
+    isa      => HashRef, 
+    traits   => ['Hash'],  
     lazy     => 1, 
-    default   => sub ( $self ) { 
-        return join('', "%19.14f", "\n"); 
-    }, 
-); 
-
-has "lattice_format", ( 
-    is       => 'ro', 
-    isa      => Str, 
-    lazy     => 1, 
-    default   => sub ( $self ) { 
-        return join('', "%23.16f" x 3, "\n"); 
-    } 
-);  
-
-has "element_format", ( 
-    is       => 'ro', 
-    isa      => Str, 
-    lazy     => 1, 
-    default   => sub ( $self ) { 
-        my $count = $self->get_elements; 
-        return join('', "%5s" x $count, "\n"); 
-    } 
-); 
-
-has "natom_format", ( 
-    is       => 'ro', 
-    isa      => Str, 
-    lazy     => 1, 
-    default   => sub ( $self ) { 
-        my $count = $self->get_natoms; 
-        return join('', "%6d" x $count, "\n"); 
-    } 
-);  
-
-has 'coordinate_format', ( 
-    is       => 'ro', 
-    isa      => Str, 
-    lazy     => 1, 
+    init_arg => undef, 
     default  => sub ( $self ) { 
-        return 
-            $self->selective ? 
-            join('', "%20.16f" x 3, "%4s" x 3, "%6d", "\n") : 
-            join('', "%20.16f" x 3, "%6d", "\n")  
-    } 
+        return { 
+            scaling    => join('', "%19.14f", "\n"), 
+            lattice    => join('', "%23.16f" x 3, "\n"), 
+            element    => join('', "%5s" x $self->get_elements, "\n"), 
+            natom      => join('', "%6d" x $self->get_natoms, "\n"), 
+            coordinate => ( 
+                $self->selective ? 
+                join('', "%20.16f" x 3, "%4s" x 3, "%6d", "\n") : 
+                join('', "%20.16f" x 3, "%6d", "\n")  
+            ), 
+        } 
+    }, 
+    handles  => { 
+        get_format => 'get', 
+    }
 ); 
 
 1; 
