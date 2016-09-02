@@ -115,7 +115,6 @@ has 'constraint', (
     }, 
     handles   => { 
         set_constraint  => 'set', 
-        get_constraint  => 'get', 
         get_constraints => 'elements', 
     } 
 ); 
@@ -126,7 +125,7 @@ has 'false_index', (
     traits    => ['Array'], 
     lazy      => 1, 
     init_arg  => undef,
-    builder   => '_grep_false_index', 
+    builder   => '_build_false_index', 
     handles   => { 
         get_false_indices => 'elements', 
     }, 
@@ -138,7 +137,7 @@ has 'true_index', (
     traits    => ['Array'], 
     lazy      => 1, 
     init_arg  => undef,
-    builder   => '_grep_true_index', 
+    builder   => '_build_true_index', 
     handles   => { 
         get_true_indices => 'elements', 
     }, 
@@ -165,7 +164,7 @@ has 'dynamics', (
         return [ qw/T T T/ ]
     },  
     trigger   => sub ( $self, @args ) { 
-        $self->_change_constraint; 
+        $self->_modify_constraint; 
     } 
 ); 
 
@@ -257,7 +256,7 @@ sub _parse_POSCAR ( $self ) {
     return $poscar; 
 } 
 
-sub _grep_false_index ( $self ) { 
+sub _build_false_index ( $self ) { 
     my @constraints = $self->get_constraints; 
     my %indices     = %constraints[0..$#constraints]; 
     return [ 
@@ -265,7 +264,7 @@ sub _grep_false_index ( $self ) {
     ] 
 } 
 
-sub _grep_true_index ( $self ) { 
+sub _build_true_index ( $self ) { 
     my @true_indices = (); 
     my @constraints  = $self->get_constraints; 
     # intersection between true and false indices 
@@ -302,7 +301,7 @@ sub _write_coordinate ( $self ) {
 
 # Using Coercing is better ? 
 # For both component and index
-sub _change_constraint ( $self ) {     
+sub _modify_constraint ( $self ) {     
     for my $index ( $self->get_indices ) { 
         # off-set by 1 
         $index--; 
