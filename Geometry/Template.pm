@@ -14,7 +14,7 @@ use warnings FATAL => 'all';
 use experimental qw/signatures/; 
 
 # Moose type 
-use Periodic::Element qw/Element/;  
+use Periodic::Table qw/Element/;  
 
 # Moose attribute 
 has 'comment', ( 

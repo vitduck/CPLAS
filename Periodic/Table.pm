@@ -1,8 +1,8 @@
-package Periodic::Element; 
+package Periodic::Table; 
 
 # cpan
-use MooseX::Types -declare => [ qw/Element/ ];   
-use MooseX::Types::Moose qw/Str/; 
+use MooseX::Types -declare => [ qw/Element Element_Name Atomic_Number/ ];   
+use MooseX::Types::Moose qw/Str Int/; 
 
 # pragma
 use warnings FATAL => 'all'; 
@@ -15,7 +15,7 @@ my %table = (
       5 => [ 'B',         'Boron', '0.82', '0.00'],
       6 => [ 'C',        'Carbon', '0.77', '1.70'],
       7 => [ 'N',      'Nitrogen', '0.75', '1.50'],
-      8 => [ 'O',        'Oxygen', '0.73', '1.40'],
+      8 => [ 'O',        'Oxygen', '0.73', '1.40'], 
       9 => [ 'F',      'Fluorine', '0.72', '1.40'],
      10 => ['Ne',          'Neon', '0.71', '1.50'],
      11 => ['Na',        'Sodium', '1.54', '0.00'],
@@ -126,5 +126,30 @@ subtype Element, as Str, where  {
     my $element = $_;  
     return grep $element eq $_->[0], values %table; 
 }; 
+
+subtype Element_Name, as Str, where { 
+    my $name = $_; 
+    return grep $name eq $_->[1], values %table; 
+}; 
+
+subtype Atomic_Number, as Int, where { 
+    my $number = $_; 
+    return exists $table{$number}
+}; 
+
+coerce Element_Name, from Element, via { 
+    my $element = $_; 
+    return (map $_->[1], grep $element eq $_->[0], values %table)[0] 
+};  
+
+coerce Element, from Atomic_Number, via { 
+    my $number = $_; 
+    return $table{$number}->[0]; 
+};  
+
+coerce Atomic_Number, from Element, via { 
+    my $element = $_;  
+    return ( grep $element eq $table{$_}[0], keys %table )[0]  
+};  
 
 1; 

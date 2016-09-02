@@ -14,7 +14,7 @@ use warnings FATAL => 'all';
 use experimental qw/signatures postderef_qq/;  
 
 # Moose type
-use Periodic::Element qw/Element/;  
+use Periodic::Table qw/Element/;  
 
 # Moose class 
 use VASP::POTCAR; 
@@ -305,6 +305,7 @@ sub _build_true_index ( $self ) {
         if ( grep $index eq $_, $self->get_false_indices ) { next } 
         push @true, $index; 
     }
+
     return \@true; 
 } 
 

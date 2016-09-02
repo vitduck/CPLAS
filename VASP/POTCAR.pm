@@ -20,7 +20,8 @@ use experimental qw/signatures postderef_qq/;
 use IO::KISS;  
 
 # Moose type 
-use VASP::Exchange qw /VASP/;  
+use VASP::Exchange qw/VASP/;  
+use Periodic::Table qw/Element_Name/; 
 
 # Moose roles 
 with qw/IO::Proxy Geometry::Template/;  
@@ -93,7 +94,7 @@ sub info ( $self ) {
     my $exchange = $self->exchange; 
     my @pseudoes = $self->parser->{$exchange}->@*; 
     printf  "\n=> Pseudopotential: %s\n", $exchange; 
-    printf "%-6s %-6s %-s\n", $_->@[1..3] for @pseudoes;  
+    printf "%-10s %-6s %-6s %-s\n", $_->@* for @pseudoes;  
 } 
 
 sub BUILD ( $self, @args ) { 
@@ -102,9 +103,6 @@ sub BUILD ( $self, @args ) {
         die "Please export location of POTCAR files in .bashrc\n
         For example: export POT_DIR=/opt/VASP/POTCAR\n";
     }
-
-    # cache POTCAR
-    try { $self->parser } 
 } 
 
 #----------------#
@@ -127,9 +125,10 @@ sub _parse_POTCAR ( $self ) {
         if ( /TITEL/ ) { 
             ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
             $date //= '---'; 
-            push $info->{$exchange}->@*, [ $element, $potcar, $config, $date ]; 
+            push $info->{$exchange}->@*, [ to_Element_Name($element), $potcar, $config, $date ]; 
         }
     }
+
     return $info; 
 } 
 

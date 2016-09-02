@@ -120,6 +120,7 @@ sub _parse_KPOINTS ( $self ) {
     if ( $kp->{mode} == 0 ) { 
         $kp->{shift} = [ map split, $self->get_line ]
     }
+
     return $kp; 
 } 
 
