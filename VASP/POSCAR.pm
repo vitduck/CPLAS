@@ -119,6 +119,33 @@ has 'constraint', (
     } 
 ); 
 
+has 'index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return [ 0..$self->total_natom-1 ] 
+    }, 
+    handles   => { 
+        get_indices => 'elements', 
+    },  
+); 
+
+has 'sub_index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->index; 
+    },  
+    handles   => { 
+        get_sub_indices => 'elements', 
+    },  
+); 
+
 has 'false_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
@@ -143,18 +170,6 @@ has 'true_index', (
     }, 
 );  
 
-has 'index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [ 0..$self->total_natom-1 ] 
-    }, 
-    handles   => { 
-        get_indices => 'elements', 
-    },  
-    ); 
 
 has 'dynamics', (   
     is        => 'ro', 
@@ -191,14 +206,30 @@ has 'save_as', (
 # Public Method  #
 #----------------#
 sub write ( $self ) { 
-    $self->_write_lattice; 
-    $self->_write_element; 
-    $self->_write_coordinate; 
+    # atomic indices 
+    my @indices = $self->get_indices; 
+
+    # constructing geometry block 
+    my @table = 
+        $self->selective ? 
+        map [ $self->coordinate->[$_]->@*, $self->constraint->[$_]->@*, $_+1 ], @indices : 
+        map [ $self->coordinate->[$_]->@*, $_+1 ], @indices; 
+
+    # write to POSCAR 
+    $self->printf("%s\n", $self->comment); 
+    $self->printf($self->get_format('scaling'), $self->scaling); 
+    $self->printf($self->get_format('lattice'), @$_) for $self->get_lattices;  
+    $self->printf($self->get_format('element'), $self->get_elements) if $self->version == 5;  
+    $self->printf($self->get_format('natom'),   $self->get_natoms); 
+    $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
+    $self->printf("%s\n", $self->type); 
+    $self->printf($self->get_format('coordinate'), @$_) for @table; 
+    
     $self->close; 
 } 
 
 sub BUILD ( $self, @args ) { 
-    # parse POSCAR and cache 
+    # cache POSCAR
     try { $self->parser };  
 } 
 
@@ -216,11 +247,10 @@ sub _parse_POSCAR ( $self ) {
     my @has_VASP5 = split ' ', $self->get_line; 
     if ( ! grep Element->check($_), @has_VASP5 ) { 
         $poscar->{version} = 4; 
-        $poscar->{element} = VASP::POTCAR->new()->element;  
+        # get elements from POTCAR and synchronize with @natoms
+        $poscar->{element} = [ VASP::POTCAR->new()->get_elements ]; 
         $poscar->{natom}   = \@has_VASP5;  
-        # synchronization 
-        $poscar->{element}->@* = 
-        splice $poscar->{element}->@*, 0, $poscar->{natom}->@*; 
+        $poscar->{element}->@* = splice $poscar->{element}->@*, 0, $poscar->{natom}->@*; 
     } else { 
         $poscar->{version} = 5; 
         $poscar->{element} = \@has_VASP5; 
@@ -257,55 +287,33 @@ sub _parse_POSCAR ( $self ) {
 } 
 
 sub _build_false_index ( $self ) { 
-    my @constraints = $self->get_constraints; 
-    my %indices     = %constraints[0..$#constraints]; 
-    return [ 
-        grep { grep { $_ eq 'F' } $indices{$_}->@* } sort { $a <=> $b } keys %indices 
-    ] 
+    my @false   = (); 
+
+    for my $index ( $self->get_indices ) { 
+        if ( grep $_ eq 'F', $self->constraint->[$index]->@* ) { 
+            push @false, $index 
+        }
+    }
+
+    return \@false; 
 } 
 
 sub _build_true_index ( $self ) { 
-    my @true_indices = (); 
-    my @constraints  = $self->get_constraints; 
-    # intersection between true and false indices 
-    for my $index ( 0..$#constraints ) { 
+    my @true = (); 
+
+    for my $index ( $self->get_indices ) { 
         if ( grep $index eq $_, $self->get_false_indices ) { next } 
-        push @true_indices, $index; 
+        push @true, $index; 
     }
-    return \@true_indices; 
-} 
-
-sub _write_lattice ( $self ) { 
-    $self->printf("%s\n", $self->comment); 
-    $self->printf($self->get_format('scaling'), $self->scaling); 
-    $self->printf($self->get_format('lattice'), @$_) for $self->get_lattices;  
-} 
-
-sub _write_element ( $self ) { 
-    $self->printf($self->get_format('element'), $self->get_elements) if $self->version == 5;  
-    $self->printf($self->get_format('natom'),  $self->get_natoms); 
-}
-
-sub _write_coordinate ( $self ) { 
-    # constructing geometry block 
-    my @table = 
-        $self->selective ? 
-        map [ $self->coordinate->[$_]->@*, $self->constraint->[$_]->@*, $_+1 ], 0..$self->total_natom-1:  
-        map [ $self->coordinate->[$_]->@*, $_+1 ], 0..$self->total_natom-1;  
-
-    $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
-    $self->printf("%s\n", $self->type); 
-
-    $self->printf($self->get_format('coordinate'), @$_) for @table; 
+    return \@true; 
 } 
 
 # Using Coercing is better ? 
 # For both component and index
 sub _modify_constraint ( $self ) {     
-    for my $index ( $self->get_indices ) { 
+    for my $index ( $self->get_sub_indices ) { 
         # off-set by 1 
-        $index--; 
-        $self->set_constraint( $index, $self->dynamics ); 
+        $self->set_constraint( --$index, $self->dynamics ); 
     } 
 } 
 

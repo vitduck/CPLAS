@@ -39,7 +39,7 @@ has '+parser', (
 has '+element', ( 
     lazy      => 1, 
     predicate => 'has_element', 
-    builder   => '_extract_element', 
+    builder   => '_build_element', 
 ); 
 
 # Native
@@ -48,7 +48,7 @@ has 'exchange', (
     isa       => VASP, 
     lazy      => 1, 
     predicate => 'has_exchange', 
-    builder   => '_extract_exchange',  
+    builder   => '_build_exchange',  
 ); 
 
 has 'pot_dir', ( 
@@ -64,11 +64,8 @@ has 'config', (
     traits    => ['Array'], 
     init_arg  => undef, 
     lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    },  
+    builder   => '_build_config', 
     handles   => { 
-        add_config  => 'push', 
         get_configs => 'elements',  
     }, 
 ); 
@@ -79,11 +76,8 @@ has 'potcar', (
     traits    => ['Array'], 
     init_arg  => undef, 
     lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    },  
+    builder   => '_build_potcar',  
     handles   => { 
-        add_potcar  => 'push', 
         get_potcars => 'elements',  
     }, 
 ); 
@@ -104,19 +98,13 @@ sub info ( $self ) {
 
 sub BUILD ( $self, @args ) { 
     # check if potential directory is accessible 
-    if ( not -d $self->pot_dir  ) { 
+    if ( not -d $self->pot_dir ) { 
         die "Please export location of POTCAR files in .bashrc\n
         For example: export POT_DIR=/opt/VASP/POTCAR\n";
     }
-    
-    # if a arrayref element is passed to the constructor,  
-    if ( $self->has_element && $self->has_exchange ) { 
-        $self->_config_potcar($_) for $self->get_elements; 
-        $self->_select_potcar; 
-    # cache POTCAR 
-    } else { 
-        try { $self->parser };  
-    } 
+
+    # cache POTCAR
+    try { $self->parser } 
 } 
 
 #----------------#
@@ -145,8 +133,9 @@ sub _parse_POTCAR ( $self ) {
     return $info; 
 } 
 
-sub _extract_exchange ( $self ) { 
+sub _build_exchange ( $self ) { 
     my @exchanges = keys $self->parser->%*;  
+    
     # sanity check
     return ( 
         @exchanges > 1 ? 
@@ -155,34 +144,43 @@ sub _extract_exchange ( $self ) {
     )
 } 
 
-sub _extract_element ( $self ) { 
+sub _build_element ( $self ) { 
     my $exchange = $self->exchange; 
     my @pptable  = $self->parser->{$exchange}->@*;  
+
     return [ map $_->[0], @pptable ]
 } 
 
-sub _config_potcar( $self, $element ) { 
-    my $config = [ 
-        map basename($_), 
-        grep /\/($element)(\z|\d|_|\.)/, 
-        glob "${\$self->pot_dir}/${\$self->exchange}/*" 
-    ];  
+sub _build_config( $self ) { 
+    my @configs = (); 
+    
+    for my $element ( $self->get_elements ) { 
+        push @configs, [ 
+            map basename($_), 
+            grep /\/($element)(\z|\d|_|\.)/, 
+            glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+        ]; 
+    } 
 
-    $self->add_config($config); 
+    return \@configs; 
 } 
 
-sub _select_potcar( $self ) { 
+sub _build_potcar( $self ) { 
+    my @potcars = (); 
+
+    # construct full path to file
     for my $config ( $self->get_configs ) { 
-        # construct full path to file
         while ( 1 ) { 
             printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
             chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
             if ( grep $choice eq $_ , $config->@* ) {  
-                $self->add_potcar( catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' ) );  
+                push @potcars, catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' );   
                 last; 
             }
-        } 
-    }
+        }
+    } 
+
+    return \@potcars; 
 } 
 
 # speed-up object construction 
