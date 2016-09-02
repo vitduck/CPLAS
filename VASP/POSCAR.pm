@@ -105,7 +105,7 @@ has 'type', (
 ); 
 
 has 'constraint', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
     init_arg  => undef, 
@@ -114,33 +114,60 @@ has 'constraint', (
         return $self->parser->{constraint} 
     }, 
     handles   => { 
-        get_constraints => 'elements' 
+        set_constraint  => 'set', 
+        get_constraint  => 'get', 
+        get_constraints => 'elements', 
     } 
 ); 
 
-has 'false_indices', ( 
+has 'false_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
     lazy      => 1, 
     init_arg  => undef,
-    builder   => '_grep_false_indices', 
+    builder   => '_grep_false_index', 
     handles   => { 
         get_false_indices => 'elements', 
     }, 
 ); 
 
-has 'true_indices', ( 
+has 'true_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
     lazy      => 1, 
     init_arg  => undef,
-    builder   => '_grep_true_indices', 
+    builder   => '_grep_true_index', 
     handles   => { 
         get_true_indices => 'elements', 
     }, 
 );  
+
+has 'index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return [ 0..$self->total_natom-1 ] 
+    }, 
+    handles   => { 
+        get_indices => 'elements', 
+    },  
+    ); 
+
+has 'dynamics', (   
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return [ qw/T T T/ ]
+    },  
+    trigger   => sub ( $self, @args ) { 
+        $self->_change_constraint; 
+    } 
+); 
 
 has 'save', ( 
     is      => 'ro', 
@@ -230,7 +257,7 @@ sub _parse_POSCAR ( $self ) {
     return $poscar; 
 } 
 
-sub _grep_false_indices ( $self ) { 
+sub _grep_false_index ( $self ) { 
     my @constraints = $self->get_constraints; 
     my %indices     = %constraints[0..$#constraints]; 
     return [ 
@@ -238,7 +265,7 @@ sub _grep_false_indices ( $self ) {
     ] 
 } 
 
-sub _grep_true_indices ( $self ) { 
+sub _grep_true_index ( $self ) { 
     my @true_indices = (); 
     my @constraints  = $self->get_constraints; 
     # intersection between true and false indices 
@@ -271,6 +298,16 @@ sub _write_coordinate ( $self ) {
     $self->printf("%s\n", $self->type); 
 
     $self->printf($self->get_format('coordinate'), @$_) for @table; 
+} 
+
+# Using Coercing is better ? 
+# For both component and index
+sub _change_constraint ( $self ) {     
+    for my $index ( $self->get_indices ) { 
+        # off-set by 1 
+        $index--; 
+        $self->set_constraint( $index, $self->dynamics ); 
+    } 
 } 
 
 sub _backup ( $self ) { 
