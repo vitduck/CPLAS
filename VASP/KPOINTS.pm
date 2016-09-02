@@ -50,34 +50,61 @@ has '+parser', (
     },   
 ); 
 
-for my $name ( qw/comment mode scheme/ ) { 
-    has $name, ( 
-        is       => 'ro', 
-        isa      => Str, 
-        init_arg => undef, 
-        lazy     => 1, 
-        default  => sub ( $self ) { 
-            return $self->extract($name) 
-        },   
-    ); 
-}
+has 'comment', ( 
+    is        => 'ro', 
+    isa       => Str,  
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->parser->{comment} 
+    }
+); 
 
-for my $name ( qw/grid shift/ ) { 
-    has $name, ( 
-        is       => 'ro', 
-        isa      => ArrayRef, 
-        traits   => ['Array'], 
-        init_arg => undef, 
-        lazy     => 1, 
-        default  => sub ( $self ) { 
-            return $self->extract($name) 
-        },   
-        handles => { 
-            'get_'.$name     => 'shift', 
-            'get_'.$name.'s' => 'elements', 
-        }, 
-    ); 
-}
+has 'mode', ( 
+    is        => 'ro', 
+    isa       => Int,  
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->parser->{mode} 
+    }
+); 
+
+has 'scheme', ( 
+    is        => 'ro', 
+    isa       => Str,  
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->parser->{scheme} 
+    }
+); 
+
+has 'grid', ( 
+    is       => 'ro', 
+    isa      => ArrayRef, 
+    traits   => ['Array'], 
+    default  => sub ( $self ) { 
+        return $self->parser->{grid} 
+    },  
+    handles  => { 
+        get_grid  => 'shift', 
+        get_grids => 'elements' 
+    }, 
+); 
+
+has 'shift', ( 
+    is       => 'ro', 
+    isa      => ArrayRef, 
+    traits   => ['Array'], 
+    default  => sub ( $self ) { 
+        return $self->parser->{shift} 
+    },  
+    handles  => { 
+        get_shift  => 'shift', 
+        get_shifts => 'elements' 
+    }, 
+); 
 
 has 'nkpt', ( 
     is       => 'ro', 

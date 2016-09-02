@@ -23,10 +23,9 @@ use VASP::POTCAR;
 # Moose role
 with qw/IO::Proxy Geometry::Basic VASP::Format/;  
 
-# Moose attribute  
 # From IO::Proxy
-has '+file', (  
-    default   => 'POSCAR',  
+has '+file'  , ( 
+    default   => 'POSCAR' 
 ); 
 
 has '+parser', ( 
@@ -74,7 +73,7 @@ has '+parser', (
             # the POSCAR contains no selective dynamics block 
             push $poscar->{constraint}->@*, (
                 @columns == 0 || @columns == 1 ? 
-                [ qw( T T T ) ] :
+                [ qw/T T T/ ] :
                 [ splice @columns, 0, 3 ]
             ); 
         } 
@@ -83,63 +82,89 @@ has '+parser', (
 ); 
 
 # From Geometry::Basic
-for my $name ( qw/comment element natom lattice coordinate/ ) { 
-    has '+'.$name, (  
-        default   => sub ( $self ) { 
-            return $self->extract($name) 
-        }
-    ); 
-} 
+has '+comment', ( 
+    default => sub ( $self ) { 
+        return $self->parser->{comment} 
+    } 
+); 
 
-# native 
-has 'total_natom', ( 
+has '+lattice', ( 
+    default => sub ( $self ) { 
+        return $self->parser->{lattice} 
+    } 
+); 
+
+has '+element', ( 
+    default => sub ( $self ) { 
+        return $self->parser->{element} 
+    } 
+); 
+
+has '+natom', ( 
+    default => sub ( $self ) { 
+        return $self->parser->{natom} 
+    } 
+); 
+
+has '+coordinate', ( 
+    default => sub ( $self ) { 
+        return $self->parser->{coordinate} 
+    } 
+); 
+
+# Native
+has 'version',( 
     is        => 'ro', 
-    isa       => Int, 
+    isa       => Int,  
     init_arg  => undef, 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return sum($self->get_natoms) 
-    }
-); 
-
-has 'version', ( 
-    is        => 'ro', 
-    isa       => Int, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->extract('version') 
-    },   
-); 
+        return $self->parser->{version} 
+    } 
+);  
 
 has 'scaling', ( 
     is        => 'ro', 
-    isa       => Str, 
-    lazy      => 1,  
+    isa       => Str,   
+    init_arg  => undef, 
+    lazy      => 1, 
     default   => sub ( $self ) { 
-        return $self->extract('scaling') 
-    },   
-); 
+        return $self->parser->{scaling} 
+    } 
+);  
 
 has 'selective', ( 
     is        => 'ro', 
-    isa       => Bool, 
+    isa       => Bool,  
+    init_arg  => undef, 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return $self->extract('selective') 
+        return $self->parser->{selective} 
+    } 
+); 
+
+has 'type', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->parser->{type} 
     } 
 ); 
 
 has 'constraint', ( 
-    is       => 'ro', 
-    isa      => ArrayRef, 
-    traits   => ['Array'], 
-    lazy     => 1,
-    default  => sub ( $self ) { 
-        return $self->extract('constraint') 
-    },  
-    handles  => { 
-        get_constraint  => 'shift', 
-        get_constraints => 'elements', 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return $self->parser->{constraint} 
+    }, 
+    handles   => { 
+        get_constraint => 'shift', 
+        get_constraints => 'elements' 
     } 
 ); 
 
@@ -167,13 +192,13 @@ has 'true_indices', (
     lazy      => 1, 
     init_arg  => undef,
     default   => sub ( $self ) { 
-        my @constraints  = $self->get_constraints; 
         my @true_indices = (); 
+        my @constraints  = $self->get_constraints; 
         # intersection between true and false indices 
         for my $index ( 0..$#constraints ) { 
             if ( grep $index eq $_, $self->get_false_indices ) { next } 
             push @true_indices, $index; 
-        } 
+        }
         return \@true_indices; 
     }, 
     handles   => { 
@@ -181,15 +206,6 @@ has 'true_indices', (
         get_true_indices => 'elements', 
     }, 
 );  
-
-has 'type', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    lazy      => 1,  
-    default   => sub ( $self ) { 
-        return $self->extract('type') 
-    }
-); 
 
 has 'save', ( 
     is      => 'ro', 

@@ -8,6 +8,7 @@ use File::Spec::Functions;
 use Data::Printer; 
 use Moose;  
 use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
+use Try::Tiny; 
 use namespace::autoclean; 
 
 # pragma
@@ -23,14 +24,6 @@ use VASP::Exchange qw /VASP/;
 
 # Moose roles 
 with qw/IO::Proxy Geometry::Basic/;  
-
-# Moose attributes 
-has 'pot_dir', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    init_arg  => undef, 
-    default   => $ENV{POT_DIR}, 
-); 
 
 # IO::Proxy
 has '+file', ( 
@@ -67,35 +60,63 @@ has '+parser', (
 has '+element', ( 
     predicate => 'has_element', 
     default   => sub ( $self ) { 
-        return [ map $_->[0], $self->extract($self->exchange)->@* ]
+        my $exchange = $self->exchange; 
+        return [ map $_->[0], $self->parser->{$exchange}->@* ]
     } 
 ); 
 
+# Native
+has 'pot_dir', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    init_arg  => undef, 
+    default   => $ENV{POT_DIR}, 
+); 
+
 has 'exchange', ( 
-    is        => 'rw', 
+    is        => 'ro', 
     isa       => VASP, 
     predicate => 'has_exchange', 
     lazy      => 1, 
     default   => sub ( $self ) { 
-        return ($self->keywords)[0]   
+        my @exchanges = keys $self->parser->%*;  
+        # sanity check
+        if ( @exchanges > 1 ) { 
+            die "More than one kind of PP. Something is wrong ...\n"
+        } 
+        return shift @exchanges  
     } 
 ); 
 
-for my $name ( qw/config potcar/ ) { 
-    has $name, ( 
-        is        => 'ro', 
-        isa       => ArrayRef, 
-        traits    => ['Array'], 
-        init_arg  => undef, 
-        lazy      => 1, 
-        default   => sub ( $self ) { return [] },  
-        handles   => { 
-            'add_'.$name     => 'push', 
-            'get_'.$name     => 'shift',  
-            'get_'.$name.'s' => 'elements',  
-        }
-    ); 
-}
+has 'config', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return [] 
+    },  
+    handles   => { 
+        add_config  => 'push', 
+        get_configs => 'elements',  
+    }, 
+); 
+
+has 'potcar', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    init_arg  => undef, 
+    lazy      => 1, 
+    default   => sub ( $self ) { 
+        return [] 
+    },  
+    handles   => { 
+        add_potcar  => 'push', 
+        get_potcars => 'elements',  
+    }, 
+); 
 
 # Moose method 
 sub config_potcar( $self, $element ) { 
@@ -110,15 +131,12 @@ sub config_potcar( $self, $element ) {
 
 sub select_potcar( $self ) { 
     for my $config ( $self->get_configs ) { 
-        # prompt 
-        # $config itselft is a ArrayRef
-        printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
-
         # construct full path to file
         while ( 1 ) { 
+            printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
             chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
             if ( grep $choice eq $_ , $config->@* ) {  
-                $self->add_potcar(catfile($self->pot_dir, $self->exchange, $choice, 'POTCAR'));  
+                $self->add_potcar( catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' ) );  
                 last; 
             }
         } 
@@ -127,20 +145,14 @@ sub select_potcar( $self ) {
 
 # Moose method 
 sub make_potcar ( $self ) { 
-    my $POTCAR = IO::KISS->new('POTCAR', 'w');      
-
-    for my $potcar ( $self->get_potcars ) { 
-        $POTCAR->print( IO::KISS->new($potcar, 'r')->slurp ); 
-    }
+    $self->print( IO::KISS->new( $_, 'r' )->slurp ) for $self->get_potcars;  
 } 
 
 sub info ( $self ) { 
-    printf  "\nPseudopotential: %s\n", $self->exchange; 
-    for my $pseudo ( $self->extract($self->exchange) ) {  
-        for my $element ( $pseudo->@* ) { 
-            printf "%-6s %-6s %-s\n", $element->@[1..3]; 
-        } 
-    } 
+    my $exchange = $self->exchange; 
+    my @pseudoes = $self->parser->{$exchange}->@*; 
+    printf  "\nPseudopotential: %s\n", $exchange; 
+    printf "%-6s %-6s %-s\n", $_->@[1..3] for @pseudoes;  
 } 
 
 sub BUILD ( $self, @args ) { 
@@ -152,13 +164,11 @@ sub BUILD ( $self, @args ) {
     
     # if a arrayref element is passed to the constructor,  
     if ( $self->has_element && $self->has_exchange ) { 
-        for my $element ( $self->get_elements ) { 
-            $self->config_potcar($element); 
-        } 
+        $self->config_potcar($_) for $self->get_elements; 
         $self->select_potcar; 
-    # parse the POTCAR 
+    # cache POTCAR 
     } else { 
-        $self->parser; 
+        try { $self->parser };  
     } 
 } 
 

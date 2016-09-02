@@ -56,7 +56,9 @@ has 'max_force', (
         my $force = $self->force; 
         return ($force*$force)->sumover->sqrt->maximum; 
     }, 
-    handles   => { get_max_forces => 'list' }, 
+    handles   => { 
+        get_max_forces => 'list' 
+    }, 
 ); 
 
 1; 

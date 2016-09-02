@@ -7,7 +7,7 @@ use namespace::autoclean;
 # pragma
 use autodie; 
 use warnings FATAL => 'all'; 
-use experimental 'signatures';
+use experimental qw/signatures/;
 
 # Moose roles 
 with qw/IO::Proxy VASP::Force/;  
