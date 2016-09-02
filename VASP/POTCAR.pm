@@ -23,7 +23,7 @@ use IO::KISS;
 use VASP::Exchange qw /VASP/;  
 
 # Moose roles 
-with qw/IO::Proxy Geometry::Basic/;  
+with qw/IO::Proxy Geometry::Template/;  
 
 # IO::Proxy
 has '+file', ( 
@@ -31,61 +31,31 @@ has '+file', (
 ); 
 
 has '+parser', ( 
-    default   => sub ( $self ) { 
-        my $info = {};  
-        my ( $exchange, $element, $potcar, $config, $date ); 
-        for ( $self->get_lines ) { 
-            # Ex: VRHFIN =C: s2p2
-            if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
-                $element = $1; 
-                my @valences;  
-                $config  = 
-                    ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
-                    join '', @valences : 
-                    (split ' ', $2)[0]; 
-            }
-            # Ex: TITEL  = PAW_PBE C_s 06Sep2000
-            if ( /TITEL/ ) { 
-                ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
-                $date //= '---'; 
-                push $info->{$exchange}->@*, [ $element, $potcar, $config, $date ]; 
-            }
-        }
-        # transformation 
-        return $info; 
-    }, 
+    lazy     => 1, 
+    builder  => '_parse_POTCAR', 
 );  
 
-# Geometry::Basic
+# Geometry::Template
 has '+element', ( 
+    lazy      => 1, 
     predicate => 'has_element', 
-    default   => sub ( $self ) { 
-        my $exchange = $self->exchange; 
-        return [ map $_->[0], $self->parser->{$exchange}->@* ]
-    } 
+    builder   => '_extract_element', 
 ); 
 
 # Native
+has 'exchange', ( 
+    is        => 'ro', 
+    isa       => VASP, 
+    lazy      => 1, 
+    predicate => 'has_exchange', 
+    builder   => '_extract_exchange',  
+); 
+
 has 'pot_dir', ( 
     is        => 'ro', 
     isa       => Str, 
     init_arg  => undef, 
     default   => $ENV{POT_DIR}, 
-); 
-
-has 'exchange', ( 
-    is        => 'ro', 
-    isa       => VASP, 
-    predicate => 'has_exchange', 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        my @exchanges = keys $self->parser->%*;  
-        # sanity check
-        if ( @exchanges > 1 ) { 
-            die "More than one kind of PP. Something is wrong ...\n"
-        } 
-        return shift @exchanges  
-    } 
 ); 
 
 has 'config', ( 
@@ -118,40 +88,17 @@ has 'potcar', (
     }, 
 ); 
 
-# Moose method 
-sub config_potcar( $self, $element ) { 
-    my $config = [ 
-        map basename($_), 
-        grep /\/($element)(\z|\d|_|\.)/, 
-        glob "${\$self->pot_dir}/${\$self->exchange}/*" 
-    ];  
-
-    $self->add_config($config); 
-} 
-
-sub select_potcar( $self ) { 
-    for my $config ( $self->get_configs ) { 
-        # construct full path to file
-        while ( 1 ) { 
-            printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
-            chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
-            if ( grep $choice eq $_ , $config->@* ) {  
-                $self->add_potcar( catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' ) );  
-                last; 
-            }
-        } 
-    }
-} 
-
-# Moose method 
-sub make_potcar ( $self ) { 
+#----------------#
+#  Public Method #
+#----------------#
+sub make ( $self ) { 
     $self->print( IO::KISS->new( $_, 'r' )->slurp ) for $self->get_potcars;  
 } 
 
 sub info ( $self ) { 
     my $exchange = $self->exchange; 
     my @pseudoes = $self->parser->{$exchange}->@*; 
-    printf  "\nPseudopotential: %s\n", $exchange; 
+    printf  "\n=> Pseudopotential: %s\n", $exchange; 
     printf "%-6s %-6s %-s\n", $_->@[1..3] for @pseudoes;  
 } 
 
@@ -164,12 +111,78 @@ sub BUILD ( $self, @args ) {
     
     # if a arrayref element is passed to the constructor,  
     if ( $self->has_element && $self->has_exchange ) { 
-        $self->config_potcar($_) for $self->get_elements; 
-        $self->select_potcar; 
+        $self->_config_potcar($_) for $self->get_elements; 
+        $self->_select_potcar; 
     # cache POTCAR 
     } else { 
         try { $self->parser };  
     } 
+} 
+
+#----------------#
+# Private method #
+#----------------#
+sub _parse_POTCAR ( $self ) { 
+    my $info = {};  
+    my ( $exchange, $element, $potcar, $config, $date ); 
+    for ( $self->get_lines ) { 
+        # Ex: VRHFIN =C: s2p2
+        if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
+            $element = $1; 
+            my @valences;  
+            $config  = 
+            ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
+            join '', @valences : 
+            (split ' ', $2)[0]; 
+        }
+        # Ex: TITEL  = PAW_PBE C_s 06Sep2000
+        if ( /TITEL/ ) { 
+            ( $exchange, $potcar, $date ) = ( split )[2,3,4]; 
+            $date //= '---'; 
+            push $info->{$exchange}->@*, [ $element, $potcar, $config, $date ]; 
+        }
+    }
+    return $info; 
+} 
+
+sub _extract_exchange ( $self ) { 
+    my @exchanges = keys $self->parser->%*;  
+    # sanity check
+    return ( 
+        @exchanges > 1 ? 
+        die "More than one kind of PP. Something is wrong ...\n" :  
+        shift @exchanges  
+    )
+} 
+
+sub _extract_element ( $self ) { 
+    my $exchange = $self->exchange; 
+    my @pptable  = $self->parser->{$exchange}->@*;  
+    return [ map $_->[0], @pptable ]
+} 
+
+sub _config_potcar( $self, $element ) { 
+    my $config = [ 
+        map basename($_), 
+        grep /\/($element)(\z|\d|_|\.)/, 
+        glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+    ];  
+
+    $self->add_config($config); 
+} 
+
+sub _select_potcar( $self ) { 
+    for my $config ( $self->get_configs ) { 
+        # construct full path to file
+        while ( 1 ) { 
+            printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
+            chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
+            if ( grep $choice eq $_ , $config->@* ) {  
+                $self->add_potcar( catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' ) );  
+                last; 
+            }
+        } 
+    }
 } 
 
 # speed-up object construction 

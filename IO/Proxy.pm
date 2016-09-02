@@ -52,10 +52,6 @@ has 'parser', (
     is        => 'ro', 
     isa       => HashRef, 
     init_arg  => undef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return {} 
-    }, 
 ); 
 
 1; 

@@ -1,4 +1,7 @@
-package Geometry::Basic; 
+package Geometry::Template; 
+
+# core 
+use List::Util qw/sum/; 
 
 # cpan 
 use Moose::Role; 
@@ -21,48 +24,6 @@ has 'comment', (
     default   => 'Geometry', 
 ); 
 
-has 'lattice', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    },  
-    handles   => { 
-        get_lattice  => 'shift', 
-        get_lattices => 'elements', 
-    },  
-);  
-
-has 'element', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[Element],
-    traits    => ['Array'], 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    },   
-    handles   => { 
-        get_element  => 'shift', 
-        get_elements => 'elements', 
-    }, 
-); 
-
-has 'natom', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[Int], 
-    traits    => ['Array'], 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    },   
-    handles   => { 
-        get_natom  => 'shift', 
-        get_natoms => 'elements', 
-    }, 
-);  
-
 has 'total_natom', ( 
     is       => 'ro', 
     isa      => Int, 
@@ -73,16 +34,39 @@ has 'total_natom', (
     }
 ); 
 
+has 'lattice', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    handles   => { 
+        get_lattices => 'elements', 
+    },  
+);  
+
+has 'element', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[Element],
+    traits    => ['Array'], 
+    handles   => { 
+        get_elements => 'elements', 
+    }, 
+); 
+
+has 'natom', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[Int], 
+    traits    => ['Array'], 
+    handles   => { 
+        get_natoms => 'elements', 
+    }, 
+);  
+
+
 has 'coordinate', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [] 
-    }, 
     handles   => { 
-        get_coordinate  => 'shift', 
         get_coordinates => 'elements', 
     }, 
 ); 
