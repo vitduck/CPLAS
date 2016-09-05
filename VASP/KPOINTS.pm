@@ -1,61 +1,52 @@
 package VASP::KPOINTS; 
 
-# core 
+use Moose;  
+use MooseX::Types::Moose qw/Str Int ArrayRef/;  
 use List::Util qw/product/; 
 
-# cpan
-use Moose;  
-use MooseX::Types::Moose qw/Str Int ArrayRef HashRef/; 
+use strictures 2;  
 use namespace::autoclean; 
-
-# pragma
-use autodie; 
-use warnings FATAL => 'all'; 
 use experimental qw/signatures/; 
 
-# Moose role 
-with qw/IO::Proxy/; 
+with qw/IO::RW/; 
 
-# From IO::Proxy
+# IO::RW
 has '+file', ( 
-    default  => 'KPOINTS', 
-); 
-
-has '+parser', ( 
-    lazy      => 1,  
-    builder   => '_parse_KPOINTS', 
-      
+    default  => 'KPOINTS' 
 ); 
 
 # Native
 has 'comment', ( 
     is        => 'ro', 
-    isa       => Str,  
-    init_arg  => undef, 
+    isa       => Str, 
     lazy      => 1, 
+    init_arg  => undef, 
+
     default   => sub ( $self ) { 
-        return $self->parser->{comment} 
-    }
+        return $self->read('comment') 
+    } 
 ); 
 
 has 'mode', ( 
     is        => 'ro', 
     isa       => Int,  
-    init_arg  => undef, 
     lazy      => 1, 
+    init_arg  => undef, 
+
     default   => sub ( $self ) { 
-        return $self->parser->{mode} 
-    }
-); 
+        return $self->read('mode')
+    },
+);  
 
 has 'scheme', ( 
     is        => 'ro', 
     isa       => Str,  
-    init_arg  => undef, 
     lazy      => 1, 
+    init_arg  => undef, 
+
     default   => sub ( $self ) { 
-        return $self->parser->{scheme} 
-    }
+        return $self->read('scheme')
+    }, 
 ); 
 
 has 'grid', ( 
@@ -63,9 +54,11 @@ has 'grid', (
     isa      => ArrayRef, 
     traits   => ['Array'], 
     lazy     => 1, 
+
     default  => sub ( $self ) { 
-        return $self->parser->{grid} 
+        return $self->read('grid') 
     },  
+
     handles  => { 
         get_grids => 'elements' 
     }, 
@@ -76,9 +69,11 @@ has 'shift', (
     isa      => ArrayRef, 
     traits   => ['Array'], 
     lazy     => 1, 
+
     default  => sub ( $self ) { 
-        return $self->parser->{shift} 
+        return $self->read('shift') 
     },  
+
     handles  => { 
         get_shifts => 'elements' 
     }, 
@@ -87,18 +82,17 @@ has 'shift', (
 has 'nkpt', ( 
     is       => 'ro', 
     isa      => Int, 
-    init_arg => undef, 
     lazy     => 1, 
-    default  => sub ( $self )  { 
-        return $self->mode == 0 ? product($self->get_grids) : $self->mode; 
-    }
+    init_arg => undef, 
+
+    default  => sub ( $self ) { 
+        return $self->mode == 0 ? product($self->get_grids) : $self->mode 
+    } 
 ); 
 
-#----------------#
-# Private Method #
-#----------------#
-sub _parse_KPOINTS ( $self ) { 
+sub _parse_file ( $self ) { 
     my $kp = {}; 
+    
     # header 
     $kp->{comment} =   $self->get_line; 
     $kp->{mode}    =   $self->get_line;  
@@ -124,7 +118,6 @@ sub _parse_KPOINTS ( $self ) {
     return $kp; 
 } 
 
-# speed-up object construction 
 __PACKAGE__->meta->make_immutable;
 
 1; 

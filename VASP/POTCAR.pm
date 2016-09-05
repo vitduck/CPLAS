@@ -1,73 +1,87 @@
 package VASP::POTCAR; 
 
-# core 
+use Moose;  
+use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
+use Data::Printer; 
 use File::Basename; 
 use File::Spec::Functions; 
 
-# cpan
-use Data::Printer; 
-use Moose;  
-use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
-use Try::Tiny; 
+use strictures 2; 
 use namespace::autoclean; 
-
-# pragma
-use autodie; 
-use warnings FATAL => 'all'; 
 use experimental qw/signatures postderef_qq/;  
 
 # Moose class 
 use IO::KISS;  
-
-# Moose type 
-use VASP::Exchange qw/VASP/;  
 use Periodic::Table qw/Element_Name/; 
+use VASP::Exchange qw/VASP/;  
+with qw/IO::RW/; 
 
-# Moose roles 
-with qw/IO::Proxy Geometry::Template/;  
-
-# IO::Proxy
+# IO::RW
 has '+file', ( 
     default   => 'POTCAR', 
-); 
-
-has '+parser', ( 
-    lazy     => 1, 
-    builder  => '_parse_POTCAR', 
-);  
-
-# Geometry::Template
-has '+element', ( 
-    lazy      => 1, 
-    predicate => 'has_element', 
-    builder   => '_build_element', 
-); 
-
-# Native
-has 'exchange', ( 
-    is        => 'ro', 
-    isa       => VASP, 
-    lazy      => 1, 
-    predicate => 'has_exchange', 
-    builder   => '_build_exchange',  
 ); 
 
 has 'pot_dir', ( 
     is        => 'ro', 
     isa       => Str, 
+    lazy      => 1, 
     init_arg  => undef, 
     default   => $ENV{POT_DIR}, 
+); 
+
+has 'element', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+
+    default   => sub ( $self ) { 
+        my $exchange = $self->exchange; 
+        my @pptable  = $self->parser->{$exchange}->@*;  
+        return [ map $_->[1], @pptable ]
+    }, 
+
+    handles   => { 
+        get_elements => 'elements'
+    }, 
+); 
+
+has 'exchange', ( 
+    is        => 'ro', 
+    isa       => VASP, 
+    lazy      => 1, 
+
+    default   => sub ( $self ) { 
+        my @exchanges = keys $self->_parse_file->%*;   
+        return ( 
+            @exchanges > 1 ? 
+            die "More than one kind of PP. Something is wrong ...\n" :  
+            shift @exchanges  
+        )
+    },  
 ); 
 
 has 'config', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
-    init_arg  => undef, 
     lazy      => 1, 
-    builder   => '_build_config', 
+    init_arg  => undef, 
+
+    default   => sub ( $self ) { 
+        my $config = []; 
+        for my $element ( $self->get_elements ) { 
+            push $config->@*, [ 
+                map basename($_), 
+                grep /\/($element)(\z|\d|_|\.)/, 
+                glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+            ]; 
+        } 
+        return $config
+    },  
+
     handles   => { 
-        get_configs => 'elements',  
+        get_configs => 'elements' 
     }, 
 ); 
 
@@ -75,27 +89,28 @@ has 'potcar', (
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
-    init_arg  => undef, 
     lazy      => 1, 
-    builder   => '_build_potcar',  
+    init_arg  => undef, 
+
+    default   => sub ( $self ) { 
+        my $potcar = []; 
+        for my $config ( $self->get_configs ) { 
+            while ( 1 ) { 
+                printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
+                chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
+                if ( grep $choice eq $_ , $config->@* ) {  
+                    push $potcar->@*, catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' );  
+                    last; 
+                }
+            }
+        } 
+        return $potcar;  
+    },  
+   
     handles   => { 
-        get_potcars => 'elements',  
-    }, 
+        get_potcars => 'elements' 
+    },  
 ); 
-
-#----------------#
-#  Public Method #
-#----------------#
-sub make ( $self ) { 
-    $self->print( IO::KISS->new( $_, 'r' )->slurp ) for $self->get_potcars;  
-} 
-
-sub info ( $self ) { 
-    my $exchange = $self->exchange; 
-    my @pseudoes = $self->parser->{$exchange}->@*; 
-    printf  "\n=> Pseudopotential: %s\n", $exchange; 
-    printf "%-10s %-6s %-6s %-s\n", $_->@* for @pseudoes;  
-} 
 
 sub BUILD ( $self, @args ) { 
     # check if potential directory is accessible 
@@ -105,10 +120,18 @@ sub BUILD ( $self, @args ) {
     }
 } 
 
-#----------------#
-# Private method #
-#----------------#
-sub _parse_POTCAR ( $self ) { 
+sub make ( $self ) { 
+    $self->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
+} 
+
+sub info ( $self ) { 
+    my $exchange = $self->exchange; 
+    my @pseudoes = $self->parser->{$exchange}->@*; 
+    printf  "\n=> Pseudopotential: %s\n", $exchange; 
+    printf "%-10s %-6s %-6s %-s\n", $_->@* for @pseudoes;  
+} 
+
+sub _parse_file ( $self ) { 
     my $info = {};  
     my ( $exchange, $element, $potcar, $config, $date ); 
     for ( $self->get_lines ) { 
@@ -130,56 +153,6 @@ sub _parse_POTCAR ( $self ) {
     }
 
     return $info; 
-} 
-
-sub _build_exchange ( $self ) { 
-    my @exchanges = keys $self->parser->%*;  
-    
-    # sanity check
-    return ( 
-        @exchanges > 1 ? 
-        die "More than one kind of PP. Something is wrong ...\n" :  
-        shift @exchanges  
-    )
-} 
-
-sub _build_element ( $self ) { 
-    my $exchange = $self->exchange; 
-    my @pptable  = $self->parser->{$exchange}->@*;  
-
-    return [ map $_->[0], @pptable ]
-} 
-
-sub _build_config( $self ) { 
-    my @configs = (); 
-    
-    for my $element ( $self->get_elements ) { 
-        push @configs, [ 
-            map basename($_), 
-            grep /\/($element)(\z|\d|_|\.)/, 
-            glob "${\$self->pot_dir}/${\$self->exchange}/*" 
-        ]; 
-    } 
-
-    return \@configs; 
-} 
-
-sub _build_potcar( $self ) { 
-    my @potcars = (); 
-
-    # construct full path to file
-    for my $config ( $self->get_configs ) { 
-        while ( 1 ) { 
-            printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
-            chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
-            if ( grep $choice eq $_ , $config->@* ) {  
-                push @potcars, catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' );   
-                last; 
-            }
-        }
-    } 
-
-    return \@potcars; 
 } 
 
 # speed-up object construction 

@@ -1,12 +1,9 @@
 package XYZ::Xmakemol; 
 
-# cpan 
 use Moose::Role; 
-use namespace::autoclean; 
 
-# pragma 
-use autodie; 
-use warnings FATAL => 'all'; 
+use strictures 2; 
+use namespace::autoclean; 
 use experimental qw( signatures );
 
 sub xmakemol ( $self, $xyz ) { 

@@ -1,136 +1,21 @@
 package VASP::POSCAR; 
 
-# core 
-use File::Copy qw/copy/;  
-
-# cpan
 use Moose;  
 use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/;  
+use File::Copy qw/copy/;  
 use Try::Tiny; 
-use namespace::autoclean; 
 
-# pragma
-use warnings FATAL => 'all'; 
+use strictures 2; 
+use namespace::autoclean; 
 use experimental qw/signatures postderef_qq/;  
 
-# Moose type
-use Periodic::Table qw/Element/;  
-
-# Moose class 
 use VASP::POTCAR; 
-
-# Moose role
-with qw/IO::Proxy Geometry::Template VASP::Format/;  
+use Periodic::Table qw/Element/;  
+with qw/VASP::Format IO::RW Geometry::Share Geometry::VASP/ ;  
 
 # From IO::Proxy
 has '+file'  , ( 
     default   => 'POSCAR' 
-); 
-
-has '+parser', ( 
-    lazy     => 1, 
-    builder  => '_parse_POSCAR', 
-); 
-
-# From Geometry::Template
-has '+comment', ( 
-    default => sub ( $self ) { 
-        return $self->parser->{comment} 
-    } 
-); 
-
-has '+lattice', ( 
-    lazy    => 1, 
-    default => sub ( $self ) { 
-        return $self->parser->{lattice} 
-    } 
-); 
-
-has '+element', ( 
-    lazy    => 1, 
-    default => sub ( $self ) { 
-        return $self->parser->{element} 
-    } 
-); 
-
-has '+natom', ( 
-    lazy    => 1, 
-    default => sub ( $self ) { 
-        return $self->parser->{natom} 
-    } 
-); 
-
-has '+coordinate', ( 
-    lazy    => 1, 
-    default => sub ( $self ) { 
-        return $self->parser->{coordinate} 
-    } 
-); 
-
-# Native
-has 'version',( 
-    is        => 'ro', 
-    isa       => Int,  
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->parser->{version} 
-    } 
-);  
-
-has 'scaling', ( 
-    is        => 'ro', 
-    isa       => Str,   
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->parser->{scaling} 
-    } 
-);  
-
-has 'selective', ( 
-    is        => 'ro', 
-    isa       => Bool,  
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->parser->{selective} 
-    } 
-); 
-
-has 'type', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->parser->{type} 
-    } 
-); 
-
-has 'constraint', ( 
-    is        => 'rw', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    init_arg  => undef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return $self->parser->{constraint} 
-    }, 
-    handles   => { 
-        set_constraint  => 'set', 
-        get_constraints => 'elements', 
-    } 
-); 
-
-has 'index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    init_arg  => undef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [ 0..$self->total_natom-1 ] 
-    }, 
-    handles   => { 
-        get_indices => 'elements', 
-    },  
 ); 
 
 has 'sub_index', ( 
@@ -138,49 +23,14 @@ has 'sub_index', (
     isa       => ArrayRef, 
     traits    => ['Array'], 
     lazy      => 1, 
+
     default   => sub ( $self ) { 
         return $self->index; 
     },  
+
     handles   => { 
         get_sub_indices => 'elements', 
     },  
-); 
-
-has 'false_index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-    init_arg  => undef,
-    builder   => '_build_false_index', 
-    handles   => { 
-        get_false_indices => 'elements', 
-    }, 
-); 
-
-has 'true_index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-    init_arg  => undef,
-    builder   => '_build_true_index', 
-    handles   => { 
-        get_true_indices => 'elements', 
-    }, 
-);  
-
-
-has 'dynamics', (   
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    lazy      => 1, 
-    default   => sub ( $self ) { 
-        return [ qw/T T T/ ]
-    },  
-    trigger   => sub ( $self, @args ) { 
-        $self->_modify_constraint; 
-    } 
 ); 
 
 has 'save', ( 
@@ -188,8 +38,9 @@ has 'save', (
     isa     => Bool, 
     lazy    => 1, 
     default => 0, 
+
     trigger => sub ( $self, @args ) { 
-        $self->_backup; 
+        copy $self->file => $self->save_as;  
     } 
 ); 
 
@@ -197,19 +48,20 @@ has 'save_as', (
     is      => 'ro', 
     isa     => Str, 
     lazy    => 1, 
+
     default => sub ( $self ) { 
         return join('.', $self->file, 'original'); 
     } 
 ); 
 
-#----------------#
-# Public Method  #
-#----------------#
-sub write ( $self ) { 
-    # atomic indices 
-    my @indices = $self->get_indices; 
+# cache POSCAR
+sub BUILD ( $self, @args ) { 
+    try { $self->parser };  
+} 
 
+sub write ( $self ) { 
     # constructing geometry block 
+    my @indices = $self->get_indices; 
     my @table = 
         $self->selective ? 
         map [ $self->coordinate->[$_]->@*, $self->constraint->[$_]->@*, $_+1 ], @indices : 
@@ -224,19 +76,10 @@ sub write ( $self ) {
     $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
     $self->printf("%s\n", $self->type); 
     $self->printf($self->get_format('coordinate'), @$_) for @table; 
-    
-    $self->close; 
+    $self->close_fh; 
 } 
 
-sub BUILD ( $self, @args ) { 
-    # cache POSCAR
-    try { $self->parser };  
-} 
-
-#----------------#
-# Private Method #
-#----------------#
-sub _parse_POSCAR ( $self ) { 
+sub _parse_file ( $self ) { 
     my $poscar = {}; 
     # geometry 
     $poscar->{comment} = $self->get_line; 
@@ -286,44 +129,6 @@ sub _parse_POSCAR ( $self ) {
     return $poscar; 
 } 
 
-sub _build_false_index ( $self ) { 
-    my @false   = (); 
-
-    for my $index ( $self->get_indices ) { 
-        if ( grep $_ eq 'F', $self->constraint->[$index]->@* ) { 
-            push @false, $index 
-        }
-    }
-
-    return \@false; 
-} 
-
-sub _build_true_index ( $self ) { 
-    my @true = (); 
-
-    for my $index ( $self->get_indices ) { 
-        if ( grep $index eq $_, $self->get_false_indices ) { next } 
-        push @true, $index; 
-    }
-
-    return \@true; 
-} 
-
-# Using Coercing is better ? 
-# For both component and index
-sub _modify_constraint ( $self ) {     
-    for my $index ( $self->get_sub_indices ) { 
-        # off-set by 1 
-        $self->set_constraint( --$index, $self->dynamics ); 
-    } 
-} 
-
-sub _backup ( $self ) { 
-    copy $self->file => $self->save_as;  
-} 
-
-
-# speed-up object construction 
 __PACKAGE__->meta->make_immutable;
 
 1; 

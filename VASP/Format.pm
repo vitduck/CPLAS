@@ -1,12 +1,10 @@
 package VASP::Format; 
 
-# cpan 
 use Moose::Role; 
 use MooseX::Types::Moose qw/HashRef/;  
-use namespace::autoclean; 
 
-# pragma
-use warnings FATAL => 'all'; 
+use strictures 2; 
+use namespace::autoclean; 
 use experimental qw/signatures/; 
 
 # VASP printing format 
@@ -16,6 +14,7 @@ has 'format', (
     traits   => ['Hash'],  
     lazy     => 1, 
     init_arg => undef, 
+
     default  => sub ( $self ) { 
         return { 
             scaling    => join('', "%19.14f", "\n"), 
@@ -27,11 +26,12 @@ has 'format', (
                 join('', "%20.16f" x 3, "%4s" x 3, "%6d", "\n") : 
                 join('', "%20.16f" x 3, "%6d", "\n")  
             ), 
-        } 
+        }  
     }, 
+
     handles  => { 
-        get_format => 'get', 
-    }
+        get_format => 'get' 
+    },  
 ); 
 
 1; 

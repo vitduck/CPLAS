@@ -1,11 +1,9 @@
 package Periodic::Table; 
 
-# cpan
 use MooseX::Types -declare => [ qw/Element Element_Name Atomic_Number/ ];   
 use MooseX::Types::Moose qw/Str Int/; 
 
-# pragma
-use warnings FATAL => 'all'; 
+use strictures 2; 
 
 my %table = (
       1 => [ 'H',      'Hydrogen', '0.32', '1.00'],
@@ -137,11 +135,6 @@ subtype Atomic_Number, as Int, where {
     return exists $table{$number}
 }; 
 
-coerce Element_Name, from Element, via { 
-    my $element = $_; 
-    return (map $_->[1], grep $element eq $_->[0], values %table)[0] 
-};  
-
 coerce Element, from Atomic_Number, via { 
     my $number = $_; 
     return $table{$number}->[0]; 
@@ -150,6 +143,12 @@ coerce Element, from Atomic_Number, via {
 coerce Atomic_Number, from Element, via { 
     my $element = $_;  
     return ( grep $element eq $table{$_}[0], keys %table )[0]  
+};  
+
+coerce Element_Name, from Element, via { 
+    my $element = $_; 
+    my $number  = to_Atomic_Number( $element ); 
+    return $table{$number}[1]; 
 };  
 
 1; 
