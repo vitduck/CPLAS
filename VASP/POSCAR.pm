@@ -1,7 +1,7 @@
 package VASP::POSCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/;  
+use MooseX::Types::Moose qw/Str Int ArrayRef HashRef/;  
 use File::Copy qw/copy/;  
 use Try::Tiny; 
 
@@ -22,7 +22,6 @@ has 'file', (
     is        => 'ro', 
     isa       => Str, 
     lazy      => 1, 
-    init_arg  => undef, 
     default   => 'POSCAR' 
 ); 
 
@@ -41,25 +40,23 @@ has 'sub_index', (
     },  
 ); 
 
-has 'save', ( 
-    is      => 'ro', 
-    isa     => Bool, 
-    lazy    => 1, 
-    default => 0, 
+has 'backup', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    lazy      => 1, 
+    default   => 0, 
 
     trigger => sub ( $self, @args ) { 
-        copy $self->file => $self->save_as;  
+        copy $self->file => $self->backup; 
     } 
 ); 
 
 has 'save_as', ( 
-    is      => 'ro', 
-    isa     => Str, 
-    lazy    => 1, 
-
-    default => sub ( $self ) { 
-        return join('.', $self->file, 'original'); 
-    } 
+    is        => 'ro', 
+    isa       => Str, 
+    lazy      => 1, 
+    predicate => 'has_save_as', 
+    default => 'POSCAR.new', 
 ); 
 
 # cache POSCAR
@@ -68,7 +65,11 @@ sub BUILD ( $self, @args ) {
 } 
 
 sub write ( $self ) { 
-    my $fh = IO::KISS->new($self->file, 'w'); 
+    # if save_as is not set, overwrite the original POSCAR 
+    my $fh = 
+        $self->has_save_as ? 
+        IO::KISS->new( $self->save_as, 'w' ) :  
+        IO::KISS->new( $self->file, 'w' ); 
 
     # constructing geometry block 
     my @indices = $self->get_indices; 
