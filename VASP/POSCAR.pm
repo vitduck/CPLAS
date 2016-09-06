@@ -1,7 +1,7 @@
 package VASP::POSCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw/Str Int ArrayRef HashRef/;  
+use MooseX::Types::Moose qw/Str Int Bool ArrayRef HashRef/;  
 use File::Copy qw/copy/;  
 use Try::Tiny; 
 
@@ -25,21 +25,6 @@ has 'file', (
     default   => 'POSCAR' 
 ); 
 
-has 'sub_index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->index; 
-    },  
-
-    handles   => { 
-        get_sub_indices => 'elements', 
-    },  
-); 
-
 has 'dynamics', (   
     is        => 'ro', 
     isa       => ArrayRef, 
@@ -50,11 +35,54 @@ has 'dynamics', (
     }, 
 
     trigger   => sub ( $self, @args ) { 
-        $self->set_constraint( 
-            # off-set by 1
-            map { --$_ => $self->dynamics } $self->get_sub_indices 
-        ) 
+        $self->set_constraint( map { $_ => $self->dynamics } $self->get_indices ) 
     },  
+); 
+
+has 'index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef,  
+    traits    => ['Array'], 
+    lazy      => 1, 
+
+    default   => sub ( $self ) { 
+        return $self->dynamic_index; 
+    },  
+
+    handles   => { 
+        get_indices => 'elements', 
+    },  
+); 
+
+has 'dynamic_index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => ['Array'], 
+    lazy      => 1, 
+    clearer   => 'clear_dynamic_index', 
+    init_arg  => undef, 
+
+    default   => sub ( $self ) { 
+        return [ sort { $a <=> $b } keys $self->coordinate->%* ] 
+    }, 
+
+    handles   => { 
+        get_dynamic_indices => 'elements', 
+    },  
+); 
+
+has 'delete', ( 
+    is       => 'ro', 
+    isa      => Bool, 
+    lazy     => 1, 
+    predicate => 'has_delete', 
+    default  => 0,  
+
+    trigger  => sub ( $self, @args ) { 
+        $self->delete_coordinate( $self->get_indices ); 
+        $self->delete_constraint( $self->get_indices );  
+        $self->update_natom; 
+    } 
 ); 
 
 has 'backup', ( 
@@ -81,6 +109,24 @@ sub BUILD ( $self, @args ) {
     try { $self->parser };  
 } 
 
+sub update_natom ( $self ) { 
+    # first construct the limit array 
+    # Ex: @natom  = ( 10, 20, 40 )
+    #     @limits = ( 10, 30, 70 )
+    my $limit  = 0; 
+    my @limits = (); 
+    for my $natom ( $self->get_natoms ) { 
+        $limit += $natom; 
+        push @limits, $limit  
+    } 
+
+    # loop through the sub indices and determine 
+    for my $index ( $self->get_indices ) { 
+        my ( $natom_index ) = grep { $index <= $limits[$_] } 0..$#limits; 
+        $self->natom->[$natom_index] -= 1; 
+    } 
+} 
+
 sub write ( $self ) { 
     # if save_as is not set, overwrite the original POSCAR 
     my $fh = 
@@ -89,11 +135,11 @@ sub write ( $self ) {
         IO::KISS->new( $self->file, 'w' ); 
 
     # constructing geometry block 
-    my @indices = $self->get_indices; 
+    my @indices = $self->get_dynamic_indices; 
     my @table = 
         $self->selective ? 
-        map [ $self->get_coordinate($_)->@*, $self->get_constraint($_)->@*, $_+1 ], @indices : 
-        map [ $self->coordinate->[$_]->@*, $_+1 ], @indices; 
+        map [ $self->get_coordinate($_)->@*, $self->get_constraint($_)->@*, $_ ], @indices : 
+        map [ $self->coordinate->[$_]->@*, $_ ], @indices; 
 
     # write to POSCAR 
     $fh->printf("%s\n", $self->comment); 
@@ -143,7 +189,7 @@ sub _parse_file ( $self ) {
     } 
 
     # coodinate and constraint
-    my $index = 0;   
+    my $index = 1;   
     while ( local $_ = $fh->get_line ) { 
         last if /^\s+$/; 
 

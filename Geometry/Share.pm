@@ -4,7 +4,7 @@ use strictures 2;
 use List::Util qw/sum/; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw/Int Str ArrayRef HashRef/; 
+use MooseX::Types::Moose qw/Str Int ArrayRef HashRef/; 
 
 use namespace::autoclean; 
 use experimental qw/signatures/; 
@@ -30,21 +30,6 @@ has 'total_natom', (
         return sum( $self->get_natoms )
     } 
 ); 
-
-has 'lattice', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
-    lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read('lattice') 
-    },  
-
-    handles   => { 
-        get_lattices => 'elements' 
-    },  
-);  
 
 has 'element', ( 
     is        => 'ro', 
@@ -72,25 +57,26 @@ has 'natom', (
     },  
 
     handles   => { 
-        get_natoms => 'elements' 
+        set_natom  => 'set', 
+        get_natom  => 'get', 
+        get_natoms => 'elements', 
     },  
 );  
 
-has 'index', ( 
+has 'lattice', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
     traits    => ['Array'], 
     lazy      => 1, 
-    init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        return [ sort { $a <=> $b } $self->get_coordinate_index ] 
-    }, 
+        return $self->read('lattice') 
+    },  
 
     handles   => { 
-        get_indices => 'elements', 
+        get_lattices => 'elements' 
     },  
-); 
+);  
 
 has 'coordinate', ( 
     is        => 'ro', 
@@ -104,7 +90,6 @@ has 'coordinate', (
 
     handles   => { 
         get_coordinate       => 'get', 
-        get_coordinate_index => 'keys', 
         set_coordinate       => 'set', 
         delete_coordinate    => 'delete', 
     },  
