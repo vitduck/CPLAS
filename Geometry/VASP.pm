@@ -1,7 +1,7 @@
 package Geometry::VASP; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw/Bool Str Int ArrayRef/; 
+use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/; 
 
 use strictures 2; 
 use namespace::autoclean; 
@@ -51,8 +51,8 @@ has 'type', (
 
 has 'constraint', ( 
     is        => 'rw', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
+    isa       => HashRef, 
+    traits    => ['Hash'], 
     lazy      => 1, 
     init_arg  => undef, 
 
@@ -61,8 +61,9 @@ has 'constraint', (
     },  
 
     handles   => { 
-        set_constraint  => 'set', 
-        get_constraints => 'elements' 
+        get_constraint    => 'get', 
+        set_constraint    => 'set', 
+        delete_constraint => 'delete', 
     },   
 ); 
 
@@ -112,19 +113,5 @@ has 'true_index', (
         get_true_indices => 'elements' 
     },   
 );  
-
-has 'dynamics', (   
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    lazy      => 1, 
-
-    default   => sub ( $self )  { 
-        return [ qw/T T T/ ] 
-    }, 
-
-    trigger   => sub ( $self, @args ) { 
-        $self->set_constraint( $_-1, $self->dynamics ) for $self->get_sub_indices;  
-    },  
-); 
 
 1; 

@@ -40,6 +40,23 @@ has 'sub_index', (
     },  
 ); 
 
+has 'dynamics', (   
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    lazy      => 1, 
+
+    default   => sub ( $self )  { 
+        return [ qw/T T T/ ] 
+    }, 
+
+    trigger   => sub ( $self, @args ) { 
+        $self->set_constraint( 
+            # off-set by 1
+            map { --$_ => $self->dynamics } $self->get_sub_indices 
+        ) 
+    },  
+); 
+
 has 'backup', ( 
     is        => 'ro', 
     isa       => Str, 
@@ -75,7 +92,7 @@ sub write ( $self ) {
     my @indices = $self->get_indices; 
     my @table = 
         $self->selective ? 
-        map [ $self->coordinate->[$_]->@*, $self->constraint->[$_]->@*, $_+1 ], @indices : 
+        map [ $self->get_coordinate($_)->@*, $self->get_constraint($_)->@*, $_+1 ], @indices : 
         map [ $self->coordinate->[$_]->@*, $_+1 ], @indices; 
 
     # write to POSCAR 
@@ -125,21 +142,24 @@ sub _parse_file ( $self ) {
         $poscar->{type}      = $has_selective; 
     } 
 
-    # coodinate 
+    # coodinate and constraint
+    my $index = 0;   
     while ( local $_ = $fh->get_line ) { 
-        if ( /^\s+$/ ) { last } 
-        my @columns = split; 
+        last if /^\s+$/; 
 
+        my @columns = split; 
         # 1st 3 columns are coordinate 
-        push $poscar->{coordinate}->@*, [ splice @columns, 0, 3 ];  
+        $poscar->{coordinate}->{$index} = [ splice @columns, 0, 3 ];  
 
         # if remaining column is either 0 or 1 (w/o indexing) 
         # the POSCAR contains no selective dynamics block 
-        push $poscar->{constraint}->@*, (
+        $poscar->{constraint}->{$index} = (
             @columns == 0 || @columns == 1 ? 
             [ qw/T T T/ ] :
             [ splice @columns, 0, 3 ]
         ); 
+
+        $index++; 
     } 
 
     $fh->close; 
