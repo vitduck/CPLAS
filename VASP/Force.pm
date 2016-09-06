@@ -10,8 +10,6 @@ use experimental qw/signatures/;
 use IO::KISS; 
 use VASP::POSCAR;  
 
-requires /slurp force-regex/;  
-
 has 'force', ( 
     is       => 'ro', 
     isa      => 'PDL', 
