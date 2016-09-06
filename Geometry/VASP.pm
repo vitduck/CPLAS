@@ -9,7 +9,6 @@ use experimental qw/signatures/;
 
 use Periodic::Table qw/Element/;  
 
-# Moose attribute 
 has 'version',( 
     is        => 'ro', 
     isa       => Int,  
@@ -76,11 +75,13 @@ has 'false_index', (
 
     default   => sub ( $self ) { 
         my $false = []; 
+
         for my $index ( $self->get_indices ) { 
             if ( grep $_ eq 'F', $self->constraint->[$index]->@* ) { 
                 push $false->@*, $index;  
             }
         }
+
         return $false  
     },  
 
@@ -98,10 +99,12 @@ has 'true_index', (
 
     default   => sub ( $self ) { 
         my $true = []; 
+
         for my $index ( $self->get_indices ) { 
             if ( grep $index eq $_, $self->get_false_indices ) { next } 
             push $true->@*, $index; 
         }
+
         return $true 
     }, 
 

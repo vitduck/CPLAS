@@ -8,14 +8,17 @@ use strictures 2;
 use namespace::autoclean; 
 use experimental qw/signatures/; 
 
-with qw/IO::RW/; 
+use IO::KISS; 
 
-# IO::RW
-has '+file', ( 
-    default  => 'KPOINTS' 
+with qw/IO::Parser/; 
+
+has 'file', ( 
+    is       => 'ro', 
+    isa      => Str,  
+    init_arg => undef, 
+    default  => 'KPOINTS', 
 ); 
 
-# Native
 has 'comment', ( 
     is        => 'ro', 
     isa       => Str, 
@@ -92,28 +95,34 @@ has 'nkpt', (
 
 sub _parse_file ( $self ) { 
     my $kp = {}; 
+   
+    # parsing 
+    my $fh = IO::KISS->new($self->file, 'r'); 
     
-    # header 
-    $kp->{comment} =   $self->get_line; 
-    $kp->{mode}    =   $self->get_line;  
-    $kp->{scheme}  = ( $self->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
+    $kp->{comment} =   $fh->get_line; 
+    $kp->{mode}    =   $fh->get_line;  
+    $kp->{scheme}  = ( $fh->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
+
     # k-mesh 
     if ( $kp->{mode} == 0 ) { 
         # automatic k-mesh generation 
-        $kp->{grid} = [ map int, map split, $self->get_line ];
+        $kp->{grid} = [ map int, map split, $fh->get_line ];
     } elsif ( $kp->{mode} > 0 ) { 
         # maunal k-mesh 
-        while ( local $_ = $self->get_line ) {
+        while ( local $_ = $fh->get_line ) {
             push $kp->{grid}->@*, [(split)[0,1,2]]; 
         }
     } else { 
         # line mode ( band calculation )
         ...
     } 
+
     # k-shift 
     if ( $kp->{mode} == 0 ) { 
-        $kp->{shift} = [ map split, $self->get_line ]
+        $kp->{shift} = [ map split, $fh->get_line ]
     }
+
+    $fh->close;   
 
     return $kp; 
 } 

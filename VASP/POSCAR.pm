@@ -9,12 +9,20 @@ use strictures 2;
 use namespace::autoclean; 
 use experimental qw/signatures postderef_qq/;  
 
+use IO::KISS; 
 use VASP::POTCAR; 
 use Periodic::Table qw/Element/;  
-with qw/VASP::Format IO::RW Geometry::Share Geometry::VASP/ ;  
+
+with qw/VASP::Format/, 
+     qw/IO::Parser/, 
+     qw/ Geometry::Share Geometry::VASP/;  
 
 # From IO::Proxy
-has '+file'  , ( 
+has 'file', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    lazy      => 1, 
+    init_arg  => undef, 
     default   => 'POSCAR' 
 ); 
 
@@ -60,6 +68,8 @@ sub BUILD ( $self, @args ) {
 } 
 
 sub write ( $self ) { 
+    my $fh = IO::KISS->new($self->file, 'w'); 
+
     # constructing geometry block 
     my @indices = $self->get_indices; 
     my @table = 
@@ -68,26 +78,30 @@ sub write ( $self ) {
         map [ $self->coordinate->[$_]->@*, $_+1 ], @indices; 
 
     # write to POSCAR 
-    $self->printf("%s\n", $self->comment); 
-    $self->printf($self->get_format('scaling'), $self->scaling); 
-    $self->printf($self->get_format('lattice'), @$_) for $self->get_lattices;  
-    $self->printf($self->get_format('element'), $self->get_elements) if $self->version == 5;  
-    $self->printf($self->get_format('natom'),   $self->get_natoms); 
-    $self->printf("%s\n", 'Selective Dynamics') if $self->selective;  
-    $self->printf("%s\n", $self->type); 
-    $self->printf($self->get_format('coordinate'), @$_) for @table; 
-    $self->close_fh; 
+    $fh->printf("%s\n", $self->comment); 
+    $fh->printf($self->get_format('scaling'), $self->scaling); 
+    $fh->printf($self->get_format('lattice'), @$_) for $self->get_lattices;  
+    $fh->printf($self->get_format('element'), $self->get_elements) if $self->version == 5;  
+    $fh->printf($self->get_format('natom'),   $self->get_natoms); 
+    $fh->printf("%s\n", 'Selective Dynamics') if $self->selective;  
+    $fh->printf("%s\n", $self->type); 
+    $fh->printf($self->get_format('coordinate'), @$_) for @table; 
+    
+    $fh->close; 
 } 
 
 sub _parse_file ( $self ) { 
     my $poscar = {}; 
+
+    my $fh = IO::KISS->new($self->file, 'r'); 
+    
     # geometry 
-    $poscar->{comment} = $self->get_line; 
-    $poscar->{scaling} = $self->get_line; 
-    $poscar->{lattice}->@* = map [ split ' ', $self->get_line ], 0..2; 
+    $poscar->{comment} = $fh->get_line; 
+    $poscar->{scaling} = $fh->get_line; 
+    $poscar->{lattice}->@* = map [ split ' ', $fh->get_line ], 0..2; 
 
     # version probe
-    my @has_VASP5 = split ' ', $self->get_line; 
+    my @has_VASP5 = split ' ', $fh->get_line; 
     if ( ! grep Element->check($_), @has_VASP5 ) { 
         $poscar->{version} = 4; 
         # get elements from POTCAR and synchronize with @natoms
@@ -97,21 +111,21 @@ sub _parse_file ( $self ) {
     } else { 
         $poscar->{version} = 5; 
         $poscar->{element} = \@has_VASP5; 
-        $poscar->{natom}   = [ split ' ', $self->get_line ]; 
+        $poscar->{natom}   = [ split ' ', $fh->get_line ]; 
     } 
 
     # selective dynamics 
-    my $has_selective = $self->get_line;  
+    my $has_selective = $fh->get_line;  
     if ( $has_selective =~ /^\s*S/i ) { 
         $poscar->{selective} = 1; 
-        $poscar->{type}      = $self->get_line; 
+        $poscar->{type}      = $fh->get_line; 
     } else { 
         $poscar->{selective} = 0; 
         $poscar->{type}      = $has_selective; 
     } 
 
     # coodinate 
-    while ( local $_ = $self->get_line ) { 
+    while ( local $_ = $fh->get_line ) { 
         if ( /^\s+$/ ) { last } 
         my @columns = split; 
 
@@ -126,6 +140,9 @@ sub _parse_file ( $self ) {
             [ splice @columns, 0, 3 ]
         ); 
     } 
+
+    $fh->close; 
+
     return $poscar; 
 } 
 

@@ -64,10 +64,10 @@ GetOptions(
 ) or pod2usage(-verbose => 1); 
 
 given ( $mode ) { 
-    when ( 'help' ) { pod2usage(-verbose => 99, -section => \@usages) }
+    when ( 'help' ) { pod2usage( -verbose => 99, -section => \@usages ) }
     when ( 'list' ) { VASP::POTCAR->new->info }  
     default { 
-        my $PP = VASP::POTCAR->new(element => [@ARGV], exchange => $exchange); 
+        my $PP = VASP::POTCAR->new( element => [@ARGV], exchange => $exchange ); 
         $PP->make;  
         $PP->info; 
     } 

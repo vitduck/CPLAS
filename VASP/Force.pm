@@ -9,7 +9,8 @@ use experimental qw/signatures/;
 
 use IO::KISS; 
 use VASP::POSCAR;  
-with 'VASP::Regex'; 
+
+requires /slurp force-regex/;  
 
 has 'force', ( 
     is       => 'ro', 
@@ -23,8 +24,9 @@ has 'force', (
     # @forces is a 3d matrix with dimension of NSW x NIONS x 3
     default  => sub ( $self ) { 
         my $force = [];  
-        my $index = VASP::POSCAR->new->true_index; 
-        for my $force_block ( $self->get_string =~ /${\$self->force_regex}/g  ) { 
+        my $true  = VASP::POSCAR->new->true_index; 
+
+        for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 
             my $iforce = []; 
             my $kiss   = IO::KISS->new(\$force_block, 'r'); 
             for ( $kiss->get_lines ) { 
@@ -32,7 +34,7 @@ has 'force', (
             } 
             push $force->@*, $iforce; 
         } 
-        return PDL->new($force)->dice( 'X', $index, 'X' ); 
+        return PDL->new($force)->dice( 'X', $true, 'X' ); 
     }, 
 ); 
 
