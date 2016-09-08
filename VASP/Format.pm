@@ -1,4 +1,4 @@
-package Format::VASP; 
+package VASP::Format;  
 
 use Moose::Role; 
 use MooseX::Types::Moose qw( HashRef );  
@@ -8,7 +8,7 @@ use namespace::autoclean;
 use experimental qw( signatures );  
 
 # VASP printing format 
-has 'format', ( 
+has 'poscar_format', ( 
     is       => 'ro', 
     isa      => HashRef, 
     traits   => [ 'Hash' ],  
@@ -30,7 +30,7 @@ has 'format', (
     }, 
 
     handles  => { 
-        get_format => 'get' 
+        get_poscar_format => 'get' 
     },  
 ); 
 

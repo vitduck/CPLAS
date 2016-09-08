@@ -13,7 +13,7 @@ use experimental qw( signatures );
 
 use IO::KISS; 
 use VASP::POTCAR; 
-with qw( IO::Parser Format::VASP ), 
+with qw( IO::Parser VASP::Format ), 
      qw( Geometry::Share Geometry::VASP );  
 
 has 'file', ( 
@@ -69,15 +69,8 @@ has '_indexed_coordinate', (
         my @indices = sort { $a <=> $b } $self->get_coordinate_indices; 
         return [
             $self->selective ? 
-            map [ 
-                $self->get_coordinate($_)->@*, 
-                $self->get_dynamics_tag($_)->@*, 
-                $_+1 
-            ], @indices : 
-            map [ 
-                $self->coordinate->[$_]->@*, 
-                $_+1 
-            ], @indices 
+            map [ $self->get_coordinate($_)->@*, $self->get_dynamics_tag($_)->@*, $_+1 ], @indices : 
+            map [ $self->coordinate->[$_]->@*, $_+1 ], @indices 
         ]
     },  
 
@@ -104,13 +97,13 @@ sub write ( $self ) {
         IO::KISS->new( $self->file, 'w' ); 
    
     $fh->printf( "%s\n" , $self->comment ); 
-    $fh->printf( $self->get_format( 'scaling' ), $self->scaling ); 
-    $fh->printf( $self->get_format( 'lattice' ), @$_ ) for $self->get_lattices; 
-    $fh->printf( $self->get_format( 'element' ), $self->get_elements ); 
-    $fh->printf( $self->get_format( 'natom'   ), $self->get_natoms    ); 
+    $fh->printf( $self->get_poscar_format( 'scaling' ), $self->scaling ); 
+    $fh->printf( $self->get_poscar_format( 'lattice' ), @$_ ) for $self->get_lattices; 
+    $fh->printf( $self->get_poscar_format( 'element' ), $self->get_elements ); 
+    $fh->printf( $self->get_poscar_format( 'natom'   ), $self->get_natoms    ); 
     $fh->printf( "%s\n", 'Selective Dynamics' ) if $self->selective; 
     $fh->printf( "%s\n", $self->type ); 
-    $fh->printf( $self->get_format( 'coordinate' ), @$_ ) for $self->get_indexed_coordinates; 
+    $fh->printf( $self->get_poscar_format( 'coordinate' ), @$_ ) for $self->get_indexed_coordinates; 
 
     $fh->close; 
 } 
