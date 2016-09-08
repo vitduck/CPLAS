@@ -30,7 +30,7 @@ has 'delete', (
     predicate => 'has_delete', 
 
     handles   => {  
-        get_delete_indices => 'elements' 
+        delete_indices => 'elements' 
     } 
 ); 
 
@@ -66,7 +66,7 @@ has '_indexed_coordinate', (
     lazy      => 1, 
     
     default   => sub ( $self ) { 
-        my @indices = sort { $a <=> $b } $self->get_coordinate_indices; 
+        my @indices = sort { $a <=> $b } $self->coordinate_indices; 
         return [
             $self->selective ? 
             map [ $self->get_coordinate($_)->@*, $self->get_dynamics_tag($_)->@*, $_+1 ], @indices : 
@@ -113,10 +113,7 @@ sub _backup ( $self ) {
 } 
 
 sub _delete ( $self ) { 
-    my @indices = 
-        grep $self->has_coordinate($_), 
-        map $_ - 1, 
-        $self->get_delete_indices;  
+    my @indices = grep $self->has_coordinate($_), map $_ - 1, $self->delete_indices;  
 
     # delte corresponding constraint and coordinate 
     $self->delete_coordinate  ( @indices ); 
@@ -138,7 +135,7 @@ sub _update_natom_and_element ( $self, @indices ) {
     
     # cache natom 
     my @natoms = $self->get_natoms; 
-    for my $delete ( $self->get_delete_indices ) { 
+    for my $delete ( $self->delete_indices ) { 
         # takes the lower bound only 
         my ( $index )    = grep { $delete <= $boundaries[$_] } 0..$#boundaries;  
         $natoms[$index] -= 1; 
@@ -166,7 +163,7 @@ sub _constraint ( $self ) {
     # replace constraint tags of all indices 
     my @indices = 
         @tags == 0 ? 
-        $self->get_coordinate_indices :  
+        $self->coordinate_indices :  
         map $_ - 1, grep $self->has_coordinate($_), @tags; 
 
     # set constraint 

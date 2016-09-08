@@ -133,6 +133,27 @@ has 'potcar', (
     },  
 ); 
 
+sub BUILD ( $self, @args ) { 
+    # check if potential directory is accessible 
+    if ( not -d $self->pot_dir ) { 
+        die "Please export location of POTCAR files in .bashrc\n
+        For example: export POT_DIR=/opt/VASP/POTCAR\n";
+    }
+} 
+
+sub make ( $self ) { 
+    my $fh = IO::KISS->new( $self->file, 'w' ); 
+
+    $fh->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
+
+    $fh->close; 
+} 
+
+sub info ( $self ) { 
+    printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
+    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
+} 
+
 sub _parse_file ( $self ) { 
     my $info = { };  
     my $fh = IO::KISS->new( $self->file, 'r' ); 
@@ -160,27 +181,6 @@ sub _parse_file ( $self ) {
     $fh->close; 
 
     return $info; 
-} 
-
-sub BUILD ( $self, @args ) { 
-    # check if potential directory is accessible 
-    if ( not -d $self->pot_dir ) { 
-        die "Please export location of POTCAR files in .bashrc\n
-        For example: export POT_DIR=/opt/VASP/POTCAR\n";
-    }
-} 
-
-sub make ( $self ) { 
-    my $fh = IO::KISS->new( $self->file, 'w' ); 
-
-    $fh->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
-
-    $fh->close; 
-} 
-
-sub info ( $self ) { 
-    printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
 } 
 
 # speed-up object construction 
