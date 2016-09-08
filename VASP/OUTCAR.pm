@@ -1,13 +1,13 @@
 package VASP::OUTCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw/Str/; 
+use MooseX::Types::Moose qw( Str ); 
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
-with qw/VASP::Force VASP::Regex/;  
+with qw( VASP::Force VASP::Regex );  
 
 has 'file', ( 
     is        => 'ro', 
@@ -24,7 +24,7 @@ has 'slurp', (
     init_arg  => undef, 
 
     default   => sub ( $self ) {  
-        return IO::KISS->new($self->file, 'r')->get_string; 
+        return IO::KISS->new( $self->file, 'r' )->get_string; 
     }
 ); 
 

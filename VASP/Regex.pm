@@ -1,11 +1,11 @@
 package VASP::Regex; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw/RegexpRef/;  
+use MooseX::Types::Moose qw( RegexpRef );  
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 # match the force block 
 # TODO: is it possible to capture the final three columns 

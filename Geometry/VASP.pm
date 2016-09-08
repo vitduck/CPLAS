@@ -1,21 +1,20 @@
 package Geometry::VASP; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw/Bool Str Int ArrayRef HashRef/; 
+use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef ); 
+use Types::Periodic qw( Element );  
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
-use Periodic::Table qw/Element/;  
-
-has 'version',( 
+has 'version', ( 
     is        => 'ro', 
     isa       => Int,  
     lazy      => 1, 
 
     default   => sub ( $self ) {  
-        return $self->read('version')
+        return $self->read( 'version' )
     }
 );  
 
@@ -25,7 +24,7 @@ has 'scaling', (
     lazy      => 1, 
 
     default   => sub ( $self ) { 
-        return $self->read('scaling') 
+        return $self->read( 'scaling' ) 
     } 
 );  
 
@@ -35,7 +34,7 @@ has 'selective', (
     lazy      => 1, 
 
     default   => sub ( $self ) { 
-        return $self->read('selective') 
+        return $self->read( 'selective' ) 
     } 
 ); 
 
@@ -45,19 +44,19 @@ has 'type', (
     lazy      => 1, 
 
     default   => sub ( $self ) { 
-        return $self->read('type') 
+        return $self->read( 'type' ) 
     } 
 ); 
 
 has 'constraint', ( 
     is        => 'rw', 
     isa       => HashRef, 
-    traits    => ['Hash'], 
+    traits    => [ 'Hash' ], 
     lazy      => 1, 
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        $self->read('constraint')
+        $self->read( 'constraint' )
     },  
 
     handles   => { 
@@ -70,7 +69,7 @@ has 'constraint', (
 has 'false_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => ['Array'], 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
 
@@ -94,7 +93,7 @@ has 'false_index', (
 has 'true_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => ['Array'], 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
 

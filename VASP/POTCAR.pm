@@ -1,20 +1,19 @@
 package VASP::POTCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw/Str ArrayRef HashRef/; 
-use Data::Printer; 
+use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
+use Types::Exchange qw( VASP_PP );  
+use Types::Periodic qw( Element Element_Name ); 
+
 use File::Basename; 
 use File::Spec::Functions; 
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures postderef_qq/;  
+use experimental qw( signatures postderef_qq );  
 
 use IO::KISS;  
-use VASP::Exchange qw/VASP/;  
-use Periodic::Table qw/Element_Name/; 
-
-with qw/IO::Parser/; 
+with qw( IO::Parser ); 
 
 has 'pot_dir', ( 
     is        => 'ro', 
@@ -34,8 +33,8 @@ has 'file', (
 
 has 'element', ( 
     is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
+    isa       => ArrayRef[ Element ],  
+    traits    => [ 'Array' ], 
     lazy      => 1, 
 
     default   => sub ( $self ) { 
@@ -49,7 +48,7 @@ has 'element', (
 
 has 'exchange', ( 
     is        => 'ro', 
-    isa       => VASP, 
+    isa       => VASP_PP, 
     lazy      => 1, 
 
     default   => sub ( $self ) { 
@@ -67,7 +66,7 @@ has 'exchange', (
 has 'pp_info', (  
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => ['Array'], 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
 
     default   => sub ( $self ) { 
@@ -82,7 +81,7 @@ has 'pp_info', (
 has 'config', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => ['Array'], 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef, 
 
@@ -107,8 +106,8 @@ has 'config', (
 
 has 'potcar', ( 
     is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => ['Array'], 
+    isa       => ArrayRef[Str], 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef, 
 
@@ -134,30 +133,9 @@ has 'potcar', (
     },  
 ); 
 
-sub BUILD ( $self, @args ) { 
-    # check if potential directory is accessible 
-    if ( not -d $self->pot_dir ) { 
-        die "Please export location of POTCAR files in .bashrc\n
-        For example: export POT_DIR=/opt/VASP/POTCAR\n";
-    }
-} 
-
-sub make ( $self ) { 
-    my $fh = IO::KISS->new($self->file, 'w'); 
-
-    $fh->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
-
-    $fh->close; 
-} 
-
-sub info ( $self ) { 
-    printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
-} 
-
 sub _parse_file ( $self ) { 
-    my $info = {};  
-    my $fh = IO::KISS->new($self->file, 'r'); 
+    my $info = { };  
+    my $fh = IO::KISS->new( $self->file, 'r' ); 
     my ( $exchange, $element, $pseudo, $config, $date ); 
     
     for ( $fh->get_lines ) { 
@@ -182,6 +160,27 @@ sub _parse_file ( $self ) {
     $fh->close; 
 
     return $info; 
+} 
+
+sub BUILD ( $self, @args ) { 
+    # check if potential directory is accessible 
+    if ( not -d $self->pot_dir ) { 
+        die "Please export location of POTCAR files in .bashrc\n
+        For example: export POT_DIR=/opt/VASP/POTCAR\n";
+    }
+} 
+
+sub make ( $self ) { 
+    my $fh = IO::KISS->new( $self->file, 'w' ); 
+
+    $fh->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
+
+    $fh->close; 
+} 
+
+sub info ( $self ) { 
+    printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
+    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
 } 
 
 # speed-up object construction 

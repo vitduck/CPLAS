@@ -5,7 +5,7 @@ use Moose::Role;
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures/;  
+use experimental qw( signatures );  
 
 use IO::KISS; 
 use VASP::POSCAR;  
@@ -21,11 +21,11 @@ has 'force', (
     # The 3,4, and 5 column are fx, fy, and fz 
     # @forces is a 3d matrix with dimension of NSW x NIONS x 3
     default  => sub ( $self ) { 
-        my $force = [];  
+        my $force = [ ];  
         my $true  = VASP::POSCAR->new->true_index; 
 
         for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 
-            my $iforce = []; 
+            my $iforce = [ ]; 
             my $kiss   = IO::KISS->new(\$force_block, 'r'); 
             for ( $kiss->get_lines ) { 
                 push $iforce->@*, [ (split)[3,4,5] ]; 

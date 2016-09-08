@@ -1,17 +1,17 @@
-package VASP::Format; 
+package Format::VASP; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw/HashRef/;  
+use MooseX::Types::Moose qw( HashRef );  
 
 use strictures 2; 
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use experimental qw( signatures );  
 
 # VASP printing format 
 has 'format', ( 
     is       => 'ro', 
     isa      => HashRef, 
-    traits   => ['Hash'],  
+    traits   => [ 'Hash' ],  
     lazy     => 1, 
     init_arg => undef, 
 

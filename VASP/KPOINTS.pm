@@ -1,16 +1,15 @@
 package VASP::KPOINTS; 
 
 use Moose;  
-use MooseX::Types::Moose qw/Str Int ArrayRef/;  
-use List::Util qw/product/; 
+use MooseX::Types::Moose qw( Str Int ArrayRef );  
+use List::Util qw( product ); 
 
 use strictures 2;  
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use experimental qw( signatures ); 
 
 use IO::KISS; 
-
-with qw/IO::Parser/; 
+with qw( IO::Parser ); 
 
 has 'file', ( 
     is       => 'ro', 
@@ -26,7 +25,7 @@ has 'comment', (
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        return $self->read('comment') 
+        return $self->read( 'comment' ) 
     } 
 ); 
 
@@ -37,7 +36,7 @@ has 'mode', (
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        return $self->read('mode')
+        return $self->read( 'mode' )
     },
 );  
 
@@ -48,18 +47,18 @@ has 'scheme', (
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        return $self->read('scheme')
+        return $self->read( 'scheme' )
     }, 
 ); 
 
 has 'grid', ( 
     is       => 'ro', 
     isa      => ArrayRef, 
-    traits   => ['Array'], 
+    traits   => [ 'Array' ], 
     lazy     => 1, 
 
     default  => sub ( $self ) { 
-        return $self->read('grid') 
+        return $self->read( 'grid' ) 
     },  
 
     handles  => { 
@@ -70,11 +69,11 @@ has 'grid', (
 has 'shift', ( 
     is       => 'ro', 
     isa      => ArrayRef, 
-    traits   => ['Array'], 
+    traits   => [ 'Array' ], 
     lazy     => 1, 
 
     default  => sub ( $self ) { 
-        return $self->read('shift') 
+        return $self->read( 'shift' ) 
     },  
 
     handles  => { 
@@ -94,10 +93,10 @@ has 'nkpt', (
 ); 
 
 sub _parse_file ( $self ) { 
-    my $kp = {}; 
+    my $kp = { }; 
    
     # parsing 
-    my $fh = IO::KISS->new($self->file, 'r'); 
+    my $fh = IO::KISS->new( $self->file, 'r' ); 
     
     $kp->{comment} =   $fh->get_line; 
     $kp->{mode}    =   $fh->get_line;  
@@ -110,7 +109,7 @@ sub _parse_file ( $self ) {
     } elsif ( $kp->{mode} > 0 ) { 
         # maunal k-mesh 
         while ( local $_ = $fh->get_line ) {
-            push $kp->{grid}->@*, [(split)[0,1,2]]; 
+            push $kp->{grid}->@*, [ (split)[0,1,2] ]; 
         }
     } else { 
         # line mode ( band calculation )
