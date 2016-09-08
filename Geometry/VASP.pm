@@ -48,7 +48,7 @@ has 'type', (
     } 
 ); 
 
-has 'constraint', ( 
+has 'dynamics_tag', ( 
     is        => 'rw', 
     isa       => HashRef, 
     traits    => [ 'Hash' ], 
@@ -56,61 +56,61 @@ has 'constraint', (
     init_arg  => undef, 
 
     default   => sub ( $self ) { 
-        $self->read( 'constraint' )
+        $self->read( 'dynamics_tag' )
     },  
 
     handles   => { 
-        get_constraint    => 'get', 
-        set_constraint    => 'set', 
-        delete_constraint => 'delete', 
+        get_dynamics_tag    => 'get', 
+        set_dynamics_tag    => 'set', 
+        delete_dynamics_tag => 'delete', 
     },   
 ); 
 
-has 'false_index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    init_arg  => undef,
+# has 'false_index', ( 
+    # is        => 'ro', 
+    # isa       => ArrayRef, 
+    # traits    => [ 'Array' ], 
+    # lazy      => 1, 
+    # init_arg  => undef,
 
-    default   => sub ( $self ) { 
-        my $false = []; 
+    # default   => sub ( $self ) { 
+        # my $false = []; 
 
-        for my $index ( $self->get_dynamic_indices ) { 
-            if ( grep $_ eq 'F', $self->get_constraint($index)->@* ) { 
-                push $false->@*, $index;  
-            }
-        }
+        # for my $index ( $self->get_dynamic_indices ) { 
+            # if ( grep $_ eq 'F', $self->get_constraint($index)->@* ) { 
+                # push $false->@*, $index;  
+            # }
+        # }
 
-        return $false  
-    },  
+        # return $false  
+    # },  
 
-    handles   => { 
-        get_false_indices => 'elements' 
-    }, 
-); 
+    # handles   => { 
+        # get_false_indices => 'elements' 
+    # }, 
+# ); 
 
-has 'true_index', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    init_arg  => undef,
+# has 'true_index', ( 
+    # is        => 'ro', 
+    # isa       => ArrayRef, 
+    # traits    => [ 'Array' ], 
+    # lazy      => 1, 
+    # init_arg  => undef,
 
-    default   => sub ( $self ) { 
-        my $true = []; 
+    # default   => sub ( $self ) { 
+        # my $true = []; 
 
-        for my $index ( $self->get_dynamic_indices ) { 
-            if ( grep $index eq $_, $self->get_false_indices ) { next } 
-            push $true->@*, $index; 
-        }
+        # for my $index ( $self->get_dynamic_indices ) { 
+            # if ( grep $index eq $_, $self->get_false_indices ) { next } 
+            # push $true->@*, $index; 
+        # }
 
-        return $true 
-    }, 
+        # return $true 
+    # }, 
 
-    handles   => { 
-        get_true_indices => 'elements' 
-    },   
-);  
+    # handles   => { 
+        # get_true_indices => 'elements' 
+    # },   
+# );  
 
 1; 

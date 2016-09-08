@@ -32,8 +32,8 @@ has 'total_natom', (
 
 has 'element', ( 
     is        => 'ro', 
-    isa       => ArrayRef[ Element ],
-    traits    => [ 'Array' ], 
+    isa       => HashRef[ Element ],
+    traits    => [ 'Hash' ], 
     lazy      => 1, 
 
     default   => sub ( $self ) { 
@@ -41,17 +41,19 @@ has 'element', (
     },  
 
     handles   => { 
-        set_element    => 'set', 
-        get_element    => 'get', 
-        delete_element => 'delete', 
-        get_elements   => 'elements'
+        has_element         => 'exists', 
+        count_element       => 'count', 
+        set_element         => 'set', 
+        get_element         => 'get', 
+        delete_element      => 'delete', 
+        get_element_indices => 'keys'
     },  
 ); 
 
 has 'natom', ( 
     is        => 'ro', 
-    isa       => ArrayRef[ Int ], 
-    traits    => [ 'Array' ], 
+    isa       => HashRef[ Int ], 
+    traits    => [ 'Hash' ], 
     lazy      => 1, 
 
     default   => sub ( $self ) { 
@@ -59,16 +61,18 @@ has 'natom', (
     },  
 
     handles   => { 
-        set_natom    => 'set', 
-        get_natom    => 'get', 
-        delete_natom => 'delete', 
-        get_natoms   => 'elements' 
+        has_natom         => 'exists', 
+        count_natom       => 'count', 
+        set_natom         => 'set', 
+        get_natom         => 'get', 
+        delete_natom      => 'delete',  
+        get_natom_indices => 'keys'
     },  
 );  
 
 has 'lattice', ( 
     is        => 'ro', 
-    isa       => ArrayRef, 
+    isa       => ArrayRef[ ArrayRef ], 
     traits    => [ 'Array' ], 
     lazy      => 1, 
 
@@ -81,27 +85,9 @@ has 'lattice', (
     },  
 );  
 
-has 'index', ( 
-    is        => 'rw', 
-    isa       => HashRef,  
-    traits    => [ 'Hash' ], 
-    lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read( 'index' ); 
-    },  
-
-    handles   => { 
-        has_index    => 'exists', 
-        get_index    => 'get', 
-        get_indices  => 'keys',  
-        delete_index => 'delete', 
-    },  
-); 
-
 has 'coordinate', ( 
     is        => 'ro', 
-    isa       => HashRef,  
+    isa       => HashRef[ ArrayRef ],  
     traits    => [ 'Hash' ], 
     lazy      => 1, 
 
@@ -110,11 +96,20 @@ has 'coordinate', (
     },  
 
     handles   => { 
+        has_coordinate         => 'exists', 
         get_coordinate         => 'get', 
         set_coordinate         => 'set', 
         delete_coordinate      => 'delete', 
         get_coordinate_indices => 'keys',  
     },  
 ); 
+
+sub get_elements ( $self ) { 
+    return $self->get_element( sort { $a <=> $b } $self->get_element_indices ) 
+} 
+
+sub get_natoms ( $self ) { 
+    return $self->get_natom( sort { $a <=> $b } $self->get_natom_indices ) 
+}
 
 1; 
