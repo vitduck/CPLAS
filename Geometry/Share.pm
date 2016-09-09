@@ -41,11 +41,11 @@ has 'element', (
     },  
 
     handles   => { 
-        count_element   => 'count', 
-        set_element     => 'set', 
-        get_element     => 'get', 
-        delete_element  => 'delete', 
-        element_indices => 'keys'
+        count_element      => 'count', 
+        set_element        => 'set', 
+        get_element        => 'get', 
+        delete_element     => 'delete', 
+        get_element_indices => 'keys'
     },  
 ); 
 
@@ -60,11 +60,11 @@ has 'natom', (
     },  
 
     handles   => { 
-        count_natom   => 'count', 
-        set_natom     => 'set', 
-        get_natom     => 'get', 
-        delete_natom  => 'delete',  
-        natom_indices => 'keys'
+        count_natom       => 'count', 
+        set_natom         => 'set', 
+        get_natom         => 'get', 
+        delete_natom      => 'delete',  
+        get_natom_indices => 'keys'
     },  
 );  
 
@@ -94,20 +94,20 @@ has 'coordinate', (
     },  
 
     handles   => { 
-        has_coordinate     => 'exists', 
-        get_coordinate     => 'get', 
-        set_coordinate     => 'set', 
-        delete_coordinate  => 'delete', 
-        coordinate_indices => 'keys',  
+        has_coordinate         => 'exists', 
+        get_coordinate         => 'get', 
+        set_coordinate         => 'set', 
+        delete_coordinate      => 'delete', 
+        get_coordinate_indices => 'keys',  
     },  
 ); 
 
 sub get_elements ( $self ) { 
-    return $self->get_element( sort { $a <=> $b } $self->element_indices ) 
+    return $self->get_element( sort { $a <=> $b } $self->get_element_indices ) 
 } 
 
 sub get_natoms ( $self ) { 
-    return $self->get_natom( sort { $a <=> $b } $self->natom_indices ) 
+    return $self->get_natom( sort { $a <=> $b } $self->get_natom_indices ) 
 }
 
 1; 

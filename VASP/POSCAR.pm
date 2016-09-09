@@ -30,18 +30,22 @@ has 'delete', (
     predicate => 'has_delete', 
 
     handles   => {  
-        delete_indices => 'elements' 
+        get_delete_indices => 'elements' 
     } 
 ); 
 
 has 'constraint', (   
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
     predicate => 'has_constraint', 
     
     handles   => {  
-        get_constraints => 'elements' 
+        get_constraints => sub ( $self ) { 
+            return $self->constraint->@[0..2] 
+        }, 
+        get_constraint_indices => sub ( $self ) { 
+            return $self->constraint->@[3..$self->constraint->$#*]
+        }
     } 
 ); 
 
@@ -66,7 +70,7 @@ has '_indexed_coordinate', (
     lazy      => 1, 
     
     default   => sub ( $self ) { 
-        my @indices = sort { $a <=> $b } $self->coordinate_indices; 
+        my @indices = sort { $a <=> $b } $self->get_coordinate_indices; 
         return [
             $self->selective ? 
             map [ $self->get_coordinate($_)->@*, $self->get_dynamics_tag($_)->@*, $_+1 ], @indices : 
@@ -113,7 +117,7 @@ sub _backup ( $self ) {
 } 
 
 sub _delete ( $self ) { 
-    my @indices = grep $self->has_coordinate($_), map $_ - 1, $self->delete_indices;  
+    my @indices = grep $self->has_coordinate($_), map $_ - 1, $self->get_delete_indices;  
 
     # delte corresponding constraint and coordinate 
     $self->delete_coordinate  ( @indices ); 
@@ -124,9 +128,6 @@ sub _delete ( $self ) {
 } 
 
 sub _update_natom_and_element ( $self, @indices ) { 
-    # debug 
-    use Data::Printer; 
-    
     # construct the boundaries 
     # Ex: @natom = ( 10, 20, 40 ) -> @boundaries = ( 10, 30, 70 )
     my $bound      = 0; 
@@ -135,7 +136,7 @@ sub _update_natom_and_element ( $self, @indices ) {
     
     # cache natom 
     my @natoms = $self->get_natoms; 
-    for my $delete ( $self->delete_indices ) { 
+    for my $delete ( $self->get_delete_indices ) { 
         # takes the lower bound only 
         my ( $index )    = grep { $delete <= $boundaries[$_] } 0..$#boundaries;  
         $natoms[$index] -= 1; 
@@ -154,17 +155,19 @@ sub _update_natom_and_element ( $self, @indices ) {
 } 
 
 sub _constraint ( $self ) { 
-    my @tags = $self->get_constraints;  
+    # my @tags = $self->get_constraints;  
 
     # first three elements is the constraint tag 
-    my @constraints = splice @tags, 0, 3;  
+    # my @constraints = splice @tags, 0, 3;  
+    my @constraints = $self->get_constraints; 
+    my @indices     = $self->get_constraint_indices; 
 
     # if no furthur indices are specified, 
     # replace constraint tags of all indices 
-    my @indices = 
-        @tags == 0 ? 
-        $self->coordinate_indices :  
-        map $_ - 1, grep $self->has_coordinate($_), @tags; 
+    @indices = 
+        @indices == 0 ? 
+        $self->get_coordinate_indices :  
+        map $_ - 1, grep $self->has_coordinate($_), @indices;  
 
     # set constraint 
     $self->set_dynamics_tag( map { $_ => [ @constraints ] } @indices ) 

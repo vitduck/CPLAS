@@ -60,10 +60,10 @@ has 'dynamics_tag', (
     },  
 
     handles   => { 
-        get_dynamics_tag      => 'get', 
-        set_dynamics_tag      => 'set', 
-        delete_dynamics_tag   => 'delete', 
-        dynamics_tag_indices => 'keys'
+        get_dynamics_tag         => 'get', 
+        set_dynamics_tag         => 'set', 
+        delete_dynamics_tag      => 'delete', 
+        get_dynamics_tag_indices => 'keys'
     },   
 ); 
 
@@ -76,7 +76,7 @@ has 'false_index', (
     default   => sub ( $self ) { 
         my $false = [ ]; 
 
-        for my $index ( $self->dynamics_tag_indices ) { 
+        for my $index ( $self->get_dynamics_tag_indices ) { 
             if ( grep $_ eq 'F', $self->get_dynamics_tag($index)->@* ) { 
                 push $false->@*, $index;  
             }
@@ -95,7 +95,7 @@ has 'true_index', (
     default   => sub ( $self ) { 
         my $true = [ ]; 
 
-        for my $index ( $self->dynamics_tag_indices ) { 
+        for my $index ( $self->get_dynamics_tag_indices ) { 
             if ( ( grep $_ eq 'T', $self->get_dynamics_tag($index)->@* ) == 3 ) { 
                 push $true->@*, $index; 
             }
