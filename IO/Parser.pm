@@ -1,13 +1,14 @@
 package IO::Parser; 
 
-use Moose::Role; 
-use MooseX::Types::Moose qw( Str HashRef );  
+use strict; 
+use warnings FATAL => 'all'; 
 
-use strictures 2; 
+use Moose::Role; 
+use MooseX::Types::Moose qw( HashRef );  
+use IO::KISS; 
+
 use namespace::autoclean; 
 use experimental qw( signatures );
-
-use IO::KISS; 
 
 requires '_parse_file'; 
 

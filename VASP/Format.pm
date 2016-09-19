@@ -1,9 +1,11 @@
 package VASP::Format;  
 
+use strict; 
+use warnings FATAL => 'all'; 
+
 use Moose::Role; 
 use MooseX::Types::Moose qw( HashRef );  
 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
@@ -34,4 +36,4 @@ has 'poscar_format', (
     },  
 ); 
 
-1; 
+1 

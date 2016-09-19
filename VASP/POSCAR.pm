@@ -1,18 +1,20 @@
 package VASP::POSCAR; 
 
+use autodie; 
+use strict; 
+use warnings FATAL => 'all'; 
+
+use Try::Tiny; 
+use File::Copy qw( copy );  
 use Moose;  
 use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );   
+use IO::KISS; 
+use VASP::POTCAR; 
 use Types::Periodic qw( Element );   
-use File::Copy qw( copy );  
-use Try::Tiny; 
 
-use autodie; 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
-use IO::KISS; 
-use VASP::POTCAR; 
 with qw( IO::Parser VASP::Format ), 
      qw( Geometry::Share Geometry::VASP );  
 
@@ -71,6 +73,7 @@ has '_indexed_coordinate', (
     
     default   => sub ( $self ) { 
         my @indices = sort { $a <=> $b } $self->get_coordinate_indices; 
+
         return [
             $self->selective ? 
             map [ $self->get_coordinate($_)->@*, $self->get_dynamics_tag($_)->@*, $_+1 ], @indices : 
@@ -101,6 +104,7 @@ sub write ( $self ) {
         IO::KISS->new( $self->file, 'w' ); 
    
     $fh->printf( "%s\n" , $self->comment ); 
+
     $fh->printf( $self->get_poscar_format( 'scaling' ), $self->scaling ); 
     $fh->printf( $self->get_poscar_format( 'lattice' ), @$_ ) for $self->get_lattices; 
     $fh->printf( $self->get_poscar_format( 'element' ), $self->get_elements ); 

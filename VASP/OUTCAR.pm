@@ -1,9 +1,11 @@
 package VASP::OUTCAR; 
 
+use strict;  
+use warnings FATAL => 'all'; 
+
 use Moose;  
 use MooseX::Types::Moose qw( Str ); 
 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 

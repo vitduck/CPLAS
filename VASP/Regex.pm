@@ -1,9 +1,11 @@
 package VASP::Regex; 
 
+use strict; 
+use warnings FATAL => 'all'; 
+
 use Moose::Role; 
 use MooseX::Types::Moose qw( RegexpRef );  
 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 

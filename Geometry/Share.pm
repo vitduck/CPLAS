@@ -1,12 +1,13 @@
 package Geometry::Share; 
 
+use strict; 
+use warnings FATAL => 'all'; 
+
+use List::Util qw( sum );  
 use Moose::Role; 
 use MooseX::Types::Moose qw( Str Int ArrayRef HashRef ); 
 use Types::Periodic qw( Element );  
 
-use List::Util qw( sum );  
-
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures );  
 

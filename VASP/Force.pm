@@ -1,14 +1,15 @@
 package VASP::Force; 
 
+use strict; 
+use warnings FATAL => 'all'; 
+
 use PDL::Lite; 
 use Moose::Role; 
-
-use strictures 2; 
-use namespace::autoclean; 
-use experimental qw( signatures );  
-
 use IO::KISS; 
 use VASP::POSCAR;  
+
+use namespace::autoclean; 
+use experimental qw( signatures );  
 
 has 'force', ( 
     is       => 'ro', 

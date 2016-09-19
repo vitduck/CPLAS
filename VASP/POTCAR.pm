@@ -1,18 +1,19 @@
 package VASP::POTCAR; 
 
-use Moose;  
-use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
-use Types::Exchange qw( VASP_PP );  
-use Types::Periodic qw( Element Element_Name ); 
+use strict; 
+use warnings FATAL => 'all'; 
 
 use File::Basename; 
 use File::Spec::Functions; 
+use Moose;  
+use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
+use IO::KISS;  
+use Types::Exchange qw( VASP_PP );  
+use Types::Periodic qw( Element Element_Name ); 
 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures postderef_qq );  
 
-use IO::KISS;  
 with qw( IO::Parser ); 
 
 has 'pot_dir', ( 

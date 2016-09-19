@@ -1,8 +1,10 @@
 package XYZ::Xmakemol; 
 
+use strict; 
+use warnings FATAL => 'all'; 
+
 use Moose::Role; 
 
-use strictures 2; 
 use namespace::autoclean; 
 use experimental qw( signatures );
 

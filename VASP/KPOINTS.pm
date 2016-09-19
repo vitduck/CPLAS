@@ -1,14 +1,16 @@
 package VASP::KPOINTS; 
 
+use strict; 
+use warnings FATAL => 'all'; 
+
+use List::Util qw( product ); 
 use Moose;  
 use MooseX::Types::Moose qw( Str Int ArrayRef );  
-use List::Util qw( product ); 
+use IO::KISS; 
 
-use strictures 2;  
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
-use IO::KISS; 
 with qw( IO::Parser ); 
 
 has 'file', ( 
