@@ -70,6 +70,7 @@ has 'dynamics_tag', (
 has 'false_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
 
@@ -84,11 +85,16 @@ has 'false_index', (
 
         return $false  
     },  
+
+    handles  => { 
+        get_false_indices => 'elements'
+    }
 ); 
 
 has 'true_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
+    traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
 
@@ -102,6 +108,10 @@ has 'true_index', (
         }
 
         return $true 
+    },  
+
+    handles  => { 
+        get_true_indices => 'elements'
     } 
 );  
 

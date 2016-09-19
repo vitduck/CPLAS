@@ -21,8 +21,10 @@ has 'force', (
     # The 3,4, and 5 column are fx, fy, and fz 
     # @forces is a 3d matrix with dimension of NSW x NIONS x 3
     default  => sub ( $self ) { 
-        my $force = [ ];  
-        my $true  = VASP::POSCAR->new->true_index; 
+        my $force  = [ ];  
+        my $poscar = VASP_POSCAR->new; 
+        my @true   = $poscar->get_true_indices; 
+        my @false  = $poscar->get_false_indices; 
 
         for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 
             my $iforce = [ ]; 
@@ -32,7 +34,12 @@ has 'force', (
             } 
             push $force->@*, $iforce; 
         } 
-        return PDL->new($force)->dice( 'X', $true, 'X' ); 
+
+        return (
+            @false == 0 ? 
+            PDL->new($force) : 
+            PDL->new($force)->dice( 'X', \@true, 'X' ) 
+        )
     }, 
 ); 
 
