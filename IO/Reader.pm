@@ -1,4 +1,4 @@
-package IO::Parser; 
+package IO::Reader;
 
 use strict; 
 use warnings FATAL => 'all'; 
@@ -10,20 +10,28 @@ use IO::KISS;
 use namespace::autoclean; 
 use experimental qw( signatures );
 
-requires '_parse_file'; 
+has 'io_reader', ( 
+    is        => 'ro', 
+    isa       => 'IO::KISS', 
+    lazy      => 1, 
+    builder   => '_build_io_reader', 
+    handles   => [ qw( get_line get_lines slurp ) ]
+); 
 
-has 'parser', ( 
+has 'reader', ( 
     is        => 'ro', 
     isa       => HashRef, 
     traits    => [ 'Hash' ], 
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_parse_file', 
-
     handles   => { 
         read => 'get',  
-        list => 'keys', 
     }, 
 ); 
 
-1; 
+sub _build_io_reader ( $self ) { 
+    return IO::KISS->new( $self->file, 'r' ) 
+}
+
+1 

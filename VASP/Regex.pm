@@ -17,9 +17,12 @@ has 'force_regex', (
     isa       => RegexpRef, 
     lazy      => 1, 
     init_arg  => undef, 
+    builder   => '_build_force_regex'
+); 
 
-    default   => sub ( $self ) { 
-        return qr/
+sub _build_force_regex ( $self ) { 
+    return (
+        qr/
             (?:
                 \ POSITION\s+TOTAL-FORCE\ \(eV\/Angst\)\n
                 \ -+\n
@@ -29,7 +32,7 @@ has 'force_regex', (
                 \ -+\n
             )
         /xs 
-    },  
-); 
+    )
+} 
 
 1; 

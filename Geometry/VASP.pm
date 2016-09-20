@@ -10,62 +10,48 @@ use Types::Periodic qw( Element );
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
+with 'Geometry::General'; 
+
 has 'version', ( 
     is        => 'ro', 
     isa       => Int,  
     lazy      => 1, 
-
-    default   => sub ( $self ) {  
-        return $self->read( 'version' )
-    }
+    builder   => '_build_version' 
 );  
 
 has 'scaling', ( 
     is        => 'ro', 
     isa       => Str,   
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read( 'scaling' ) 
-    } 
+    builder   => '_build_scaling' 
 );  
 
 has 'selective', ( 
     is        => 'ro', 
     isa       => Bool,  
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read( 'selective' ) 
-    } 
+    builder   => '_build_selective'
 ); 
 
 has 'type', ( 
     is        => 'ro', 
     isa       => Str, 
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read( 'type' ) 
-    } 
+    builder   => '_build_type'
 ); 
 
-has 'dynamics_tag', ( 
+has 'indexed_dynamics', ( 
     is        => 'rw', 
     isa       => HashRef, 
     traits    => [ 'Hash' ], 
     lazy      => 1, 
     init_arg  => undef, 
-
-    default   => sub ( $self ) { 
-        $self->read( 'dynamics_tag' )
-    },  
-
+    builder   => '_build_dynamics', 
     handles   => { 
-        get_dynamics_tag         => 'get', 
-        set_dynamics_tag         => 'set', 
-        delete_dynamics_tag      => 'delete', 
-        get_dynamics_tag_indices => 'keys'
+        set_dynamics         => 'set', 
+        get_dynamics_indices => 'keys', 
+        get_dynamics         => 'get', 
+        delete_dynamics      => 'delete' 
     },   
 ); 
 
@@ -75,22 +61,8 @@ has 'false_index', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
-
-    default   => sub ( $self ) { 
-        my $false = [ ]; 
-
-        for my $index ( $self->get_dynamics_tag_indices ) { 
-            if ( grep $_ eq 'F', $self->get_dynamics_tag($index)->@* ) { 
-                push $false->@*, $index;  
-            }
-        }
-
-        return $false  
-    },  
-
-    handles  => { 
-        get_false_indices => 'elements'
-    }
+    builder   => '_build_false_index', 
+    handles   => { get_false_indices => 'elements' }
 ); 
 
 has 'true_index', ( 
@@ -99,22 +71,41 @@ has 'true_index', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef,
-
-    default   => sub ( $self ) { 
-        my $true = [ ]; 
-
-        for my $index ( $self->get_dynamics_tag_indices ) { 
-            if ( ( grep $_ eq 'T', $self->get_dynamics_tag($index)->@* ) == 3 ) { 
-                push $true->@*, $index; 
-            }
-        }
-
-        return $true 
-    },  
-
-    handles  => { 
-        get_true_indices => 'elements'
-    } 
+    builder   => '_build_true_index', 
+    handles  => {  get_true_indices => 'elements' } 
 );  
 
-1; 
+# from cached POSCAR 
+sub _build_comment    ( $self ) { return $self->read( 'comment' ) }   
+sub _build_version    ( $self ) { return $self->read( 'version' ) }   
+sub _build_scaling    ( $self ) { return $self->read( 'scaling' ) }   
+sub _build_lattice    ( $self ) { return $self->read( 'lattice' ) }
+sub _build_atom       ( $self ) { return $self->read( 'atom' ) }
+sub _build_selective  ( $self ) { return $self->read( 'selective' ) } 
+sub _build_type       ( $self ) { return $self->read( 'type' ) } 
+sub _build_coordinate ( $self ) { return $self->read( 'coordinate' ) }
+sub _build_dynamics   ( $self ) { return $self->read( 'dynamics' ) }  
+
+sub _build_false_index ( $self ) { 
+    my @f_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        push @f_indices, $index - 1 
+            if grep $_ eq 'F', $self->get_dynamics($index)->@*;   
+    }
+
+   return \@f_indices;  
+} 
+
+sub _build_true_index ( $self ) {
+    my @t_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        push @t_indices, $index - 1 
+            if ( grep $_ eq 'T', $self->get_dynamics($index)->@* ) == 3  
+    }
+
+    return \@t_indices;  
+}
+
+1

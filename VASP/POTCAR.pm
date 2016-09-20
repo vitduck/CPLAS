@@ -7,14 +7,14 @@ use File::Basename;
 use File::Spec::Functions; 
 use Moose;  
 use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
-use IO::KISS;  
 use Types::Exchange qw( VASP_PP );  
 use Types::Periodic qw( Element Element_Name ); 
+use IO::KISS;  
 
 use namespace::autoclean; 
-use experimental qw( signatures postderef_qq );  
+use experimental qw( signatures postderef_qq refaliasing );  
 
-with qw( IO::Parser ); 
+with qw( IO::Reader IO::Writer ); 
 
 has 'pot_dir', ( 
     is        => 'ro', 
@@ -37,31 +37,15 @@ has 'element', (
     isa       => ArrayRef[ Element ],  
     traits    => [ 'Array' ], 
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return [ map $_->[0], $self->get_pp_info ] 
-    },  
-
-    handles   => { 
-        get_elements => 'elements' 
-    }, 
+    builder   => '_build_element', 
+    handles   => { get_elements => 'elements' } 
 ); 
 
 has 'exchange', ( 
     is        => 'ro', 
     isa       => VASP_PP, 
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        my @exchanges = $self->list;  
-        
-        # sanity check
-        return ( 
-            @exchanges > 1 ? 
-            die "More than one kind of PP. Something is wrong ...\n" :  
-            shift @exchanges  
-        )
-    },  
+    builder   => '_build_exchange' 
 ); 
 
 has 'pp_info', (  
@@ -69,14 +53,8 @@ has 'pp_info', (
     isa       => ArrayRef, 
     traits    => [ 'Array' ], 
     lazy      => 1, 
-
-    default   => sub ( $self ) { 
-        return $self->read( $self->exchange )  
-    },  
-
-    handles   => {  
-        get_pp_info => 'elements' 
-    }, 
+    builder   => '_build_pp_info', 
+    handles   => { get_pp_info => 'elements' } 
 ); 
 
 has 'config', ( 
@@ -85,24 +63,8 @@ has 'config', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef, 
-
-    default   => sub ( $self ) { 
-        my $config = []; 
-
-        for my $element ( $self->get_elements ) { 
-            push $config->@*, [ 
-                map basename($_), 
-                grep /\/($element)(\z|\d|_|\.)/, 
-                glob "${\$self->pot_dir}/${\$self->exchange}/*" 
-            ]; 
-        } 
-
-        return $config
-    },  
-
-    handles   => { 
-        get_configs => 'elements' 
-    }, 
+    builder   => '_build_config', 
+    handles   => { get_configs => 'elements' } 
 ); 
 
 has 'potcar', ( 
@@ -111,27 +73,8 @@ has 'potcar', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef, 
-
-    default   => sub ( $self ) { 
-        my $potcar = []; 
-
-        for my $config ( $self->get_configs ) { 
-            while ( 1 ) { 
-                printf "=> Pseudopotentials < %s >: ", join(' | ', $config->@* );  
-                chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
-                if ( grep $choice eq $_ , $config->@* ) {  
-                    push $potcar->@*, catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' );  
-                    last; 
-                }
-            }
-        } 
-
-        return $potcar;  
-    },  
-   
-    handles   => { 
-        get_potcars => 'elements' 
-    },  
+    builder   => '_build_potcar', 
+    handles   => { get_potcars => 'elements' }  
 ); 
 
 sub BUILD ( $self, @args ) { 
@@ -142,49 +85,95 @@ sub BUILD ( $self, @args ) {
     }
 } 
 
-sub make ( $self ) { 
-    my $fh = IO::KISS->new( $self->file, 'w' ); 
-
-    $fh->print( IO::KISS->new( $_, 'r' )->get_string ) for $self->get_potcars;  
-
-    $fh->close; 
-} 
-
 sub info ( $self ) { 
     printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
     printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
 } 
 
+sub make ( $self ) { 
+    for my $potcar ( $self->get_potcars ) {  
+        $self->print( IO::KISS->new( $potcar, 'r' )->slurp ) 
+    }
+    $self->close; 
+} 
+
+sub _build_element ( $self ) { 
+    return [ map $_->[0], $self->get_pp_info ] 
+}
+
+sub _build_pp_info ( $self ) { 
+    return $self->read( $self->exchange )      
+}
+
+sub _build_exchange ( $self ) { 
+    my @exchanges = keys $self->reader->%*;  
+
+    return ( 
+        @exchanges > 1 ? 
+        die "More than one kind of PP. Something is wrong ...\n" :  
+        shift @exchanges  
+    )
+}  
+
+sub _build_config ( $self ) { 
+    my @configs = (); 
+
+    for my $element ( $self->get_elements ) { 
+        push @configs, [ 
+            map basename($_), 
+            grep /\/($element)(\z|\d|_|\.)/, 
+            glob "${\$self->pot_dir}/${\$self->exchange}/*" 
+        ]; 
+    } 
+
+    return \@configs
+} 
+
+sub _build_potcar ( $self ) { 
+    my @potcars = (); 
+
+    for \ my @configs ( $self->get_configs ) { 
+        while ( 1 ) { 
+            printf "=> Pseudopotentials < %s >: ", join(' | ', @configs );  
+            chomp ( my $choice = <STDIN> =~ s/\s+//rg ); 
+            if ( grep $choice eq $_ , @configs ) {  
+                push @potcars, catfile( $self->pot_dir, $self->exchange, $choice, 'POTCAR' );  
+                last; 
+            }
+        }
+    } 
+
+    return \@potcars 
+} 
+
 sub _parse_file ( $self ) { 
-    my $info = { };  
-    my $fh = IO::KISS->new( $self->file, 'r' ); 
+    my %info = ();  
     my ( $exchange, $element, $pseudo, $config, $date ); 
     
-    for ( $fh->get_lines ) { 
+    for ( $self->get_lines ) { 
         # Ex: VRHFIN =C: s2p2
         if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
             $element = $1; 
-            my @valences;  
-            $config  = 
-            ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
-            join '', @valences : 
-            (split ' ', $2)[0]; 
+            my @valences = ();  
+            
+            $config  = ( 
+                ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
+                join '', @valences : 
+                (split ' ', $2)[0] 
+            )
         }
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
             ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
             $date //= '---'; 
-            push $info->{$exchange}->@*, 
+            push $info{$exchange}->@*, 
                 [ $element, to_Element_Name($element), $pseudo, $config, $date ]; 
         }
     }
 
-    $fh->close; 
-
-    return $info; 
+    return \%info;  
 } 
 
-# speed-up object construction 
 __PACKAGE__->meta->make_immutable;
 
 1; 

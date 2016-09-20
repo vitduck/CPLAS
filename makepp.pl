@@ -1,22 +1,17 @@
 #!/usr/bin/env perl 
 
-# core 
-use IO::File; 
-use Getopt::Long; 
-use Pod::Usage; 
-
-# cpan 
-use Data::Printer; 
-
-# pragma 
 use autodie; 
 use strict; 
 use warnings FATAL => 'all'; 
+
+use Data::Printer; 
+use IO::File; 
+use Getopt::Long; 
+use Pod::Usage; 
+use VASP::POTCAR; 
+
 use feature qw/switch/; 
 use experimental qw/smartmatch/; 
-
-# Moose class 
-use VASP::POTCAR; 
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 
@@ -66,6 +61,7 @@ GetOptions(
 given ( $mode ) { 
     when ( 'help' ) { pod2usage( -verbose => 99, -section => \@usages ) }
     when ( 'list' ) { VASP::POTCAR->new->info }  
+
     default { 
         my $PP = VASP::POTCAR->new( element => [@ARGV], exchange => $exchange ); 
         $PP->make;  

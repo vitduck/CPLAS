@@ -1,15 +1,11 @@
 #!/usr/bin/env perl 
 
-# core 
-use Getopt::Long; 
-use Pod::Usage; 
-
-# pragma
 use autodie;  
 use strict; 
 use warnings FATAL => 'all';  
 
-# Moose class 
+use Getopt::Long; 
+use Pod::Usage; 
 use VASP::OUTCAR;  
 
 my @usages = qw(NAME SYSNOPSIS OPTIONS); 
