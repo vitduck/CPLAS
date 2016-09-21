@@ -57,7 +57,7 @@ has 'backup', (
     lazy      => 1, 
     predicate => 'has_backup', 
     default   => 'POSCAR.bak', 
-    trigger   =>  \&_backup
+    trigger   => \&_backup
 ); 
 
 has 'save_as', ( 
@@ -68,7 +68,7 @@ has 'save_as', (
     default   => 'POSCAR.new' 
 ); 
 
-sub BUILD ( $self, @args ) { 
+sub BUILD ( $self, @ ) { 
     # cache POSCAR
     try { $self->reader };  
 
@@ -144,17 +144,17 @@ sub write_coordinate ( $self ) {
     }
 } 
 
-sub _backup ( $self, @args ) { 
+sub _backup ( $self, @ ) { 
     copy $self->file => $self->backup 
 } 
 
-sub _dynamics ( $self, @args ) { 
+sub _dynamics ( $self, @ ) { 
     $self->set_dynamics( 
         map { $_ =>  [ split ' ', $self->dynamics ] } $self->get_indices 
     ) 
 } 
 
-sub _delete ( $self, @args ) { 
+sub _delete ( $self, @ ) { 
     my @indices = $self->get_indices;  
 
     $self->delete_atom(@indices);  

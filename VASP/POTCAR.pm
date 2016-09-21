@@ -77,7 +77,7 @@ has 'potcar', (
     handles   => { get_potcars => 'elements' }  
 ); 
 
-sub BUILD ( $self, @args ) { 
+sub BUILD ( $self, @ ) { 
     # check if potential directory is accessible 
     if ( not -d $self->pot_dir ) { 
         die "Please export location of POTCAR files in .bashrc\n

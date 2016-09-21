@@ -3,6 +3,7 @@ package VASP::Force;
 use strict; 
 use warnings FATAL => 'all'; 
 
+use Try::Tiny; 
 use PDL::Lite; 
 use Moose::Role; 
 use IO::KISS; 
@@ -36,24 +37,28 @@ has 'max_force', (
 # The 3,4, and 5 column are fx, fy, and fz 
 # @forces is a 3d matrix with dimension of NSW x NIONS x 3
 sub _build_force ( $self ) { 
-    my $force  = [ ];  
-    my $poscar = VASP::POSCAR->new; 
-    my @true   = $poscar->get_true_indices; 
-    my @false  = $poscar->get_false_indices; 
+    my ( @forces, @true_indices, @false_indices ) = ();   
+
+    try { 
+        my $poscar = VASP::POSCAR->new;  
+        @true_indices  = $poscar->get_true_indices; 
+        @false_indices = $poscar->get_false_indices; 
+    } 
+    catch { @false_indices == 0 } ; 
 
     for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 
-        my $iforce = [ ]; 
-        my $kiss   = IO::KISS->new(\$force_block, 'r'); 
+        my @iforces = (); 
+        my $kiss    = IO::KISS->new(\$force_block, 'r'); 
         for ( $kiss->get_lines ) { 
-            push $iforce->@*, [ (split)[3,4,5] ]; 
+            push @iforces, [ (split)[3,4,5] ]; 
         } 
-        push $force->@*, $iforce; 
+        push @forces, \@iforces; 
     } 
 
     return (
-        @false == 0 ? 
-        PDL->new($force) : 
-        PDL->new($force)->dice( 'X', \@true, 'X' ) 
+        @false_indices == 0 ? 
+        PDL->new( \@forces ) : 
+        PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
     )
 } 
 

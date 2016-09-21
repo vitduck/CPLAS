@@ -26,19 +26,19 @@ makepot.pl [-h] [-i] [-e PAW_PBE] C H O
 
 =head1 OPTIONS
 
-=over 8
+=over 16
 
-=item B<--help, -h>
+=item B<-h, --help>
 
 Print the help message and exit.
 
-=item B<--list, -l> 
+=item B<-l, --list> 
 
 List information of POTCAR
 
-=item B<--exchange, -e> 
+=item B<-e, --exch> 
 
-Available potentials: PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA
+PAW_PBE | PAW_GGA | PAW_LDA | POT_GGA | POT_LDA
 
 =back 
 

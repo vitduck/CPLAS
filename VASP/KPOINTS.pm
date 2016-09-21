@@ -72,7 +72,7 @@ has 'nkpt', (
     builder  => '_build_nkpt', 
 ); 
 
-sub BUILD ( $self, @args ) { 
+sub BUILD ( $self, @ ) { 
     $self->reader;  
 } 
 

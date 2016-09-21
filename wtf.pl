@@ -21,17 +21,17 @@ wtf.pl [-h] [-s] [-i OUTCAR]
 
 =head1 OPTIONS
 
-=over 8 
+=over 16
 
-=item B<--help, -h> 
+=item B<-h, --help> 
 
 Print the help message and exit.
 
-=item B<--input, -i>
+=item B<-i, --input>
 
 Input file (default: OUTCAR) 
 
-=item B<--column, -c> 
+=item B<-c, --column> 
 
 Number of column of the force table 
 
@@ -54,7 +54,8 @@ GetOptions(
 if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
 
 # collect forces 
-my $outcar = VASP::OUTCAR->new; 
+my $outcar = VASP::OUTCAR->new( file => $input );  
+
 my @forces = $outcar->get_max_forces; 
 
 # table format
