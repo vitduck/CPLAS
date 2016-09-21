@@ -2,13 +2,14 @@ package IO::Reader;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use namespace::autoclean; 
+use feature 'signatures'; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw( HashRef );  
+use MooseX::Types::Moose 'HashRef'; 
 use IO::KISS; 
 
-use namespace::autoclean; 
-use experimental qw( signatures );
+no warnings 'experimental'; 
 
 has 'io_reader', ( 
     is        => 'ro', 

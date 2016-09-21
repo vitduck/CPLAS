@@ -2,17 +2,17 @@ package VASP::KPOINTS;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'switch','signatures';  
+use namespace::autoclean; 
 
-use List::Util qw( product ); 
+use List::Util 'product';  
 use Moose;  
-use MooseX::Types::Moose qw( Str Int ArrayRef );  
+use MooseX::Types::Moose 'Str','Int','ArrayRef';  
 use IO::KISS; 
 
-use namespace::autoclean; 
-use feature qw( switch ); 
-use experimental qw( signatures smartmatch ); 
+no warnings 'experimental'; 
 
-with qw( IO::Reader ); 
+with 'IO::Reader';  
 
 has 'file', ( 
     is       => 'ro', 

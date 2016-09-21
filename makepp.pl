@@ -3,6 +3,7 @@
 use autodie; 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'switch';   
 
 use Data::Printer; 
 use IO::File; 
@@ -10,8 +11,7 @@ use Getopt::Long;
 use Pod::Usage; 
 use VASP::POTCAR; 
 
-use feature qw/switch/; 
-use experimental qw/smartmatch/; 
+no warnings 'experimental';  
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 

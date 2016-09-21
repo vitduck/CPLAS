@@ -2,19 +2,20 @@ package VASP::POTCAR;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'signatures','refaliasing'; 
+use namespace::autoclean; 
 
 use File::Basename; 
 use File::Spec::Functions; 
 use Moose;  
-use MooseX::Types::Moose qw( Str ArrayRef HashRef ); 
-use Types::Exchange qw( VASP_PP );  
-use Types::Periodic qw( Element Element_Name ); 
+use MooseX::Types::Moose 'Str','ArrayRef','HashRef'; 
 use IO::KISS;  
+use Types::Exchange 'VASP_PP';  
+use Types::Periodic 'Element','Element_Name';  
 
-use namespace::autoclean; 
-use experimental qw( signatures postderef_qq refaliasing );  
+no warnings 'experimental'; 
 
-with qw( IO::Reader IO::Writer ); 
+with 'IO::Reader','IO::Writer';  
 
 has 'pot_dir', ( 
     is        => 'ro', 

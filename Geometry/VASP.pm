@@ -2,13 +2,14 @@ package Geometry::VASP;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'signatures'; 
+use namespace::autoclean; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef ); 
-use Types::Periodic qw( Element );  
+use MooseX::Types::Moose 'Bool','Str','Int','ArrayRef','HashRef';  
+use Types::Periodic 'Element'; 
 
-use namespace::autoclean; 
-use experimental qw( signatures ); 
+no warnings 'experimental'; 
 
 with 'Geometry::General'; 
 
@@ -75,16 +76,15 @@ has 'true_index', (
     handles  => {  get_true_indices => 'elements' } 
 );  
 
-# from cached POSCAR 
-sub _build_comment    ( $self ) { return $self->read( 'comment' ) }   
-sub _build_version    ( $self ) { return $self->read( 'version' ) }   
-sub _build_scaling    ( $self ) { return $self->read( 'scaling' ) }   
-sub _build_lattice    ( $self ) { return $self->read( 'lattice' ) }
-sub _build_atom       ( $self ) { return $self->read( 'atom' ) }
-sub _build_selective  ( $self ) { return $self->read( 'selective' ) } 
-sub _build_type       ( $self ) { return $self->read( 'type' ) } 
-sub _build_coordinate ( $self ) { return $self->read( 'coordinate' ) }
-sub _build_dynamics   ( $self ) { return $self->read( 'dynamics' ) }  
+# overriding 
+sub _build_total_natom ( $self ) { return sum( $self->get_natoms ) }   
+
+# native builder 
+sub _build_version   ( $self ) { return $self->read( 'version'   ) }   
+sub _build_scaling   ( $self ) { return $self->read( 'scaling'   ) }   
+sub _build_selective ( $self ) { return $self->read( 'selective' ) } 
+sub _build_type      ( $self ) { return $self->read( 'type'      ) } 
+sub _build_dynamics  ( $self ) { return $self->read( 'dynamics'  ) }  
 
 sub _build_false_index ( $self ) { 
     my @f_indices = ();  

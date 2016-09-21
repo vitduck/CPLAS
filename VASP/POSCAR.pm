@@ -3,19 +3,20 @@ package VASP::POSCAR;
 use autodie; 
 use strict; 
 use warnings FATAL => 'all'; 
-
-use Try::Tiny; 
-use File::Copy qw( copy );  
-use Moose;  
-use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );   
-use IO::KISS; 
-use Types::Periodic qw( Element );   
-use VASP::POTCAR; 
-
+use feature 'signatures';  
 use namespace::autoclean; 
-use experimental qw( signatures ); 
 
-with qw( IO::Reader IO::Writer Geometry::VASP VASP::Format );  
+use File::Copy 'copy';  
+use Try::Tiny; 
+use Moose;  
+use MooseX::Types::Moose 'Bool','Str','Int','ArrayRef','HashRef';  
+use IO::KISS; 
+use VASP::POTCAR; 
+use Types::Periodic 'Element';  
+
+no warnings 'experimental'; 
+
+with 'IO::Reader','IO::Writer','Geometry::VASP','VASP::Format';  
 
 has 'file', ( 
     is        => 'ro', 

@@ -2,14 +2,15 @@ package VASP::OUTCAR;
 
 use strict;  
 use warnings FATAL => 'all'; 
+use namespace::autoclean; 
+use feature 'signatures';  
 
 use Moose;  
-use MooseX::Types::Moose qw( Str ); 
+use MooseX::Types::Moose 'Str';  
 
-use namespace::autoclean; 
-use experimental qw( signatures ); 
+no warnings 'experimental'; 
 
-with qw( IO::Reader VASP::Force VASP::Regex );  
+with 'IO::Reader','VASP::Force','VASP::Regex'; 
 
 has 'file', ( 
     is        => 'ro', 

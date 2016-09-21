@@ -2,11 +2,12 @@ package IO::Writer;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'signatures'; 
+use namespace::autoclean; 
 
 use Moose::Role; 
 
-use namespace::autoclean; 
-use experimental qw( signatures ); 
+no warnings 'experimental'; 
 
 requires '_build_io_writer'; 
 

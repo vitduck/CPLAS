@@ -2,14 +2,15 @@ package Geometry::General;
 
 use strict; 
 use warnings FATAL => 'all'; 
-
-use List::Util qw( sum );  
-use Moose::Role; 
-use MooseX::Types::Moose qw( Str Int ArrayRef HashRef ); 
-use Types::Periodic qw( Element );  
-
+use feature 'signatures';  
 use namespace::autoclean; 
-use experimental qw( signatures );  
+
+use List::Util 'sum';   
+use Moose::Role; 
+use MooseX::Types::Moose 'Str','Int','ArrayRef','HashRef';  
+use Types::Periodic 'Element'; 
+
+no warnings 'experimental'; 
 
 has 'comment', ( 
     is       => 'ro', 
@@ -24,26 +25,6 @@ has 'total_natom', (
     lazy     => 1, 
     builder  => '_build_total_natom', 
 ); 
-
-has 'element', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Element ],
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    builder   => '_build_element',   
-    clearer   => '_clear_element', 
-    handles   => { get_elements  => 'elements' } 
-); 
-
-has 'natom', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Int ], 
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    builder   => '_build_natom', 
-    clearer   => '_clear_natom', 
-    handles   => { get_natoms => 'elements' } 
-);  
 
 has 'lattice', ( 
     is        => 'ro', 
@@ -80,9 +61,32 @@ has 'indexed_coordinate', (
     }  
 ); 
 
-sub _build_total_natom ( $self ) { 
-    return sum( $self->get_natoms ) 
-}   
+has 'element', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[ Element ],
+    traits    => [ 'Array' ], 
+    lazy      => 1, 
+    builder   => '_build_element',   
+    clearer   => '_clear_element', 
+    handles   => { get_elements  => 'elements' } 
+); 
+
+has 'natom', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[ Int ], 
+    traits    => [ 'Array' ], 
+    lazy      => 1, 
+    builder   => '_build_natom', 
+    clearer   => '_clear_natom', 
+    handles   => { get_natoms => 'elements' } 
+);  
+
+# native builder 
+sub _build_comment     ( $self ) { return $self->read( 'comment'     ) }
+sub _build_total_natom ( $self ) { return $self->read( 'total_natom' ) }
+sub _build_lattice     ( $self ) { return $self->read( 'lattice'     ) }
+sub _build_atom        ( $self ) { return $self->read( 'atom'        ) }
+sub _build_coordinate  ( $self ) { return $self->read( 'coordinate'  ) }
 
 sub _build_element ( $self ) { 
     my @elements = (); 

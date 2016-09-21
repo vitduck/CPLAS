@@ -2,6 +2,8 @@ package VASP::Force;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'signatures'; 
+use namespace::autoclean; 
 
 use Try::Tiny; 
 use PDL::Lite; 
@@ -9,8 +11,7 @@ use Moose::Role;
 use IO::KISS; 
 use VASP::POSCAR;  
 
-use namespace::autoclean; 
-use experimental qw( signatures );  
+no warnings 'experimental'; 
 
 has 'force', ( 
     is       => 'ro', 
@@ -44,6 +45,7 @@ sub _build_force ( $self ) {
         @true_indices  = $poscar->get_true_indices; 
         @false_indices = $poscar->get_false_indices; 
     } 
+    # POSCAR does not exist 
     catch { @false_indices == 0 } ; 
 
     for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 

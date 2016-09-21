@@ -2,12 +2,13 @@ package VASP::Regex;
 
 use strict; 
 use warnings FATAL => 'all'; 
+use feature 'signatures'; 
+use namespace::autoclean; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw( RegexpRef );  
+use MooseX::Types::Moose 'RegexpRef';  
 
-use namespace::autoclean; 
-use experimental qw( signatures ); 
+no warnings 'experimental';  
 
 # match the force block 
 # TODO: is it possible to capture the final three columns 

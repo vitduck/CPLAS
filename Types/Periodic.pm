@@ -3,8 +3,8 @@ package Types::Periodic;
 use strict; 
 use warnings FATAL => 'all'; 
 
-use MooseX::Types::Moose qw( Str Int ArrayRef ); 
-use MooseX::Types -declare => [ qw( Element Element_Name Atomic_Number ) ];   
+use MooseX::Types::Moose 'Str','Int','ArrayRef';  
+use MooseX::Types -declare => [ 'Element','Element_Name','Atomic_Number' ];   
 
 my %table = (
       1 => [ 'H',      'Hydrogen', '0.32', '1.00'],
