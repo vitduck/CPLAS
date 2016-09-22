@@ -1,17 +1,15 @@
 #!/usr/bin/env perl 
 
-use autodie; 
 use strict; 
-use warnings FATAL => 'all'; 
-use feature 'switch';   
+use warnings; 
+use feature qw( switch );  
+use experimental qw( smartmatch ); 
 
 use Data::Printer; 
 use IO::File; 
 use Getopt::Long; 
 use Pod::Usage; 
 use VASP::POTCAR; 
-
-no warnings 'experimental';  
 
 my @usages = qw( NAME SYSNOPSIS OPTIONS );  
 

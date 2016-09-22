@@ -2,8 +2,7 @@
 
 use autodie;  
 use strict; 
-use warnings FATAL => 'all';  
-
+use warnings; 
 use Getopt::Long; 
 use Pod::Usage; 
 use VASP::OUTCAR;  
