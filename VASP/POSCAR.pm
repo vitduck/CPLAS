@@ -1,22 +1,16 @@
 package VASP::POSCAR; 
 
-use autodie; 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'signatures';  
-use namespace::autoclean; 
-
-use File::Copy 'copy';  
-use Try::Tiny; 
 use Moose;  
-use MooseX::Types::Moose 'Bool','Str','Int','ArrayRef','HashRef';  
+use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
+use File::Copy qw( copy );  
+use Try::Tiny; 
 use IO::KISS; 
 use VASP::POTCAR; 
-use Types::Periodic 'Element';  
+use Periodic::Table qw( Element );  
+use namespace::autoclean; 
+use experimental qw( signatures );  
 
-no warnings 'experimental'; 
-
-with 'IO::Reader','IO::Writer','Geometry::VASP','VASP::Format';  
+with qw( IO::Writer VASP::Geometry VASP::Format ); 
 
 has 'file', ( 
     is        => 'ro', 
@@ -71,7 +65,7 @@ has 'save_as', (
 
 sub BUILD ( $self, @ ) { 
     # cache POSCAR
-    try { $self->reader };  
+    try { $self->cache };  
 
     # sanity check
     if ( $self->has_delete && $self->has_dynamics ) {  
@@ -88,7 +82,9 @@ sub write ( $self ) {
     $self->write_selective; 
     $self->write_type; 
     $self->write_coordinate; 
-    $self->close;  
+
+    # close internal fh
+    $self->close_writer; 
 } 
 
 sub write_comment ( $self ) {  
@@ -145,6 +141,19 @@ sub write_coordinate ( $self ) {
     }
 } 
 
+sub _default_index ( $self ) { 
+    return [ sort { $a <=> $b } $self->get_coordinate_indices ]
+} 
+
+# from IO::Writer
+sub _build_writer ( $self ) { 
+    return 
+        $self->has_save_as ? 
+        IO::KISS->new( $self->save_as, 'w' ) :  
+        IO::KISS->new( $self->file, 'w' ) 
+} 
+
+# triggers 
 sub _backup ( $self, @ ) { 
     copy $self->file => $self->backup 
 } 
@@ -166,81 +175,6 @@ sub _delete ( $self, @ ) {
     $self->_clear_element; 
     $self->_clear_natom; 
 }
-
-sub _default_index ( $self ) { 
-    return [ sort { $a <=> $b } $self->get_coordinate_indices ]
-} 
-
-sub _build_io_writer ( $self ) { 
-    return (
-        $self->has_save_as ? 
-        IO::KISS->new( $self->save_as, 'w' ) :  
-        IO::KISS->new( $self->file, 'w' ) 
-    ); 
-} 
-
-sub _parse_file ( $self ) { 
-    my %poscar = ();  
-    
-    # lattice vector 
-    $poscar{comment} = $self->get_line; 
-    $poscar{scaling} = $self->get_line; 
-    $poscar{lattice}->@* = map [ split ' ', $self->get_line ], 0..2; 
-
-    # natom and element 
-    my ( @natoms, @elements ); 
-    my @has_VASP5 = split ' ', $self->get_line; 
-    if ( ! grep Element->check($_), @has_VASP5 ) { 
-        $poscar{version} = 4; 
-        # get elements from POTCAR and synchronize with @natoms
-        @elements = VASP::POTCAR->new()->get_elements;  
-        @natoms   = @has_VASP5;  
-        @elements = splice @elements, 0, scalar(@natoms); 
-    } else { 
-        $poscar{version} = 5; 
-        @elements = @has_VASP5; 
-        @natoms   = split ' ', $self->get_line;  
-    } 
-    # build list of atom
-    my @atoms = map { ( $elements[$_] ) x $natoms[$_] } 0..$#elements; 
-   
-    # selective dynamics 
-    my $has_selective = $self->get_line;  
-    if ( $has_selective =~ /^\s*S/i ) { 
-        $poscar{selective} = 1; 
-        $poscar{type}      = $self->get_line; 
-    } else { 
-        $poscar{selective} = 0; 
-        $poscar{type}      = $has_selective; 
-    } 
-
-    # coodinate and dynamics
-    my ( @coordinates, @dynamics );  
-    while ( local $_ = $self->get_line ) { 
-        # blank line separate geometry and velocity blocks
-        last if /^\s+$/; 
-        
-        my @columns = split; 
-        
-        # 1st 3 columns are coordinate 
-        push @coordinates, [ splice @columns, 0, 3 ];  
-
-        # if remaining column is either 0 or 1 (w/o indexing) 
-        # the POSCAR contains no selective dynamics block 
-        push @dynamics, ( 
-            @columns == 0 || @columns == 1 ? 
-            [ qw( T T T ) ] :
-            [ splice @columns, 0, 3 ]
-        ); 
-    } 
-
-    # indexing 
-    $poscar{atom}       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
-    $poscar{coordinate} = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
-    $poscar{dynamics}   = { map { $_+1 => $dynamics[$_]    } 0..$#dynamics    };  
-
-    return \%poscar; 
-} 
 
 __PACKAGE__->meta->make_immutable;
 

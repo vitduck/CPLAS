@@ -1,16 +1,11 @@
 package Geometry::General; 
 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'signatures';  
-use namespace::autoclean; 
-
-use List::Util 'sum';   
 use Moose::Role; 
-use MooseX::Types::Moose 'Str','Int','ArrayRef','HashRef';  
-use Types::Periodic 'Element'; 
-
-no warnings 'experimental'; 
+use MooseX::Types::Moose qw( Str Int ArrayRef HashRef );  
+use List::Util 'sum';   
+use Periodic::Table qw( Element );  
+use namespace::autoclean; 
+use experimental qw( signatures ); 
 
 has 'comment', ( 
     is       => 'ro', 
@@ -28,7 +23,7 @@ has 'total_natom', (
 
 has 'lattice', ( 
     is        => 'ro', 
-    isa       => ArrayRef[ ArrayRef ], 
+    isa       => ArrayRef, 
     traits    => [ 'Array' ], 
     lazy      => 1, 
     builder   => '_build_lattice', 
@@ -50,7 +45,7 @@ has 'indexed_atom', (
 
 has 'indexed_coordinate', ( 
     is        => 'ro', 
-    isa       => HashRef[ ArrayRef ],  
+    isa       => HashRef,  
     traits    => [ 'Hash' ], 
     lazy      => 1, 
     builder   => '_build_coordinate', 
@@ -81,12 +76,11 @@ has 'natom', (
     handles   => { get_natoms => 'elements' } 
 );  
 
-# native builder 
-sub _build_comment     ( $self ) { return $self->read( 'comment'     ) }
+sub _build_comment     ( $self ) { return $self->read( 'comment' )     }
 sub _build_total_natom ( $self ) { return $self->read( 'total_natom' ) }
-sub _build_lattice     ( $self ) { return $self->read( 'lattice'     ) }
-sub _build_atom        ( $self ) { return $self->read( 'atom'        ) }
-sub _build_coordinate  ( $self ) { return $self->read( 'coordinate'  ) }
+sub _build_lattice     ( $self ) { return $self->read( 'lattice' )     }
+sub _build_atom        ( $self ) { return $self->read( 'atom' )        }
+sub _build_coordinate  ( $self ) { return $self->read( 'coordinate' )  }
 
 sub _build_element ( $self ) { 
     my @elements = (); 

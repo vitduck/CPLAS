@@ -1,21 +1,17 @@
 package VASP::POTCAR; 
 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'signatures','refaliasing'; 
-use namespace::autoclean; 
-
+use Moose;  
+use MooseX::Types::Moose qw( Str ArrayRef ); 
+use Moose::Util::TypeConstraints; 
 use File::Basename; 
 use File::Spec::Functions; 
-use Moose;  
-use MooseX::Types::Moose 'Str','ArrayRef','HashRef'; 
 use IO::KISS;  
-use Types::Exchange 'VASP_PP';  
-use Types::Periodic 'Element','Element_Name';  
+use Periodic::Table qw( Element Element_Name ); 
+use namespace::autoclean; 
+use feature qw( signatures refaliasing );  
+use experimental qw( signatures refaliasing ); 
 
-no warnings 'experimental'; 
-
-with 'IO::Reader','IO::Writer';  
+with qw( IO::Reader IO::Writer IO::Cache ); 
 
 has 'pot_dir', ( 
     is        => 'ro', 
@@ -44,7 +40,7 @@ has 'element', (
 
 has 'exchange', ( 
     is        => 'ro', 
-    isa       => VASP_PP, 
+    isa       => subtype( Str => where { /PAW_PBE|PAW_GGA|PAW_LDA|POT_GGA|POT_LDA/ } ), 
     lazy      => 1, 
     builder   => '_build_exchange' 
 ); 
@@ -70,7 +66,7 @@ has 'config', (
 
 has 'potcar', ( 
     is        => 'ro', 
-    isa       => ArrayRef[Str], 
+    isa       => ArrayRef[ Str ], 
     traits    => [ 'Array' ], 
     lazy      => 1, 
     init_arg  => undef, 
@@ -95,19 +91,55 @@ sub make ( $self ) {
     for my $potcar ( $self->get_potcars ) {  
         $self->print( IO::KISS->new( $potcar, 'r' )->slurp ) 
     }
-    $self->close; 
+    $self->close_writer; 
 } 
 
-sub _build_element ( $self ) { 
-    return [ map $_->[0], $self->get_pp_info ] 
-}
+# from IO:Reader
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) } 
 
-sub _build_pp_info ( $self ) { 
-    return $self->read( $self->exchange )      
-}
+# from IO:Writer
+sub _build_writer ( $self ) { return IO::KISS->new( $self->file, 'w' ) } 
+
+# from IO::Cache
+sub _build_cache ( $self ) { 
+    my %info = ();  
+    my ( $exchange, $element, $pseudo, $config, $date ); 
+    
+    for ( $self->get_lines ) { 
+        chomp; 
+
+        # Ex: VRHFIN =C: s2p2
+        if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
+            $element = $1; 
+            my @valences = ();  
+            
+            $config  = ( 
+                ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
+                join '', @valences : 
+                (split ' ', $2)[0] 
+            )
+        }
+        # Ex: TITEL  = PAW_PBE C_s 06Sep2000
+        if ( /TITEL/ ) { 
+            ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
+            $date //= '---'; 
+            push $info{$exchange}->@*, 
+                [ $element, to_Element_Name( $element ), $pseudo, $config, $date ]; 
+        }
+    }
+    
+    # close internal fh
+    $self->close_reader; 
+
+    return \%info;  
+} 
+
+# parse cached POTCAR 
+sub _build_element ( $self ) { return [ map $_->[0], $self->get_pp_info ] }
+sub _build_pp_info ( $self ) { return $self->read( $self->exchange )      }
 
 sub _build_exchange ( $self ) { 
-    my @exchanges = keys $self->reader->%*;  
+    my @exchanges = keys $self->cache->%*;  
 
     return ( 
         @exchanges > 1 ? 
@@ -145,34 +177,6 @@ sub _build_potcar ( $self ) {
     } 
 
     return \@potcars 
-} 
-
-sub _parse_file ( $self ) { 
-    my %info = ();  
-    my ( $exchange, $element, $pseudo, $config, $date ); 
-    
-    for ( $self->get_lines ) { 
-        # Ex: VRHFIN =C: s2p2
-        if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
-            $element = $1; 
-            my @valences = ();  
-            
-            $config  = ( 
-                ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
-                join '', @valences : 
-                (split ' ', $2)[0] 
-            )
-        }
-        # Ex: TITEL  = PAW_PBE C_s 06Sep2000
-        if ( /TITEL/ ) { 
-            ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
-            $date //= '---'; 
-            push $info{$exchange}->@*, 
-                [ $element, to_Element_Name($element), $pseudo, $config, $date ]; 
-        }
-    }
-
-    return \%info;  
 } 
 
 __PACKAGE__->meta->make_immutable;

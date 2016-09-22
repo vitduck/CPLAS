@@ -1,16 +1,11 @@
 package VASP::OUTCAR; 
 
-use strict;  
-use warnings FATAL => 'all'; 
-use namespace::autoclean; 
-use feature 'signatures';  
-
 use Moose;  
-use MooseX::Types::Moose 'Str';  
+use MooseX::Types::Moose qw( Str );  
+use namespace::autoclean; 
+use experimental qw( signatures );  
 
-no warnings 'experimental'; 
-
-with 'IO::Reader','VASP::Force','VASP::Regex'; 
+with qw( IO::Reader VASP::Force VASP::Regex ); 
 
 has 'file', ( 
     is        => 'ro', 
@@ -19,6 +14,9 @@ has 'file', (
     default   => 'OUTCAR' 
 ); 
 
+# from IO::Reader
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
+
 __PACKAGE__->meta->make_immutable;
 
-1; 
+1 

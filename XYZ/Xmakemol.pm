@@ -1,13 +1,8 @@
 package XYZ::Xmakemol; 
 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'signatures'; 
-use namespace::autoclean; 
-
 use Moose::Role; 
-
-no warnings 'experimental';
+use namespace::autoclean; 
+use experimental qw( signatures ); 
 
 sub xmakemol ( $self, $xyz ) { 
     print "=> xmakemol $xyz ...\n"; 

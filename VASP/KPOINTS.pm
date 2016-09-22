@@ -1,18 +1,15 @@
 package VASP::KPOINTS; 
 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'switch','signatures';  
-use namespace::autoclean; 
-
-use List::Util 'product';  
 use Moose;  
-use MooseX::Types::Moose 'Str','Int','ArrayRef';  
+use MooseX::Types::Moose qw( Str Int ArrayRef ); 
+use Try::Tiny; 
+use List::Util 'product';  
 use IO::KISS; 
+use namespace::autoclean; 
+use feature qw( switch ); 
+use experimental qw( signatures smartmatch ); 
 
-no warnings 'experimental'; 
-
-with 'IO::Reader';  
+with qw( IO::Reader IO::Cache );  
 
 has 'file', ( 
     is       => 'ro', 
@@ -48,7 +45,7 @@ has 'scheme', (
 
 has 'grid', ( 
     is       => 'ro', 
-    isa      => ArrayRef, 
+    isa      => ArrayRef[Int], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
     builder  => '_build_grid', 
@@ -57,7 +54,7 @@ has 'grid', (
 
 has 'shift', ( 
     is       => 'ro', 
-    isa      => ArrayRef, 
+    isa      => ArrayRef[Str], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
     builder  => '_build_shift', 
@@ -73,47 +70,51 @@ has 'nkpt', (
 ); 
 
 sub BUILD ( $self, @ ) { 
-    $self->reader;  
+    try { $self->cache } 
 } 
 
-# cached KPOINTS 
-sub _build_comment ( $self ) { return $self->read('comment') } 
-sub _build_mode    ( $self ) { return $self->read('mode' ) }  
-sub _build_scheme  ( $self ) { return $self->read('scheme') }
-sub _build_grid    ( $self ) { return $self->read('grid') }   
-sub _build_shift   ( $self ) { return $self->read('shift') }
+# from IO::Reader
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
 
-sub _build_nkpt ( $self ) { 
-    return (
-        $self->mode == 0 ? 
-        product($self->get_grids) : 
-        $self->mode 
-    )
-}
-
-sub _parse_file ( $self ) { 
+# from IO::Cache
+sub _build_cache ( $self ) { 
     my %kp = ();  
    
-    $kp{comment} =   $self->get_line; 
-    $kp{mode}    =   $self->get_line;  
+    $kp{comment} = $self->get_line;    
+    $kp{mode}    = $self->get_line;    
+
     $kp{scheme}  = ( $self->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
     
     given ( $kp{mode } ) {   
         when ( 0 )      { $kp{grid} = [ map int, map split, $self->get_line ] }
-        when ( $_ > 0 ) { 
-            while ( local $_ = $self->get_line ) {
-                push $kp{grid}->@*, [ (split)[0,1,2] ]; 
-            }
-        }
-        default { 
-        ...
-        } 
+        when ( $_ > 0 ) { push $kp{grid}->@*, [ ( split )[0,1,2] ] for $self->get_lines } 
     }
     
     $kp{shift} = [ map split, $self->get_line ] if $kp{mode} == 0; 
 
-    return \%kp 
+    # close internal fh
+    $self->close_reader;  
+
+    # remove \n
+    chomp %kp; 
+
+    return \%kp; 
 } 
+
+# parse cached KPOINTS 
+sub _build_comment ( $self ) { return $self->read( 'comment ') } 
+sub _build_mode    ( $self ) { return $self->read( 'mode' )    }
+sub _build_scheme  ( $self ) { return $self->read( 'scheme' )  }
+sub _build_grid    ( $self ) { return $self->read( 'grid' )    }   
+sub _build_shift   ( $self ) { return $self->read( 'shift' )   }
+
+# total number of kpoints 
+sub _build_nkpt ( $self ) { 
+    return 
+        $self->mode == 0 ? 
+        product($self->get_grids) : 
+        $self->mode 
+}
 
 __PACKAGE__->meta->make_immutable;
 

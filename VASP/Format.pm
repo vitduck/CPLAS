@@ -1,14 +1,9 @@
 package VASP::Format;  
 
-use strict; 
-use warnings FATAL => 'all'; 
-use feature 'signatures';  
-use namespace::autoclean; 
-
 use Moose::Role; 
 use MooseX::Types::Moose 'HashRef';  
-
-no warnings 'experimental'; 
+use namespace::autoclean; 
+use experimental qw( signatures ); 
 
 # VASP printing format 
 has 'poscar_format', ( 

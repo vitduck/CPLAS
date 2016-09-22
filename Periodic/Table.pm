@@ -1,10 +1,10 @@
-package Types::Periodic; 
+package Periodic::Table;  
 
 use strict; 
-use warnings FATAL => 'all'; 
-
-use MooseX::Types::Moose 'Str','Int','ArrayRef';  
-use MooseX::Types -declare => [ 'Element','Element_Name','Atomic_Number' ];   
+use warnings; 
+use MooseX::Types::Moose qw( Str Int ); 
+use MooseX::Types -declare => [ qw( Element Element_Name Atomic_Number ) ]; 
+use namespace::autoclean; 
 
 my %table = (
       1 => [ 'H',      'Hydrogen', '0.32', '1.00'],
@@ -121,7 +121,7 @@ my %table = (
     112 => ['Cp',   'Copernicium', '2.00', '0.00'],
 ); 
 
-subtype Element, as Str, where  { 
+subtype Element, as Str, where { 
     my $element = $_;  
 
     return grep $element eq $_->[0], values %table; 
