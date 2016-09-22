@@ -77,17 +77,19 @@ sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
 # from IO::Cache 
 sub _build_cache ( $self ) { 
     my %poscar = ();  
+
+    chomp ( my @lines = $self->get_lines ) && $self->close_reader; 
     
     # header 
-    $poscar{comment} = $self->get_line; 
+    $poscar{comment} = shift @lines; 
     
     # lattice vectors 
-    $poscar{scaling} = $self->get_line; 
-    $poscar{lattice}->@* = map [ split ' ', $self->get_line ], 0..2; 
+    $poscar{scaling} = shift @lines; 
+    $poscar{lattice}->@* = map [ split ' ', shift @lines ], 0..2; 
 
     # natom and element 
     my ( @natoms, @elements ); 
-    my @has_VASP5 = split ' ', $self->get_line; 
+    my @has_VASP5 = split ' ', shift @lines;  
     if ( ! grep Element->check($_), @has_VASP5 ) { 
         $poscar{version} = 4; 
         # get elements from POTCAR and synchronize with @natoms
@@ -97,16 +99,17 @@ sub _build_cache ( $self ) {
     } else { 
         $poscar{version} = 5; 
         @elements = @has_VASP5; 
-        @natoms   = split ' ', $self->get_line;  
+        @natoms   = split ' ', shift @lines; 
     } 
+
     # build list of atom
     my @atoms = map { ( $elements[$_] ) x $natoms[$_] } 0..$#elements; 
    
     # selective dynamics 
-    my $has_selective = $self->get_line;  
+    my $has_selective = shift @lines;  
     if ( $has_selective =~ /^\s*S/i ) { 
         $poscar{selective} = 1; 
-        $poscar{type}      = $self->get_line; 
+        $poscar{type}      = shift @lines; 
     } else { 
         $poscar{selective} = 0; 
         $poscar{type}      = $has_selective; 
@@ -114,17 +117,15 @@ sub _build_cache ( $self ) {
 
     # coodinate and dynamics
     my ( @coordinates, @dynamics );  
-    while ( local $_ = $self->get_line ) { 
+    while ( local $_ = shift @lines ) { 
         # blank line separate geometry and velocity blocks
         last if /^\s+$/; 
         
-        my @columns = split; 
-        
         # 1st 3 columns are coordinate 
-        push @coordinates, [ splice @columns, 0, 3 ];  
-
         # if remaining column is either 0 or 1 (w/o indexing) 
         # the POSCAR contains no selective dynamics block 
+        my @columns = split; 
+        push @coordinates, [ splice @columns, 0, 3 ];  
         push @dynamics, ( 
             @columns == 0 || @columns == 1 ? 
             [ qw( T T T ) ] :
@@ -136,12 +137,6 @@ sub _build_cache ( $self ) {
     $poscar{atom}       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
     $poscar{coordinate} = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
     $poscar{dynamics}   = { map { $_+1 => $dynamics[$_]    } 0..$#dynamics    };  
-
-    # close internal reader 
-    $self->close_reader; 
-
-    # remove \n
-    chomp %poscar; 
 
     return \%poscar; 
 } 

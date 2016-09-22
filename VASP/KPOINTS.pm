@@ -79,24 +79,20 @@ sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
 # from IO::Cache
 sub _build_cache ( $self ) { 
     my %kp = ();  
+    
+    chomp ( my @lines = $self->get_lines ) && $self->close_reader;  
    
-    $kp{comment} = $self->get_line;    
-    $kp{mode}    = $self->get_line;    
+    $kp{comment} = shift @lines;  
+    $kp{mode}    = shift @lines;     
 
-    $kp{scheme}  = ( $self->get_line ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
+    $kp{scheme}  = ( shift @lines ) =~ /^M/ ? 'Monkhorst-Pack' : 'Gamma-centered';
     
     given ( $kp{mode } ) {   
-        when ( 0 )      { $kp{grid} = [ map int, map split, $self->get_line ] }
-        when ( $_ > 0 ) { push $kp{grid}->@*, [ ( split )[0,1,2] ] for $self->get_lines } 
+        when ( 0 )      { $kp{grid} = [ map int, map split, shift @lines ] }
+        when ( $_ > 0 ) { push $kp{grid}->@*, [ ( split )[0,1,2] ] for @lines } 
     }
     
-    $kp{shift} = [ map split, $self->get_line ] if $kp{mode} == 0; 
-
-    # close internal fh
-    $self->close_reader;  
-
-    # remove \n
-    chomp %kp; 
+    $kp{shift} = [ map split, shift @lines ] if $kp{mode} == 0; 
 
     return \%kp; 
 } 

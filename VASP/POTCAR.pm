@@ -104,8 +104,10 @@ sub _build_writer ( $self ) { return IO::KISS->new( $self->file, 'w' ) }
 sub _build_cache ( $self ) { 
     my %info = ();  
     my ( $exchange, $element, $pseudo, $config, $date ); 
+
+    chomp ( my @lines = $self->get_lines ) && $self->close_reader; 
     
-    for ( $self->get_lines ) { 
+    for ( @lines ) { 
         chomp; 
 
         # Ex: VRHFIN =C: s2p2
@@ -119,6 +121,7 @@ sub _build_cache ( $self ) {
                 (split ' ', $2)[0] 
             )
         }
+
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
             ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
@@ -128,9 +131,6 @@ sub _build_cache ( $self ) {
         }
     }
     
-    # close internal fh
-    $self->close_reader; 
-
     return \%info;  
 } 
 
