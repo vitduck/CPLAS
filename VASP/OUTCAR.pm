@@ -2,6 +2,7 @@ package VASP::OUTCAR;
 
 use Moose;  
 use MooseX::Types::Moose qw( Str );  
+
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
@@ -15,7 +16,9 @@ has 'file', (
 ); 
 
 # from IO::Reader
-sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
+sub _build_reader ( $self ) { 
+    return IO::KISS->new( input => $self->file, mode  => 'r' ) 
+}
 
 __PACKAGE__->meta->make_immutable;
 

@@ -1,9 +1,11 @@
 package Geometry::General; 
 
+use List::Util qw( sum );  
+
 use Moose::Role; 
 use MooseX::Types::Moose qw( Str Int ArrayRef HashRef );  
-use List::Util 'sum';   
-use Periodic::Table qw( Element );  
+use Periodic::Table qw( Element ); 
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
@@ -27,7 +29,9 @@ has 'lattice', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     builder   => '_build_lattice', 
-    handles   => { get_lattices => 'elements' },  
+    handles   => { 
+        get_lattices => 'elements' 
+    },  
 );  
 
 has 'indexed_atom', ( 
@@ -63,17 +67,21 @@ has 'element', (
     lazy      => 1, 
     builder   => '_build_element',   
     clearer   => '_clear_element', 
-    handles   => { get_elements  => 'elements' } 
+    handles   => { 
+        get_elements  => 'elements' 
+    } 
 ); 
 
 has 'natom', ( 
     is        => 'ro', 
-    isa       => ArrayRef[ Int ], 
+    isa       => ArrayRef,   
     traits    => [ 'Array' ], 
     lazy      => 1, 
     builder   => '_build_natom', 
     clearer   => '_clear_natom', 
-    handles   => { get_natoms => 'elements' } 
+    handles   => { 
+        get_natoms => 'elements' 
+    } 
 );  
 
 sub _build_comment     ( $self ) { return $self->read( 'comment' )     }
@@ -83,12 +91,12 @@ sub _build_atom        ( $self ) { return $self->read( 'atom' )        }
 sub _build_coordinate  ( $self ) { return $self->read( 'coordinate' )  }
 
 sub _build_element ( $self ) { 
-    my @elements = (); 
+    my @elements;  
 
     for my $index ( sort { $a <=> $b } $self->get_atom_indices ) { 
         my $element = $self->get_atom( $index ); 
 
-        next if grep $element  eq $_, @elements; 
+        next if grep $element eq $_, @elements; 
         push @elements, $element; 
     } 
 
@@ -96,14 +104,14 @@ sub _build_element ( $self ) {
 } 
 
 sub _build_natom ( $self ) { 
-    my @natoms = ();  
+    my @natoms;  
 
     for my $element ( $self->get_elements ) { 
-        my $natom = (
+        my $natom = 
             grep $element eq $_, 
             map  $self->get_atom( $_ ), 
-            $self->get_atom_indices 
-        ); 
+            $self->get_atom_indices; 
+
         push @natoms, $natom; 
     } 
 

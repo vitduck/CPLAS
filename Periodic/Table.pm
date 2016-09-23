@@ -2,8 +2,10 @@ package Periodic::Table;
 
 use strict; 
 use warnings; 
+
 use MooseX::Types::Moose qw( Str Int ); 
 use MooseX::Types -declare => [ qw( Element Element_Name Atomic_Number ) ]; 
+
 use namespace::autoclean; 
 
 my %table = (
@@ -123,39 +125,29 @@ my %table = (
 
 subtype Element, as Str, where { 
     my $element = $_;  
-
     return grep $element eq $_->[0], values %table; 
 }; 
 
 subtype Element_Name, as Str, where { 
     my $name = $_; 
-
     return grep $name eq $_->[1], values %table; 
 }; 
 
 subtype Atomic_Number, as Int, where { 
-    my $number = $_; 
-
-    return exists $table{$number}
+    return exists $table{$_}
 }; 
 
 coerce Element, from Atomic_Number, via { 
-    my $number = $_; 
-
-    return $table{$number}->[0]; 
+    return $table{$_}->[0]; 
 };  
 
 coerce Atomic_Number, from Element, via { 
     my $element = $_;  
-
     return ( grep $element eq $table{$_}[0], keys %table )[0]  
 };  
 
 coerce Element_Name, from Element, via { 
-    my $element = $_; 
-    my $number  = to_Atomic_Number( $element ); 
-
-    return $table{$number}[1]; 
+    return $table{ to_Atomic_Number( $_ ) }[1]; 
 };  
 
 1

@@ -1,8 +1,8 @@
 package XYZ::Structure; 
 
-use autodie; 
 use Moose; 
-use MooseX::Types::Moose qw( Str Int ArrayRef HashRef );
+use MooseX::Types::Moose qw( Str ); 
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 

@@ -1,12 +1,15 @@
 package VASP::POTCAR; 
 
-use Moose;  
-use MooseX::Types::Moose qw( Str ArrayRef ); 
-use Moose::Util::TypeConstraints; 
 use File::Basename; 
 use File::Spec::Functions; 
+
+use Moose;  
+use MooseX::Types::Moose qw( Str ArrayRef ); 
+use Moose::Util::TypeConstraints qw( enum );  
+
 use IO::KISS;  
 use Periodic::Table qw( Element Element_Name ); 
+
 use namespace::autoclean; 
 use feature qw( signatures refaliasing );  
 use experimental qw( signatures refaliasing ); 
@@ -35,12 +38,14 @@ has 'element', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     builder   => '_build_element', 
-    handles   => { get_elements => 'elements' } 
+    handles   => { 
+        get_elements => 'elements' 
+    } 
 ); 
 
 has 'exchange', ( 
     is        => 'ro', 
-    isa       => subtype( Str => where { /PAW_PBE|PAW_GGA|PAW_LDA|POT_GGA|POT_LDA/ } ), 
+    isa       => enum( [ qw( PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA ) ] ),  
     lazy      => 1, 
     builder   => '_build_exchange' 
 ); 
@@ -51,7 +56,9 @@ has 'pp_info', (
     traits    => [ 'Array' ], 
     lazy      => 1, 
     builder   => '_build_pp_info', 
-    handles   => { get_pp_info => 'elements' } 
+    handles   => { 
+        get_pp_info => 'elements' 
+    } 
 ); 
 
 has 'config', ( 
@@ -61,7 +68,9 @@ has 'config', (
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_config', 
-    handles   => { get_configs => 'elements' } 
+    handles   => { 
+        get_configs => 'elements' 
+    } 
 ); 
 
 has 'potcar', ( 
@@ -71,7 +80,9 @@ has 'potcar', (
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_potcar', 
-    handles   => { get_potcars => 'elements' }  
+    handles   => { 
+        get_potcars => 'elements' 
+    }  
 ); 
 
 sub BUILD ( $self, @ ) { 
@@ -95,21 +106,21 @@ sub make ( $self ) {
 } 
 
 # from IO:Reader
-sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) } 
+sub _build_reader ( $self ) { 
+    return IO::KISS->new( input => $self->file, mode  => 'r', chomp => 1 )
+} 
 
 # from IO:Writer
-sub _build_writer ( $self ) { return IO::KISS->new( $self->file, 'w' ) } 
+sub _build_writer ( $self ) { 
+    return IO::KISS->new( input => $self->file, mode  => 'w' ) 
+} 
 
 # from IO::Cache
 sub _build_cache ( $self ) { 
     my %info = ();  
     my ( $exchange, $element, $pseudo, $config, $date ); 
 
-    chomp ( my @lines = $self->get_lines ) && $self->close_reader; 
-    
-    for ( @lines ) { 
-        chomp; 
-
+    for ( $self->get_lines ) { 
         # Ex: VRHFIN =C: s2p2
         if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
             $element = $1; 

@@ -5,8 +5,8 @@ use warnings;
 use feature qw( switch );  
 use experimental qw( smartmatch ); 
 
-use Data::Printer; 
 use IO::File; 
+use Data::Printer; 
 use Getopt::Long; 
 use Pod::Usage; 
 use VASP::POTCAR; 

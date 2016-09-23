@@ -1,12 +1,15 @@
 package VASP::POSCAR; 
 
+use Try::Tiny; 
+use File::Copy qw( copy );  
+
 use Moose;  
 use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
-use File::Copy qw( copy );  
-use Try::Tiny; 
+
 use IO::KISS; 
 use VASP::POTCAR; 
 use Periodic::Table qw( Element );  
+
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
@@ -24,7 +27,9 @@ has 'index', (
     isa       => ArrayRef [ Int ], 
     traits    => [ 'Array' ], 
     builder   => '_default_index', 
-    handles   => { get_indices => 'elements' }
+    handles   => { 
+        get_indices => 'elements' 
+    }
 ); 
 
 has 'delete', ( 
@@ -87,44 +92,30 @@ sub write ( $self ) {
     $self->close_writer; 
 } 
 
-sub write_comment ( $self ) {  
+sub write_comment ( $self ) {
     $self->printf( "%s\n" , $self->comment ) 
 }
 
 sub write_scaling ( $self ) { 
-    $self->printf( 
-        $self->get_poscar_format( 'scaling' ), 
-        $self->scaling 
-    ) 
+    $self->printf( $self->get_poscar_format( 'scaling' ), $self->scaling ) 
 } 
 
 sub write_lattice ( $self ) { 
-    for my $lat ( $self->get_lattices ) {  
-        $self->printf( 
-            $self->get_poscar_format( 'lattice' ), 
-            @$lat 
-        ) 
+    for ( $self->get_lattices ) {  
+        $self->printf( $self->get_poscar_format( 'lattice' ), @$_ ) 
     }
 }  
 
 sub write_element ( $self ) { 
-    $self->printf( 
-        $self->get_poscar_format( 'element' ), 
-        $self->get_elements 
-    )
+    $self->printf( $self->get_poscar_format( 'element' ), $self->get_elements )
 }
 
 sub write_natom ( $self ) { 
-    $self->printf( 
-        $self->get_poscar_format( 'natom' ), 
-        $self->get_natoms 
-    ) 
+    $self->printf( $self->get_poscar_format( 'natom' ), $self->get_natoms )
 }
 
 sub write_selective ( $self ) { 
-    if ( $self->selective ) {  
-        $self->printf( "%s\n", 'Selective Dynamics' )  
-    }
+    $self->printf( "%s\n", 'Selective Dynamics' ) if $self->selective;  
 }
 
 sub write_type ( $self ) { 
@@ -147,10 +138,10 @@ sub _default_index ( $self ) {
 
 # from IO::Writer
 sub _build_writer ( $self ) { 
-    return 
-        $self->has_save_as ? 
-        IO::KISS->new( $self->save_as, 'w' ) :  
-        IO::KISS->new( $self->file, 'w' ) 
+    return IO::KISS->new( 
+        input => $self->has_save_as ? $self->save_as : $self->file, 
+        mode  => 'w' 
+    );  
 } 
 
 # triggers 

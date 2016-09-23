@@ -2,6 +2,7 @@ package VASP::Format;
 
 use Moose::Role; 
 use MooseX::Types::Moose 'HashRef';  
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
@@ -13,7 +14,9 @@ has 'poscar_format', (
     lazy     => 1, 
     init_arg => undef, 
     builder  => '_build_poscar_format', 
-    handles  => { get_poscar_format => 'get' }  
+    handles  => { 
+        get_poscar_format => 'get' 
+    }  
 ); 
 
 sub _build_poscar_format ( $self ) { 

@@ -3,6 +3,7 @@ package VASP::Geometry;
 use Moose::Role; 
 use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
 use Periodic::Table 'Element'; 
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
@@ -58,7 +59,9 @@ has 'false_index', (
     lazy      => 1, 
     init_arg  => undef,
     builder   => '_build_false_index', 
-    handles   => { get_false_indices => 'elements' }
+    handles   => { 
+        get_false_indices => 'elements' 
+    }
 ); 
 
 has 'true_index', ( 
@@ -68,28 +71,30 @@ has 'true_index', (
     lazy      => 1, 
     init_arg  => undef,
     builder   => '_build_true_index', 
-    handles  => {  get_true_indices => 'elements' } 
+    handles  => {  
+        get_true_indices => 'elements' 
+    } 
 );  
 
 # from IO::Reader 
-sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
+sub _build_reader ( $self ) { 
+    return IO::KISS->new( input => $self->file, mode  => 'r', chomp => 1 ) 
+}
 
 # from IO::Cache 
 sub _build_cache ( $self ) { 
     my %poscar = ();  
 
-    chomp ( my @lines = $self->get_lines ) && $self->close_reader; 
-    
     # header 
-    $poscar{comment} = shift @lines; 
+    $poscar{comment} = $self->get_line; 
     
     # lattice vectors 
-    $poscar{scaling} = shift @lines; 
-    $poscar{lattice}->@* = map [ split ' ', shift @lines ], 0..2; 
+    $poscar{scaling} = $self->get_line; 
+    $poscar{lattice}->@* = map [ split ' ', $self->get_line  ], 0..2; 
 
     # natom and element 
     my ( @natoms, @elements ); 
-    my @has_VASP5 = split ' ', shift @lines;  
+    my @has_VASP5 = split ' ', $self->get_line; 
     if ( ! grep Element->check($_), @has_VASP5 ) { 
         $poscar{version} = 4; 
         # get elements from POTCAR and synchronize with @natoms
@@ -99,17 +104,17 @@ sub _build_cache ( $self ) {
     } else { 
         $poscar{version} = 5; 
         @elements = @has_VASP5; 
-        @natoms   = split ' ', shift @lines; 
+        @natoms   = split ' ', $self->get_line; 
     } 
 
     # build list of atom
     my @atoms = map { ( $elements[$_] ) x $natoms[$_] } 0..$#elements; 
    
     # selective dynamics 
-    my $has_selective = shift @lines;  
+    my $has_selective = $self->get_line; 
     if ( $has_selective =~ /^\s*S/i ) { 
         $poscar{selective} = 1; 
-        $poscar{type}      = shift @lines; 
+        $poscar{type}      = $self->get_line; 
     } else { 
         $poscar{selective} = 0; 
         $poscar{type}      = $has_selective; 
@@ -117,7 +122,7 @@ sub _build_cache ( $self ) {
 
     # coodinate and dynamics
     my ( @coordinates, @dynamics );  
-    while ( local $_ = shift @lines ) { 
+    while ( local $_ = $self->get_line ) { 
         # blank line separate geometry and velocity blocks
         last if /^\s+$/; 
         
@@ -137,6 +142,8 @@ sub _build_cache ( $self ) {
     $poscar{atom}       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
     $poscar{coordinate} = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
     $poscar{dynamics}   = { map { $_+1 => $dynamics[$_]    } 0..$#dynamics    };  
+    
+    $self->close_reader; 
 
     return \%poscar; 
 } 
@@ -154,6 +161,7 @@ sub _build_false_index ( $self ) {
     my @f_indices = ();  
 
     for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
         push @f_indices, $index - 1 
             if grep $_ eq 'F', $self->get_dynamics($index)->@*;   
     }
@@ -165,6 +173,7 @@ sub _build_true_index ( $self ) {
     my @t_indices = ();  
 
     for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
         push @t_indices, $index - 1 
             if ( grep $_ eq 'T', $self->get_dynamics($index)->@* ) == 3  
     }

@@ -1,10 +1,12 @@
 package VASP::Force; 
 
-use Moose::Role; 
 use Try::Tiny; 
 use PDL::Lite; 
+
+use Moose::Role; 
 use IO::KISS; 
 use VASP::POSCAR;  
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
@@ -22,7 +24,9 @@ has 'max_force', (
     init_arg  => undef, 
     lazy      => 1, 
     builder   => '_build_max_force', 
-    handles   => { get_max_forces => 'list' } 
+    handles   => { 
+        get_max_forces => 'list' 
+    } 
 ); 
 
 #---------# 
@@ -33,30 +37,33 @@ has 'max_force', (
 # The 3,4, and 5 column are fx, fy, and fz 
 # @forces is a 3d matrix with dimension of NSW x NIONS x 3
 sub _build_force ( $self ) { 
-    my ( @forces, @true_indices, @false_indices ) = ();   
+    my ( @forces, @true_indices, @false_indices ); 
 
+    # cache POSCAR if possible 
     try { 
         my $poscar = VASP::POSCAR->new;  
         @true_indices  = $poscar->get_true_indices; 
-        @false_indices = $poscar->get_false_indices; 
-    } 
-    # POSCAR does not exist 
-    catch { @false_indices == 0 } ; 
-
-    for my $force_block ( $self->slurp =~ /${\$self->force_regex}/g  ) { 
-        my @iforces = (); 
-        my $kiss    = IO::KISS->new(\$force_block, 'r'); 
-        for ( $kiss->get_lines ) { 
-            push @iforces, [ (split)[3,4,5] ]; 
-        } 
-        push @forces, \@iforces; 
+        @false_indices = $poscar->get_false_indices  
     } 
 
-    return (
+    # cannot read POSCAR 
+    catch { 
+        @false_indices == 0 
+    }; 
+
+    # regex in list context
+    my @force_blocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
+
+    for ( @force_blocks  ) { 
+        my $string_io = IO::KISS->new( input => \$_, mode => 'r' ); 
+        push @forces , [ map [ ( split )[3,4,5] ], $string_io->get_lines ] 
+    } 
+
+    return 
         @false_indices == 0 ? 
         PDL->new( \@forces ) : 
         PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
-    )
+    
 } 
 
 # Dimensions of PDL piddle is reversed w.r.t standard matrix notation 

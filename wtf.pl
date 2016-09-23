@@ -3,11 +3,12 @@
 use autodie;  
 use strict; 
 use warnings; 
+
 use Getopt::Long; 
 use Pod::Usage; 
 use VASP::OUTCAR;  
 
-my @usages = qw(NAME SYSNOPSIS OPTIONS); 
+my @usages = qw( NAME SYSNOPSIS OPTIONS ); 
 
 # POD 
 =head1 NAME 
@@ -47,10 +48,10 @@ GetOptions(
     'help'     => \$help, 
     'input=s'  => \$input,
     'column=i' => \$ncol,
-) or pod2usage(-verbose => 1); 
+) or pod2usage( -verbose => 1 ); 
 
 # help message 
-if ( $help ) { pod2usage(-verbose => 99, -section => \@usages) }
+if ( $help ) { pod2usage( -verbose => 99, -section => \@usages ) }
 
 # collect forces 
 my $outcar = VASP::OUTCAR->new( file => $input );  
