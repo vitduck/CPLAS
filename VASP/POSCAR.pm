@@ -26,30 +26,42 @@ has 'index', (
     is        => 'ro', 
     isa       => ArrayRef [ Int ], 
     traits    => [ 'Array' ], 
-    builder   => '_default_index', 
+    builder   => '_build_index', 
     handles   => { 
         get_indices => 'elements' 
     }
-); 
-
-has 'delete', ( 
-    is        => 'ro', 
-    isa       => Bool, 
-    lazy      => 1, 
-    predicate => 'has_delete', 
-    default   => 0, 
-    trigger   => \&_delete
 ); 
 
 has 'dynamics', ( 
     is        => 'ro', 
     isa       => Str, 
     lazy      => 1, 
-    predicate => 'has_dynamics', 
+    predicate => 'has_constraint', 
     default   => 'F F F', 
-    trigger   => \&_dynamics 
 );
 
+has 'constraint', (  
+    is        => 'ro', 
+    isa       => ArrayRef[ Int ],  
+    traits    => [ 'Array' ], 
+    lazy      => 1, 
+    default   => sub { $_[0]->index },  
+    handles   => { 
+        get_constraint_indices => 'elements'
+    }
+); 
+
+has 'delete', ( 
+    is        => 'ro', 
+    isa       => ArrayRef[ Int ],  
+    traits    => [ 'Array' ], 
+    lazy      => 1, 
+    predicate => 'has_delete', 
+    default   => sub { [] },  
+    handles   => { 
+        get_delete_indices => 'elements'
+    }
+); 
 
 has 'backup', ( 
     is        => 'ro', 
@@ -57,7 +69,7 @@ has 'backup', (
     lazy      => 1, 
     predicate => 'has_backup', 
     default   => 'POSCAR.bak', 
-    trigger   => \&_backup
+    trigger   => sub { copy $_[0]->file => $_[0]->backup }
 ); 
 
 has 'save_as', ( 
@@ -72,10 +84,13 @@ sub BUILD ( $self, @ ) {
     # cache POSCAR
     try { $self->cache };  
 
-    # sanity check
-    if ( $self->has_delete && $self->has_dynamics ) {  
-        die "Thou shall not set delete and dynamics at the same time!\n"
-    }
+    $self->$_ for (
+        map $_->[1], 
+        grep $self->${\$_->[0]}, ( 
+            [ 'has_constraint', '_constraint' ], 
+            [ 'has_delete'    , '_delete'     ], 
+        )
+    ); 
 } 
 
 sub write ( $self ) { 
@@ -88,11 +103,10 @@ sub write ( $self ) {
     $self->write_type; 
     $self->write_coordinate; 
 
-    # close internal fh
     $self->close_writer; 
 } 
 
-sub write_comment ( $self ) {
+sub write_comment ( $self ) { 
     $self->printf( "%s\n" , $self->comment ) 
 }
 
@@ -132,31 +146,30 @@ sub write_coordinate ( $self ) {
     }
 } 
 
-sub _default_index ( $self ) { 
+# from IO::Writer
+sub _build_writer ( $self ) { 
+    my $OUTCAR = 
+        $self->has_save_as 
+        ? $self->save_as 
+        : $self->file; 
+
+    return IO::KISS->new( $OUTCAR, 'w' ) 
+} 
+
+# native
+sub _build_index ( $self ) { 
     return [ sort { $a <=> $b } $self->get_coordinate_indices ]
 } 
 
-# from IO::Writer
-sub _build_writer ( $self ) { 
-    return IO::KISS->new( 
-        input => $self->has_save_as ? $self->save_as : $self->file, 
-        mode  => 'w' 
-    );  
-} 
-
-# triggers 
-sub _backup ( $self, @ ) { 
-    copy $self->file => $self->backup 
-} 
-
-sub _dynamics ( $self, @ ) { 
+sub _constraint ( $self, @ ) { 
     $self->set_dynamics( 
-        map { $_ =>  [ split ' ', $self->dynamics ] } $self->get_indices 
+        map { $_ =>  [ split ' ', $self->dynamics ] } $self->get_constraint_indices
     ) 
 } 
 
+# trigger
 sub _delete ( $self, @ ) { 
-    my @indices = $self->get_indices;  
+    my @indices = $self->get_delete_indices; 
 
     $self->delete_atom(@indices);  
     $self->delete_coordinate(@indices); 

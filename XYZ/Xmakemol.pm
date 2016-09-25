@@ -11,4 +11,4 @@ sub xmakemol ( $self, $xyz ) {
     system "xmakemol -c '$bgcolor' -f $xyz >/dev/null 2>&1 &"; 
 } 
 
-1; 
+1

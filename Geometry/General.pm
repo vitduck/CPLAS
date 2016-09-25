@@ -13,14 +13,7 @@ has 'comment', (
     is       => 'ro', 
     isa      => Str,  
     lazy     => 1, 
-    builder  => '_build_comment', 
-); 
-
-has 'total_natom', ( 
-    is       => 'ro', 
-    isa      => Int, 
-    lazy     => 1, 
-    builder  => '_build_total_natom', 
+    builder  => '_build_comment'
 ); 
 
 has 'lattice', ( 
@@ -84,12 +77,7 @@ has 'natom', (
     } 
 );  
 
-sub _build_comment     ( $self ) { return $self->read( 'comment' )     }
-sub _build_total_natom ( $self ) { return $self->read( 'total_natom' ) }
-sub _build_lattice     ( $self ) { return $self->read( 'lattice' )     }
-sub _build_atom        ( $self ) { return $self->read( 'atom' )        }
-sub _build_coordinate  ( $self ) { return $self->read( 'coordinate' )  }
-
+# native
 sub _build_element ( $self ) { 
     my @elements;  
 

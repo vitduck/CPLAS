@@ -15,7 +15,7 @@ has 'force', (
     isa      => 'PDL', 
     init_arg => undef, 
     lazy     => 1, 
-    builder  => '_build_force' 
+    builder  => '_build_force', 
 ); 
 
 has 'max_force', ( 
@@ -29,9 +29,7 @@ has 'max_force', (
     } 
 ); 
 
-#---------# 
-# BUILDER #
-#---------# 
+# native 
 # perform regex in list context 
 # open FH to force block string and iterate over each line 
 # The 3,4, and 5 column are fx, fy, and fz 
@@ -45,7 +43,6 @@ sub _build_force ( $self ) {
         @true_indices  = $poscar->get_true_indices; 
         @false_indices = $poscar->get_false_indices  
     } 
-
     # cannot read POSCAR 
     catch { 
         @false_indices == 0 
@@ -55,15 +52,14 @@ sub _build_force ( $self ) {
     my @force_blocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
 
     for ( @force_blocks  ) { 
-        my $string_io = IO::KISS->new( input => \$_, mode => 'r' ); 
-        push @forces , [ map [ ( split )[3,4,5] ], $string_io->get_lines ] 
+        my $io_string = IO::KISS->new( \$_, 'r' ); 
+        push @forces , [ map [ ( split )[3,4,5] ], $io_string->get_lines ] 
     } 
 
     return 
-        @false_indices == 0 ? 
-        PDL->new( \@forces ) : 
-        PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
-    
+        @false_indices == 0 
+        ? PDL->new( \@forces ) 
+        : PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
 } 
 
 # Dimensions of PDL piddle is reversed w.r.t standard matrix notation 

@@ -107,18 +107,21 @@ sub make ( $self ) {
 
 # from IO:Reader
 sub _build_reader ( $self ) { 
-    return IO::KISS->new( input => $self->file, mode  => 'r', chomp => 1 )
+    return IO::KISS->new( $self->file, 'r' )
 } 
 
 # from IO:Writer
 sub _build_writer ( $self ) { 
-    return IO::KISS->new( input => $self->file, mode  => 'w' ) 
+    return IO::KISS->new( $self->file, 'w' )
 } 
 
 # from IO::Cache
 sub _build_cache ( $self ) { 
     my %info = ();  
     my ( $exchange, $element, $pseudo, $config, $date ); 
+
+    # remove \n 
+    $self->chomp_reader; 
 
     for ( $self->get_lines ) { 
         # Ex: VRHFIN =C: s2p2
@@ -146,8 +149,13 @@ sub _build_cache ( $self ) {
 } 
 
 # parse cached POTCAR 
-sub _build_element ( $self ) { return [ map $_->[0], $self->get_pp_info ] }
-sub _build_pp_info ( $self ) { return $self->read( $self->exchange )      }
+sub _build_element ( $self ) { 
+    return [ map $_->[0], $self->get_pp_info ] 
+}
+
+sub _build_pp_info ( $self ) { 
+    return $self->read( $self->exchange )      
+}
 
 sub _build_exchange ( $self ) { 
     my @exchanges = keys $self->cache->%*;  
@@ -192,4 +200,4 @@ sub _build_potcar ( $self ) {
 
 __PACKAGE__->meta->make_immutable;
 
-1; 
+1

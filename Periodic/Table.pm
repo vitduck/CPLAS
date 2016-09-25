@@ -147,7 +147,7 @@ coerce Atomic_Number, from Element, via {
 };  
 
 coerce Element_Name, from Element, via { 
-    return $table{ to_Atomic_Number( $_ ) }[1]; 
+    return $table{to_Atomic_Number( $_ )}[1]; 
 };  
 
 1

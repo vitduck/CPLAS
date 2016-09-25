@@ -12,12 +12,15 @@ with qw( IO::Reader IO::Cache Geometry::General );
 
 # from IO::Reader
 sub _build_reader ( $self ) { 
-    return IO::KISS->new( input => $self->file, mode =>  'r', chomp => 1 ) 
+    return IO::KISS->new( $self->file, 'r' ) 
 }
 
 # from IO::Cache
 sub _build_cache ( $self ) { 
     my %xyz = (); 
+
+    # remove \n 
+    $self->chomp_reader;  
 
     $xyz{total_natom} = $self->get_line;  
     $xyz{comment}     = $self->get_line; 

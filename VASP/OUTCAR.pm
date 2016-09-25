@@ -17,7 +17,7 @@ has 'file', (
 
 # from IO::Reader
 sub _build_reader ( $self ) { 
-    return IO::KISS->new( input => $self->file, mode  => 'r' ) 
+    return IO::KISS->new( $self->file, 'r' ) 
 }
 
 __PACKAGE__->meta->make_immutable;

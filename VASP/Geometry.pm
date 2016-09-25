@@ -20,14 +20,14 @@ has 'scaling', (
     is        => 'ro', 
     isa       => Str,   
     lazy      => 1, 
-    builder   => '_build_scaling' 
+    builder   => '_build_scaling'
 );  
 
 has 'selective', ( 
     is        => 'ro', 
     isa       => Bool,  
     lazy      => 1, 
-    builder   => '_build_selective'
+    builder   => '_build_selective' 
 ); 
 
 has 'type', ( 
@@ -78,12 +78,15 @@ has 'true_index', (
 
 # from IO::Reader 
 sub _build_reader ( $self ) { 
-    return IO::KISS->new( input => $self->file, mode  => 'r', chomp => 1 ) 
+    return IO::KISS->new( $self->file, 'r' ) 
 }
 
 # from IO::Cache 
 sub _build_cache ( $self ) { 
     my %poscar = ();  
+
+    # remove \n
+    $self->chomp_reader; 
 
     # header 
     $poscar{comment} = $self->get_line; 
@@ -122,7 +125,7 @@ sub _build_cache ( $self ) {
 
     # coodinate and dynamics
     my ( @coordinates, @dynamics );  
-    while ( local $_ = $self->get_line ) { 
+    while ( defined( local $_ = $self->get_line ) ) { 
         # blank line separate geometry and velocity blocks
         last if /^\s+$/; 
         
@@ -132,9 +135,9 @@ sub _build_cache ( $self ) {
         my @columns = split; 
         push @coordinates, [ splice @columns, 0, 3 ];  
         push @dynamics, ( 
-            @columns == 0 || @columns == 1 ? 
-            [ qw( T T T ) ] :
-            [ splice @columns, 0, 3 ]
+            @columns == 0 || @columns == 1
+            ? [ qw( T T T ) ] 
+            : [ splice @columns, 0, 3 ]
         ); 
     } 
     
@@ -149,13 +152,17 @@ sub _build_cache ( $self ) {
 } 
 
 # from Geometry::General 
-sub _build_total_natom ( $self ) { return sum( $self->get_natoms ) }   
+sub _build_comment    ( $self ) { return $self->read( 'comment' ) } 
+sub _build_lattice    ( $self ) { return $self->read( 'lattice' ) } 
+sub _build_atom       ( $self ) { return $self->read( 'atom' ) }    
+sub _build_coordinate ( $self ) { return $self->read( 'coordinate' ) } 
 
-sub _build_version   ( $self ) { return $self->read( 'version' )   }   
-sub _build_scaling   ( $self ) { return $self->read( 'scaling' )   }   
+# native 
+sub _build_version   ( $self ) { return $self->read( 'version' ) } 
+sub _build_scaling   ( $self ) { return $self->read( 'scaling' ) }  
 sub _build_selective ( $self ) { return $self->read( 'selective' ) } 
-sub _build_type      ( $self ) { return $self->read( 'type' )      } 
-sub _build_dynamics  ( $self ) { return $self->read( 'dynamics' )  }  
+sub _build_type      ( $self ) { return $self->read( 'type' ) }      
+sub _build_dynamics  ( $self ) { return $self->read( 'dynamics' ) }  
 
 sub _build_false_index ( $self ) { 
     my @f_indices = ();  
