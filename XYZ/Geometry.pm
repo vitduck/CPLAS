@@ -1,21 +1,42 @@
 package XYZ::Geometry; 
 
-use Moose::Role; 
+use Try::Tiny; 
 
+use Moose; 
+use MooseX::Types::Moose qw( Str Int ); 
 use IO::KISS; 
-use Periodic::Table qw( Element );  
 
 use namespace::autoclean; 
-use experimental qw( signatures );  
+use experimental qw( signatures ); 
 
-with qw( IO::Reader IO::Cache Geometry::General );  
+with qw( IO::Reader IO::Cache ); 
+with qw( Geometry::General );  
+with qw( XYZ::Xmakemol ); 
 
-# from IO::Reader
+has 'file', ( 
+    is        => 'ro', 
+    isa       => Str, 
+    required  => 1, 
+); 
+
+has 'total_natom', ( 
+    is       => 'ro', 
+    isa      => Int, 
+    lazy     => 1, 
+    init_arg => undef, 
+    builder  => '_build_total_natom'
+); 
+
+sub BUILD ( $self, @ ) { 
+    try { $self->cache }
+}
+
+# IO::Reader
 sub _build_reader ( $self ) { 
     return IO::KISS->new( $self->file, 'r' ) 
 }
 
-# from IO::Cache
+# IO::Cache
 sub _build_cache ( $self ) { 
     my %xyz = (); 
 
@@ -42,7 +63,19 @@ sub _build_cache ( $self ) {
     return \%xyz 
 } 
 
-# from Geometry::General
+# IO::General 
+sub _build_comment ( $self ) { 
+    $self->cache->{'comment'} 
+} 
+
+sub _build_atom ( $self ) { 
+    return $self->cache->{'atom'} 
+}    
+
+sub _build_coordinate ( $self ) { 
+    return $self->cache->{'coordinate'} 
+} 
+
 sub _build_lattice ( $self ) {
     return [ 
         [ 15.0, 0.00, 0.00 ], 
@@ -50,5 +83,10 @@ sub _build_lattice ( $self ) {
         [ 0.00, 0.00, 15.0 ]
     ]
 }
+
+# native 
+sub _build_total_natom ( $self ) { 
+    $self->cache->{'total_natom'} 
+} 
 
 1

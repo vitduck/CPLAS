@@ -1,11 +1,11 @@
 package VASP::KPOINTS; 
 
-use Try::Tiny; 
-use List::Util qw( product );  
-
 use Moose;  
 use MooseX::Types::Moose qw( Str Int ArrayRef );  
 use IO::KISS; 
+
+use Try::Tiny; 
+use List::Util qw( product );  
 
 use namespace::autoclean; 
 use feature qw( switch );  
@@ -26,7 +26,7 @@ has 'comment', (
     isa       => Str, 
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { return shift->read( 'commment' ) } 
+    builder   => '_build_comment' 
 ); 
 
 has 'mode', ( 
@@ -34,7 +34,7 @@ has 'mode', (
     isa       => Int,  
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { return shift->read( 'mode' ) }
+    builder   => '_build_mode' 
 );  
 
 has 'scheme', ( 
@@ -42,7 +42,7 @@ has 'scheme', (
     isa       => Str,  
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { return shift->read( 'scheme' ) }
+    builder   => '_build_scheme'
 ); 
 
 has 'grid', ( 
@@ -50,7 +50,7 @@ has 'grid', (
     isa      => ArrayRef[ Int ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    default  => sub { return shift->read( 'grid' ) }, 
+    builder  => '_build_grid', 
     handles  => { 
         get_grids => 'elements' 
     } 
@@ -61,7 +61,7 @@ has 'shift', (
     isa      => ArrayRef[ Str ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    default  => sub { return shift->read( 'shift' ) }, 
+    builder  => '_build_shift',
     handles  => { 
         get_shifts => 'elements' 
     } 
@@ -94,11 +94,11 @@ sub _build_cache ( $self ) {
     $kp{comment} = $self->get_line;   
     $kp{mode}    = $self->get_line;   
     $kp{scheme}  = 
-        $self->get_line  =~ /^M/ ? 
-        'Monkhorst-Pack' : 
-        'Gamma-centered' ;
+        $self->get_line  =~ /^M/ 
+        ? 'Monkhorst-Pack' 
+        : 'Gamma-centered' ;
     
-    given ( $kp{mode } ) {   
+    given ( $kp{mode} ) {   
         when ( 0 )      { $kp{grid} = [ map int, map split, $self->get_line ] }
         when ( $_ > 0 ) { push $kp{grid}->@*, [ ( split )[0,1,2] ] for $self->get_lines } 
         default         { ... } 
@@ -111,12 +111,33 @@ sub _build_cache ( $self ) {
     return \%kp; 
 } 
 
-sub _build_nkpt ( $self ) { 
+# native 
+sub _build_comment ( $self ) { 
+    return $self->cache->{'commment'}
+} 
+
+sub _build_mode ( $self ) { 
+    return $self->cache->{'mode'}
+}
+
+sub _build_scheme ( $self ) { 
+    return $self->cache->{'scheme'}
+}
+
+sub _build_grid ( $self ) { 
+    return $self->cache->{'grid'}
+} 
+
+sub _build_shift ( $self ) { 
+    return $self->cache->{'shift'}
+} 
+
+sub _build_nkpt ( $self ) {
     return 
         $self->mode == 0 
         ? product($self->get_grids)
         : $self->mode 
-}
+}  
 
 __PACKAGE__->meta->make_immutable;
 

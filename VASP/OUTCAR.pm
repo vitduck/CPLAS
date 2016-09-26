@@ -2,11 +2,16 @@ package VASP::OUTCAR;
 
 use Moose;  
 use MooseX::Types::Moose qw( Str );  
+use IO::KISS; 
+
+use Try::Tiny; 
+use PDL::Lite; 
 
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
-with qw( IO::Reader VASP::Regex ); 
+with qw( IO::Reader ); 
+with qw( VASP::Regex ); 
 with qw( VASP::Force ); 
 
 has 'file', ( 
@@ -21,7 +26,7 @@ has 'POSCAR', (
     isa       => 'VASP::POSCAR',   
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { return VASP::POSCAR->new }, 
+    default   => sub { VASP::POSCAR->new }, 
     handles   => [ qw( get_true_indieces get_false_indices ) ]
 ); 
 
@@ -29,6 +34,43 @@ has 'POSCAR', (
 sub _build_reader ( $self ) { 
     return IO::KISS->new( $self->file, 'r' ) 
 }
+
+# from VASP::Force
+# perform regex in list context 
+# open FH to force block string and iterate over each line 
+# The 3,4, and 5 column are fx, fy, and fz 
+# @forces is a 3d matrix with dimension of NSW x NIONS x 3
+sub _build_force ( $self ) { 
+    my ( @true_indices, @false_indices ); 
+
+    # cache POSCAR if possible 
+    try { 
+        @true_indices  = $self->get_true_indices; 
+        @false_indices = $self->get_false_indices  
+    } 
+    # cannot read POSCAR 
+    catch { 
+        @false_indices == 0 
+    }; 
+
+    # regex in list context
+    my @fblocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
+    my @forces  = map [ 
+        map [ ( split )[3,4,5] ], IO::KISS->new( \$_, 'r' )->get_lines 
+    ], @fblocks; 
+
+    return 
+        @false_indices == 0 
+        ? PDL->new( \@forces ) 
+        : PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
+} 
+
+# Dimensions of PDL piddle is reversed w.r.t standard matrix notation 
+# Dimension of the force 3d matrix is: 3 x NIONS x NSW ( instead of NSW x NIONS x 3 )
+# However, this facilitate dimensional reduction operator as following: 
+sub _build_max_force ( $self ) { 
+    return ( $self->force * $self->force )->sumover->sqrt->maximum; 
+} 
 
 __PACKAGE__->meta->make_immutable;
 

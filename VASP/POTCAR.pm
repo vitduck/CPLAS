@@ -1,14 +1,13 @@
 package VASP::POTCAR; 
 
-use File::Basename; 
-use File::Spec::Functions; 
-
 use Moose;  
 use MooseX::Types::Moose qw( Str ArrayRef ); 
 use Moose::Util::TypeConstraints qw( enum );  
-
 use IO::KISS;  
 use Periodic::Table qw( Element Element_Name ); 
+
+use File::Basename; 
+use File::Spec::Functions; 
 
 use namespace::autoclean; 
 use feature qw( signatures refaliasing );  
@@ -47,7 +46,7 @@ has 'exchange', (
     is        => 'ro', 
     isa       => enum( [ qw( PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA ) ] ),  
     lazy      => 1, 
-    builder   => '_build_exchange' 
+    builder   => '_build_exchange', 
 ); 
 
 has 'pp_info', (  
@@ -95,7 +94,7 @@ sub BUILD ( $self, @ ) {
 
 sub info ( $self ) { 
     printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
+    printf "%-6s %-10s %-6s %-10s %-s\n", @$_ for $self->get_pp_info; 
 } 
 
 sub make ( $self ) { 
@@ -139,33 +138,32 @@ sub _build_cache ( $self ) {
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
             ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
-            $date //= '---'; 
             push $info{$exchange}->@*, 
-                [ $element, to_Element_Name( $element ), $pseudo, $config, $date ]; 
+                [ $element, to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
         }
     }
     
     return \%info;  
 } 
 
-# parse cached POTCAR 
-sub _build_element ( $self ) { 
-    return [ map $_->[0], $self->get_pp_info ] 
-}
+# native
+sub _build_element ( $self ) {
+    return [ map $_->[0], $self->get_pp_info ]
+} 
 
 sub _build_pp_info ( $self ) { 
-    return $self->read( $self->exchange )      
+    return $self->cache->{ $self->exchange }
 }
 
 sub _build_exchange ( $self ) { 
     my @exchanges = keys $self->cache->%*;  
 
     return ( 
-        @exchanges > 1 ? 
-        die "More than one kind of PP. Something is wrong ...\n" :  
-        shift @exchanges  
+        @exchanges > 1 
+        ? die "More than one kind of PP. Something is wrong ...\n"  
+        : shift @exchanges  
     )
-}  
+} 
 
 sub _build_config ( $self ) { 
     my @configs = (); 

@@ -1,13 +1,22 @@
 package Geometry::General; 
 
-use List::Util qw( sum );  
-
 use Moose::Role; 
 use MooseX::Types::Moose qw( Str Int ArrayRef HashRef );  
 use Periodic::Table qw( Element ); 
 
+use List::Util qw( sum );  
+
 use namespace::autoclean; 
 use experimental qw( signatures ); 
+
+requires qw( 
+    _build_comment 
+    _build_lattice 
+    _build_atom 
+    _build_coordinate 
+    _build_element
+    _build_natom
+); 
 
 has 'comment', ( 
     is       => 'ro', 
@@ -76,34 +85,5 @@ has 'natom', (
         get_natoms => 'elements' 
     } 
 );  
-
-# native
-sub _build_element ( $self ) { 
-    my @elements;  
-
-    for my $index ( sort { $a <=> $b } $self->get_atom_indices ) { 
-        my $element = $self->get_atom( $index ); 
-
-        next if grep $element eq $_, @elements; 
-        push @elements, $element; 
-    } 
-
-    return \@elements; 
-} 
-
-sub _build_natom ( $self ) { 
-    my @natoms;  
-
-    for my $element ( $self->get_elements ) { 
-        my $natom = 
-            grep $element eq $_, 
-            map  $self->get_atom( $_ ), 
-            $self->get_atom_indices; 
-
-        push @natoms, $natom; 
-    } 
-
-    return \@natoms; 
-} 
 
 1
