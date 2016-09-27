@@ -36,7 +36,7 @@ has 'element', (
     isa       => ArrayRef[ Element ],  
     traits    => [ 'Array' ], 
     lazy      => 1, 
-    builder   => '_build_element', 
+    default   => sub { [ map $_->[0], $_[0]->get_pp_info ] }, 
     handles   => { 
         get_elements => 'elements' 
     } 
@@ -46,7 +46,7 @@ has 'exchange', (
     is        => 'ro', 
     isa       => enum( [ qw( PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA ) ] ),  
     lazy      => 1, 
-    builder   => '_build_exchange', 
+    default   => sub { ( keys $_[0]->cache->%* )[0] } 
 ); 
 
 has 'pp_info', (  
@@ -54,7 +54,7 @@ has 'pp_info', (
     isa       => ArrayRef, 
     traits    => [ 'Array' ], 
     lazy      => 1, 
-    builder   => '_build_pp_info', 
+    default   => sub { $_[0]->cache->{ $_[0]->exchange } }, 
     handles   => { 
         get_pp_info => 'elements' 
     } 
@@ -94,7 +94,7 @@ sub BUILD ( $self, @ ) {
 
 sub info ( $self ) { 
     printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-6s %-10s %-6s %-10s %-s\n", @$_ for $self->get_pp_info; 
+    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
 } 
 
 sub make ( $self ) { 
@@ -104,17 +104,17 @@ sub make ( $self ) {
     $self->close_writer; 
 } 
 
-# from IO:Reader
+# IO:Reader
 sub _build_reader ( $self ) { 
     return IO::KISS->new( $self->file, 'r' )
 } 
 
-# from IO:Writer
+# IO:Writer
 sub _build_writer ( $self ) { 
     return IO::KISS->new( $self->file, 'w' )
 } 
 
-# from IO::Cache
+# IO::Cache
 sub _build_cache ( $self ) { 
     my %info = ();  
     my ( $exchange, $element, $pseudo, $config, $date ); 
@@ -147,24 +147,6 @@ sub _build_cache ( $self ) {
 } 
 
 # native
-sub _build_element ( $self ) {
-    return [ map $_->[0], $self->get_pp_info ]
-} 
-
-sub _build_pp_info ( $self ) { 
-    return $self->cache->{ $self->exchange }
-}
-
-sub _build_exchange ( $self ) { 
-    my @exchanges = keys $self->cache->%*;  
-
-    return ( 
-        @exchanges > 1 
-        ? die "More than one kind of PP. Something is wrong ...\n"  
-        : shift @exchanges  
-    )
-} 
-
 sub _build_config ( $self ) { 
     my @configs = (); 
 

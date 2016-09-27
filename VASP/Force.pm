@@ -3,8 +3,9 @@ package VASP::Force;
 use Moose::Role; 
 
 use namespace::autoclean; 
+use experimental qw( signatures ); 
 
-requires qw( _build_force _build_max_force ); 
+requires qw( _build_force );  
 
 has 'force', ( 
     is       => 'ro', 
@@ -25,4 +26,11 @@ has 'max_force', (
     } 
 ); 
 
-1; 
+# Dimensions of PDL piddle is reversed w.r.t standard matrix notation 
+# Dimension of the force 3d matrix is: 3 x NIONS x NSW ( instead of NSW x NIONS x 3 )
+# However, this facilitate dimensional reduction operator as following: 
+sub _build_max_force ( $self ) { 
+    return ( $self->force * $self->force )->sumover->sqrt->maximum; 
+} 
+
+1

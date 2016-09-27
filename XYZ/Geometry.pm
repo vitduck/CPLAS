@@ -63,20 +63,11 @@ sub _build_cache ( $self ) {
     return \%xyz 
 } 
 
-# IO::General 
-sub _build_comment ( $self ) { 
-    $self->cache->{'comment'} 
-} 
-
-sub _build_atom ( $self ) { 
-    return $self->cache->{'atom'} 
-}    
-
-sub _build_coordinate ( $self ) { 
-    return $self->cache->{'coordinate'} 
-} 
-
-sub _build_lattice ( $self ) {
+# Geometry::General 
+sub _build_comment    { $_[0]->cache->{'comment'} }
+sub _build_atom       { $_[0]->cache->{'atom'} }     
+sub _build_coordinate { $_[0]->cache->{'coordinate'} } 
+sub _build_lattice    { 
     return [ 
         [ 15.0, 0.00, 0.00 ], 
         [ 0.00, 15.0, 0.00 ], 
@@ -85,8 +76,6 @@ sub _build_lattice ( $self ) {
 }
 
 # native 
-sub _build_total_natom ( $self ) { 
-    $self->cache->{'total_natom'} 
-} 
+sub _build_total_natom { $_[0]->cache->{'total_natom'} }
 
 1

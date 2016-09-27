@@ -7,41 +7,34 @@ use Periodic::Table 'Element';
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
-requires qw( 
-    _build_version 
-    _build_scaling 
-    _build_selective
-    _build_type 
-    _build_dynamics
-    _build_false_index _build_true_index 
-); 
+requires qw( cache ); 
 
 has 'version', ( 
     is        => 'ro', 
     isa       => Int,  
     lazy      => 1, 
-    builder   => '_build_version'
+    default   => sub { $_[0]->cache->{'version'} } 
 );  
 
 has 'scaling', ( 
     is        => 'ro', 
     isa       => Str,   
     lazy      => 1, 
-    builder   => '_build_scaling'
+    default   => sub { $_[0]->cache->{'scaling'} } 
 );  
 
 has 'selective', ( 
     is        => 'ro', 
     isa       => Bool,  
     lazy      => 1, 
-    builder   => '_build_selective'
+    default   => sub { $_[0]->cache->{'selective'} } 
 ); 
 
 has 'type', ( 
     is        => 'ro', 
     isa       => Str, 
     lazy      => 1, 
-    builder   => '_build_type'
+    default   => sub { $_[0]->cache->{'type'} } 
 ); 
 
 has 'indexed_dynamics', ( 
@@ -50,7 +43,7 @@ has 'indexed_dynamics', (
     traits    => [ 'Hash' ], 
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_dynamics', 
+    default   => sub { $_[0]->cache->{'dynamics'} }, 
     handles   => { 
         set_dynamics         => 'set', 
         get_dynamics_indices => 'keys', 
@@ -82,5 +75,30 @@ has 'true_index', (
         get_true_indices => 'elements' 
     } 
 );  
+
+sub _build_false_index ( $self ) { 
+    my @f_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
+        push @f_indices, $index - 1 
+            if grep $_ eq 'F', $self->get_dynamics($index)->@*;   
+    }
+
+   return \@f_indices;  
+} 
+
+sub _build_true_index ( $self ) {
+    my @t_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
+        push @t_indices, $index - 1 
+            if ( grep $_ eq 'T', $self->get_dynamics($index)->@* ) == 3  
+    }
+
+    return \@t_indices;  
+}
+
 
 1

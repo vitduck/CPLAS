@@ -55,21 +55,13 @@ sub _build_force ( $self ) {
 
     # regex in list context
     my @fblocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
-    my @forces  = map [ 
-        map [ ( split )[3,4,5] ], IO::KISS->new( \$_, 'r' )->get_lines 
-    ], @fblocks; 
+    my @forces  = 
+        map [ map [ ( split )[3,4,5] ], IO::KISS->new( \$_, 'r' )->get_lines ], @fblocks ;  
 
     return 
         @false_indices == 0 
         ? PDL->new( \@forces ) 
         : PDL->new( \@forces )->dice( 'X', \@true_indices, 'X' ) 
-} 
-
-# Dimensions of PDL piddle is reversed w.r.t standard matrix notation 
-# Dimension of the force 3d matrix is: 3 x NIONS x NSW ( instead of NSW x NIONS x 3 )
-# However, this facilitate dimensional reduction operator as following: 
-sub _build_max_force ( $self ) { 
-    return ( $self->force * $self->force )->sumover->sqrt->maximum; 
 } 
 
 __PACKAGE__->meta->make_immutable;

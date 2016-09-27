@@ -26,7 +26,7 @@ has 'comment', (
     isa       => Str, 
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_comment' 
+    default   => sub { $_[0]->cache->{'commment'} }  
 ); 
 
 has 'mode', ( 
@@ -34,7 +34,7 @@ has 'mode', (
     isa       => Int,  
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_mode' 
+    default   => sub { $_[0]->cache->{'mode'} }  
 );  
 
 has 'scheme', ( 
@@ -42,7 +42,7 @@ has 'scheme', (
     isa       => Str,  
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_scheme'
+    default   => sub { $_[0]->cache->{'scheme'} }  
 ); 
 
 has 'grid', ( 
@@ -50,7 +50,7 @@ has 'grid', (
     isa      => ArrayRef[ Int ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    builder  => '_build_grid', 
+    default   => sub { $_[0]->cache->{'grid'} }, 
     handles  => { 
         get_grids => 'elements' 
     } 
@@ -61,7 +61,7 @@ has 'shift', (
     isa      => ArrayRef[ Str ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    builder  => '_build_shift',
+    default   => sub { $_[0]->cache->{'shift'} }, 
     handles  => { 
         get_shifts => 'elements' 
     } 
@@ -79,12 +79,12 @@ sub BUILD ( $self, @ ) {
     try { $self->cache } 
 } 
 
-# from IO::Reader
+# IO::Reader
 sub _build_reader ( $self ) { 
     return IO::KISS->new( $self->file, 'r' ) 
 }
 
-# from IO::Cache
+# IO::Cache
 sub _build_cache ( $self ) { 
     my %kp = ();  
 
@@ -111,27 +111,7 @@ sub _build_cache ( $self ) {
     return \%kp; 
 } 
 
-# native 
-sub _build_comment ( $self ) { 
-    return $self->cache->{'commment'}
-} 
-
-sub _build_mode ( $self ) { 
-    return $self->cache->{'mode'}
-}
-
-sub _build_scheme ( $self ) { 
-    return $self->cache->{'scheme'}
-}
-
-sub _build_grid ( $self ) { 
-    return $self->cache->{'grid'}
-} 
-
-sub _build_shift ( $self ) { 
-    return $self->cache->{'shift'}
-} 
-
+# native
 sub _build_nkpt ( $self ) {
     return 
         $self->mode == 0 

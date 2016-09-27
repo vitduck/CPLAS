@@ -61,7 +61,6 @@ has 'backup', (
     lazy      => 1, 
     predicate => 'has_backup', 
     default   => 'POSCAR.bak', 
-    trigger   => sub { }
 ); 
 
 has 'save_as', ( 
@@ -76,7 +75,7 @@ has 'index', (
     is        => 'ro', 
     isa       => ArrayRef [ Int ], 
     traits    => [ 'Array' ], 
-    default   => sub ( $self ) { [ sort { $a <=> $b } $self->get_coordinate_indices ] }, 
+    default   => sub { [ sort { $a <=> $b } $_[0]->get_coordinate_indices ] }, 
     handles   => { 
         get_indices => 'elements' 
     }
@@ -235,22 +234,12 @@ sub _build_cache ( $self ) {
 } 
 
 # Geometry::General 
-sub _build_comment ( $self ) { 
-    return $self->cache->{'comment'} 
-} 
+sub _build_comment    { $_[0]->cache->{'comment'} }
+sub _build_lattice    { $_[0]->cache->{'lattice'} } 
+sub _build_atom       { $_[0]->cache->{'atom'} } 
+sub _build_coordinate { $_[0]->cache->{'coordinate'} } 
 
-sub _build_lattice ( $self ) { 
-    return $self->cache->{'lattice'} 
-} 
-
-sub _build_atom  ( $self ) { 
-    return $self->cache->{'atom'} 
-}    
-
-sub _build_coordinate ( $self ) { 
-    return $self->cache->{'coordinate'} 
-} 
-
+# tabulate elements from indexed_atom 
 sub _build_element ( $self ) { 
     my @elements;  
 
@@ -264,6 +253,7 @@ sub _build_element ( $self ) {
     return \@elements; 
 } 
 
+# tabulate natom from indexed_atom 
 sub _build_natom ( $self ) { 
     my @natoms;  
 
@@ -278,51 +268,6 @@ sub _build_natom ( $self ) {
 
     return \@natoms; 
 } 
-
-# VASP::Geometry 
-sub _build_version ( $self ) { 
-    return $self->cache->{'version'} 
-} 
-
-sub _build_scaling ( $self ) { 
-    return $self->cache->{'scaling'} 
-}
-
-sub _build_selective ( $self ) { 
-    return $self->cache->{'selective'} 
-} 
-
-sub _build_type ( $self ) { 
-    return $self->cache->{'type'} 
-} 
-
-sub _build_dynamics ( $self ) { 
-    return $self->cache->{'dynamics'} 
-} 
-
-sub _build_false_index ( $self ) { 
-    my @f_indices = ();  
-
-    for my $index ( $self->get_dynamics_indices ) { 
-        # off-set index by 1
-        push @f_indices, $index - 1 
-            if grep $_ eq 'F', $self->get_dynamics($index)->@*;   
-    }
-
-   return \@f_indices;  
-} 
-
-sub _build_true_index ( $self ) {
-    my @t_indices = ();  
-
-    for my $index ( $self->get_dynamics_indices ) { 
-        # off-set index by 1
-        push @t_indices, $index - 1 
-            if ( grep $_ eq 'T', $self->get_dynamics($index)->@* ) == 3  
-    }
-
-    return \@t_indices;  
-}
 
 # VASP::Format 
 sub _build_poscar_format ( $self ) { 
