@@ -98,9 +98,12 @@ sub info ( $self ) {
 } 
 
 sub make ( $self ) { 
-    for my $potcar ( $self->get_potcars ) {  
-        $self->print( IO::KISS->new( $potcar, 'r' )->slurp ) 
+    for ( $self->get_potcars ) {  
+        my $potcar = IO::KISS->new($_, 'r'); 
+        $potcar->chomp; 
+        $self->print( $potcar->slurp ) 
     }
+
     $self->close_writer; 
 } 
 
