@@ -26,7 +26,7 @@ has 'comment', (
     isa       => Str, 
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { $_[0]->cache->{'commment'} }  
+    builder   => '_build_comment' 
 ); 
 
 has 'mode', ( 
@@ -34,7 +34,7 @@ has 'mode', (
     isa       => Int,  
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { $_[0]->cache->{'mode'} }  
+    builder   => '_build_mode' 
 );  
 
 has 'scheme', ( 
@@ -42,7 +42,7 @@ has 'scheme', (
     isa       => Str,  
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { $_[0]->cache->{'scheme'} }  
+    builder   => '_build_scheme' 
 ); 
 
 has 'grid', ( 
@@ -50,7 +50,7 @@ has 'grid', (
     isa      => ArrayRef[ Int ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    default   => sub { $_[0]->cache->{'grid'} }, 
+    builder  => '_build_grid', 
     handles  => { 
         get_grids => 'elements' 
     } 
@@ -61,7 +61,7 @@ has 'shift', (
     isa      => ArrayRef[ Str ], 
     traits   => [ 'Array' ], 
     lazy     => 1, 
-    default   => sub { $_[0]->cache->{'shift'} }, 
+    builder  => '_build_shift', 
     handles  => { 
         get_shifts => 'elements' 
     } 
@@ -91,20 +91,20 @@ sub _build_cache ( $self ) {
     # remove \n
     $self->chomp_reader; 
     
-    $kp{comment} = $self->get_line;   
-    $kp{mode}    = $self->get_line;   
-    $kp{scheme}  = 
+    $kp{ comment } = $self->get_line;   
+    $kp{ mode }    = $self->get_line;   
+    $kp{ scheme }  = 
         $self->get_line  =~ /^M/ 
         ? 'Monkhorst-Pack' 
         : 'Gamma-centered' ;
     
-    given ( $kp{mode} ) {   
-        when ( 0 )      { $kp{grid} = [ map int, map split, $self->get_line ] }
-        when ( $_ > 0 ) { push $kp{grid}->@*, [ ( split )[0,1,2] ] for $self->get_lines } 
+    given ( $kp{ mode } ) {   
+        when ( 0 )      { $kp{ grid } = [ map int, map split, $self->get_line ] }
+        when ( $_ > 0 ) { push $kp{ grid }->@*, [ ( split )[ 0..2 ] ] for $self->get_lines } 
         default         { ... } 
     }
     
-    $kp{shift} = [ map split, $self->get_line ] if $kp{mode} == 0; 
+    $kp{ shift } = [ map split, $self->get_line ] if $kp{ mode } == 0; 
 
     $self->close_reader;  
 
@@ -112,6 +112,26 @@ sub _build_cache ( $self ) {
 } 
 
 # native
+sub _build_commnet ( $self ) { 
+    return $self->cache->{ 'comment' }
+} 
+
+sub _build_mode ( $self ) { 
+    return $self->cache->{ 'mode' }
+} 
+
+sub _build_scheme ( $self ) { 
+    return $self->cache->{ 'scheme' }
+} 
+
+sub _build_grid ( $self ) { 
+    return $self->cache->{ 'grid' }
+} 
+
+sub _build_shift ( $self ) { 
+    return $self->cache->{ 'shift' }
+} 
+
 sub _build_nkpt ( $self ) {
     return 
         $self->mode == 0 

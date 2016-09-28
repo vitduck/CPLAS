@@ -37,7 +37,7 @@ has 'constraint', (
     isa       => ArrayRef[ Int ],  
     traits    => [ 'Array' ], 
     lazy      => 1, 
-    default   => sub ( $self ) { $self->index },  
+    builder   => '_build_constraint', 
     handles   => { 
         get_constraint_indices => 'elements'
     }
@@ -47,9 +47,7 @@ has 'delete', (
     is        => 'ro', 
     isa       => ArrayRef[ Int ],  
     traits    => [ 'Array' ], 
-    lazy      => 1, 
     predicate => 'has_delete', 
-    default   => sub { [] },  
     handles   => { 
         get_delete_indices => 'elements'
     }
@@ -75,7 +73,7 @@ has 'index', (
     is        => 'ro', 
     isa       => ArrayRef [ Int ], 
     traits    => [ 'Array' ], 
-    default   => sub { [ sort { $a <=> $b } $_[0]->get_coordinate_indices ] }, 
+    builder   => '_build_index', 
     handles   => { 
         get_indices => 'elements' 
     }
@@ -86,8 +84,8 @@ sub BUILD ( $self, @ ) {
     try { $self->cache };  
 
     $self->$_ for (
-        map $_->[1], 
-        grep $self->${\$_->[0]}, ( 
+        map $_->[ 1 ], 
+        grep $self->${ \$_->[ 0 ] }, ( 
             [ 'has_backup'    , '_backup'     ], 
             [ 'has_constraint', '_constraint' ], 
             [ 'has_delete'    , '_delete'     ], 
@@ -171,23 +169,23 @@ sub _build_cache ( $self ) {
     $self->chomp_reader; 
 
     # header 
-    $poscar{comment} = $self->get_line; 
+    $poscar{ comment } = $self->get_line; 
     
     # lattice vectors 
-    $poscar{scaling} = $self->get_line; 
-    $poscar{lattice}->@* = map [ split ' ', $self->get_line  ], 0..2; 
+    $poscar{ scaling } = $self->get_line; 
+    $poscar{ lattice }->@* = map [ split ' ', $self->get_line  ], 0..2; 
 
     # natom and element 
     my ( @natoms, @elements ); 
     my @has_VASP5 = split ' ', $self->get_line; 
-    if ( ! grep Element->check($_), @has_VASP5 ) { 
-        $poscar{version} = 4; 
+    if ( ! grep Element->check( $_ ), @has_VASP5 ) { 
+        $poscar{ version } = 4; 
         # get elements from POTCAR and synchronize with @natoms
         @elements = VASP::POTCAR->new()->get_elements;  
         @natoms   = @has_VASP5;  
-        @elements = splice @elements, 0, scalar(@natoms); 
+        @elements = splice @elements, 0, scalar( @natoms ); 
     } else { 
-        $poscar{version} = 5; 
+        $poscar{ version } = 5; 
         @elements = @has_VASP5; 
         @natoms   = split ' ', $self->get_line; 
     } 
@@ -198,11 +196,11 @@ sub _build_cache ( $self ) {
     # selective dynamics 
     my $has_selective = $self->get_line; 
     if ( $has_selective =~ /^\s*S/i ) { 
-        $poscar{selective} = 1; 
-        $poscar{type}      = $self->get_line; 
+        $poscar{ selective } = 1; 
+        $poscar{ type }      = $self->get_line; 
     } else { 
-        $poscar{selective} = 0; 
-        $poscar{type}      = $has_selective; 
+        $poscar{ selective } = 0; 
+        $poscar{ type }      = $has_selective; 
     } 
 
     # coodinate and dynamics
@@ -224,9 +222,9 @@ sub _build_cache ( $self ) {
     } 
     
     # indexing 
-    $poscar{atom}       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
-    $poscar{coordinate} = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
-    $poscar{dynamics}   = { map { $_+1 => $dynamics[$_]    } 0..$#dynamics    };  
+    $poscar{ atom } = { map { $_+1 => $atoms[ $_ ] } 0..$#atoms };   
+    $poscar{ dynamics } = { map { $_+1 => $dynamics[ $_] } 0..$#dynamics };  
+    $poscar{ coordinate } = { map { $_+1 => $coordinates[ $_ ] } 0..$#coordinates };  
     
     $self->close_reader; 
 
@@ -234,10 +232,21 @@ sub _build_cache ( $self ) {
 } 
 
 # Geometry::General 
-sub _build_comment    { $_[0]->cache->{'comment'} }
-sub _build_lattice    { $_[0]->cache->{'lattice'} } 
-sub _build_atom       { $_[0]->cache->{'atom'} } 
-sub _build_coordinate { $_[0]->cache->{'coordinate'} } 
+sub _build_comment ( $self ) { 
+    return $self->cache->{ 'comment' } 
+}
+
+sub _build_lattice ( $self ) { 
+    return $self->cache->{ 'lattice' } 
+} 
+
+sub _build_atom ( $self ) { 
+    return $self->cache->{ 'atom' } 
+} 
+
+sub _build_coordinate ( $self ) { 
+    return $self->cache->{ 'coordinate' } 
+} 
 
 # tabulate elements from indexed_atom 
 sub _build_element ( $self ) { 
@@ -281,6 +290,15 @@ sub _build_poscar_format ( $self ) {
             ? join( '', "%20.16f" x 3, "%4s" x 3, "%6d", "\n" )
             : join( '', "%20.16f" x 3, "%6d", "\n" )  
     }  
+} 
+
+# native 
+sub _build_index ( $self ) { 
+    return [ sort { $a <=> $b } $self->get_coordinate_indices ] 
+} 
+
+sub _build_constraint ( $self ) { 
+    return $self->index; 
 } 
 
 sub _backup ( $self ) { 

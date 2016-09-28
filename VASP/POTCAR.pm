@@ -20,7 +20,7 @@ has 'pot_dir', (
     isa       => Str, 
     lazy      => 1, 
     init_arg  => undef, 
-    default   => $ENV{POT_DIR}, 
+    default   => $ENV{ POT_DIR }, 
 ); 
 
 has 'file', ( 
@@ -36,7 +36,7 @@ has 'element', (
     isa       => ArrayRef[ Element ],  
     traits    => [ 'Array' ], 
     lazy      => 1, 
-    default   => sub { [ map $_->[0], $_[0]->get_pp_info ] }, 
+    builder   => '_build_element', 
     handles   => { 
         get_elements => 'elements' 
     } 
@@ -46,7 +46,7 @@ has 'exchange', (
     is        => 'ro', 
     isa       => enum( [ qw( PAW_PBE PAW_GGA PAW_LDA POT_GGA POT_LDA ) ] ),  
     lazy      => 1, 
-    default   => sub { ( keys $_[0]->cache->%* )[0] } 
+    builder   => '_build_exchange', 
 ); 
 
 has 'pp_info', (  
@@ -54,7 +54,7 @@ has 'pp_info', (
     isa       => ArrayRef, 
     traits    => [ 'Array' ], 
     lazy      => 1, 
-    default   => sub { $_[0]->cache->{ $_[0]->exchange } }, 
+    builder   => '_build_pp_info', 
     handles   => { 
         get_pp_info => 'elements' 
     } 
@@ -94,7 +94,7 @@ sub BUILD ( $self, @ ) {
 
 sub info ( $self ) { 
     printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-10s %-6s %-10s %-s\n", $_->@[1..4] for $self->get_pp_info; 
+    printf "%-10s %-6s %-10s %-s\n", $_->@[ 1..4 ] for $self->get_pp_info; 
 } 
 
 sub make ( $self ) { 
@@ -131,16 +131,15 @@ sub _build_cache ( $self ) {
             $element = $1; 
             my @valences = ();  
             
-            $config  = ( 
-                ( @valences = ($2 =~ /([spdf]\d+)/g) ) ?  
+            $config  =  
+                ( @valences = ( $2 =~ /([spdf]\d+)/g ) ) ?  
                 join '', @valences : 
-                (split ' ', $2)[0] 
-            )
+                ( split ' ', $2 )[ 0 ] 
         }
 
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
-            ( $exchange, $pseudo, $date ) = ( split )[2,3,4]; 
+            ( $exchange, $pseudo, $date ) = ( split )[ 2..4 ]; 
             push $info{$exchange}->@*, 
                 [ $element, to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
         }
@@ -150,12 +149,24 @@ sub _build_cache ( $self ) {
 } 
 
 # native
+sub _build_element ( $self ) { 
+    return [ map $_->[ 0 ], $self->get_pp_info ] 
+} 
+
+sub _build_exchange ( $self ) { 
+    return ( keys $self->cache->%* )[ 0 ]
+}
+
+sub _build_pp_info ( $self ) { 
+    return $self->cache->{ $self->exchange } 
+} 
+
 sub _build_config ( $self ) { 
     my @configs = (); 
 
     for my $element ( $self->get_elements ) { 
         push @configs, [ 
-            map basename($_), 
+            map basename( $_ ), 
             grep /\/($element)(\z|\d|_|\.)/, 
             glob "${\$self->pot_dir}/${\$self->exchange}/*" 
         ]; 

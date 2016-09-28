@@ -55,8 +55,14 @@ sub _build_force ( $self ) {
 
     # regex in list context
     my @fblocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
+    
+    # double mapping 
     my @forces  = 
-        map [ map [ ( split )[3,4,5] ], IO::KISS->new( \$_, 'r' )->get_lines ], @fblocks ;  
+        map [
+            map [ 
+                ( split )[ 3..5 ] 
+            ], IO::KISS->new( \$_, 'r' )->get_lines 
+        ], @fblocks ;  
 
     return 
         @false_indices == 0 

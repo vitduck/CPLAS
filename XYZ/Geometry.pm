@@ -43,8 +43,8 @@ sub _build_cache ( $self ) {
     # remove \n 
     $self->chomp_reader;  
 
-    $xyz{total_natom} = $self->get_line;  
-    $xyz{comment}     = $self->get_line; 
+    $xyz{ total_natom } = $self->get_line;  
+    $xyz{ comment }     = $self->get_line; 
 
     my ( @atoms, @coordinates ) = (); 
     while ( local $_ = $self->get_line ) { 
@@ -55,8 +55,8 @@ sub _build_cache ( $self ) {
     } 
 
     # indexing 
-    $xyz{atom}       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
-    $xyz{coordinate} = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
+    $xyz{ atom }       = { map { $_+1 => $atoms[$_]       } 0..$#atoms       };   
+    $xyz{ coordinate } = { map { $_+1 => $coordinates[$_] } 0..$#coordinates };  
 
     $self->close_reader; 
 
@@ -64,10 +64,19 @@ sub _build_cache ( $self ) {
 } 
 
 # Geometry::General 
-sub _build_comment    { $_[0]->cache->{'comment'} }
-sub _build_atom       { $_[0]->cache->{'atom'} }     
-sub _build_coordinate { $_[0]->cache->{'coordinate'} } 
-sub _build_lattice    { 
+sub _build_comment ( $self ) {  
+    return $self->cache->{ 'comment '} 
+}
+
+sub _build_atom ( $self ) { 
+    return $self->cache->{ 'atom' } 
+}     
+
+sub _build_coordinate ( $self ) { 
+    return $self->cache->{ 'coordinate' } 
+} 
+
+sub _build_lattice ( $self ) { 
     return [ 
         [ 15.0, 0.00, 0.00 ], 
         [ 0.00, 15.0, 0.00 ], 
@@ -76,6 +85,8 @@ sub _build_lattice    {
 }
 
 # native 
-sub _build_total_natom { $_[0]->cache->{'total_natom'} }
+sub _build_total_natom ( $self ) { 
+    return $self->cache->{'total_natom'} 
+}
 
 1

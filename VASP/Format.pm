@@ -1,7 +1,7 @@
 package VASP::Format;  
 
 use Moose::Role; 
-use MooseX::Types::Moose 'HashRef';  
+use MooseX::Types::Moose qw( HashRef );  
 
 use namespace::autoclean; 
 use experimental qw( signatures ); 

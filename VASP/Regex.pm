@@ -17,16 +17,17 @@ has 'force_regex', (
 ); 
 
 sub _build_force_regex ( $self ) { 
-    return qr/
-        (?:
-            \ POSITION\s+TOTAL-FORCE\ \(eV\/Angst\)\n
-            \ -+\n
-        )
-        (.+?) 
-        (?: 
-        \ -+\n
+    return 
+        qr/
+            (?:
+                \ POSITION\s+TOTAL-FORCE\ \(eV\/Angst\)\n
+                \ -+\n
             )
-    /xs 
+            (.+?) 
+            (?: 
+                \ -+\n
+            )
+        /xs 
 } 
 
 1; 

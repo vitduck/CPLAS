@@ -124,29 +124,29 @@ my %table = (
 
 subtype Element, as Str, where { 
     my $element = $_;  
-    return grep $element eq $_->[0], values %table; 
+    return grep $element eq $_->[ 0 ], values %table; 
 }; 
 
 subtype Element_Name, as Str, where { 
     my $name = $_; 
-    return grep $name eq $_->[1], values %table; 
+    return grep $name eq $_->[ 1 ], values %table; 
 }; 
 
 subtype Atomic_Number, as Int, where { 
-    return exists $table{$_}
+    return exists $table{ $_ }
 }; 
 
 coerce Element, from Atomic_Number, via { 
-    return $table{$_}->[0]; 
+    return $table{ $_ }->[ 0 ] ; 
 };  
 
 coerce Atomic_Number, from Element, via { 
     my $element = $_;  
-    return ( grep $element eq $table{$_}[0], keys %table )[0]  
+    return ( grep $element eq $table{ $_ }[ 0 ], keys %table )[ 0 ]  
 };  
 
 coerce Element_Name, from Element, via { 
-    return $table{to_Atomic_Number( $_ )}[1]; 
+    return $table{ to_Atomic_Number( $_ ) }[ 1 ]; 
 };  
 
 1
