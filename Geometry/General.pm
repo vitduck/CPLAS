@@ -1,20 +1,21 @@
 package Geometry::General; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw( Str Int ArrayRef HashRef );  
-use Periodic::Table qw( Element ); 
+use MooseX::Types::Moose qw( Str ArrayRef HashRef );  
+use namespace::autoclean; 
 
 use List::Util qw( sum );  
+use Periodic::Table qw( Element );  
 
-use namespace::autoclean; 
-use experimental qw( signatures ); 
+use experimental qw( signatures );  
 
 requires qw( 
     _build_comment 
     _build_lattice 
+    _build_index 
     _build_atom 
     _build_coordinate 
-    _build_element
+    _build_element 
     _build_natom
 ); 
 
@@ -28,7 +29,7 @@ has 'comment', (
 has 'lattice', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_lattice', 
     handles   => { 
@@ -36,36 +37,53 @@ has 'lattice', (
     },  
 );  
 
-has 'indexed_atom', ( 
+has 'index', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => [ qw( Array ) ], 
+    lazy      => 1, 
+    builder   => '_build_index', 
+    clearer   => '_clear_index', 
+    writer    => '_set_index', 
+    handles   => { 
+        get_indices => 'elements', 
+    }
+); 
+
+has 'atom', ( 
     is        => 'ro', 
     isa       => HashRef[ Element ],  
-    traits    => [ 'Hash' ], 
+    traits    => [ qw( Hash ) ], 
     lazy      => 1, 
     builder   => '_build_atom',  
+    clearer   => '_clear_atom', 
     handles   => { 
         get_atom         => 'get', 
-        get_atom_indices => 'keys',  
-        delete_atom      => 'delete'
+        set_atom         => 'set',  
+        delete_atom      => 'delete', 
+        get_atom_indices => 'keys' 
     } 
 ); 
 
-has 'indexed_coordinate', ( 
+has 'coordinate', ( 
     is        => 'ro', 
     isa       => HashRef,  
-    traits    => [ 'Hash' ], 
+    traits    => [ qw( Hash ) ], 
     lazy      => 1, 
     builder   => '_build_coordinate', 
+    clearer   => '_clear_coordinate', 
     handles   => { 
         get_coordinate         => 'get', 
-        get_coordinate_indices => 'keys',  
+        set_coordinate         => 'set',  
         delete_coordinate      => 'delete', 
+        get_coordinate_indices => 'keys' 
     }  
 ); 
 
 has 'element', ( 
     is        => 'ro', 
     isa       => ArrayRef[ Element ],
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_element',   
     clearer   => '_clear_element', 
@@ -77,7 +95,7 @@ has 'element', (
 has 'natom', ( 
     is        => 'ro', 
     isa       => ArrayRef,   
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_natom', 
     clearer   => '_clear_natom', 

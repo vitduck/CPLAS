@@ -1,7 +1,7 @@
-package VASP::Regex; 
+package Regex::OUTCAR; 
 
 use Moose::Role; 
-
+use MooseX::Types::Moose qw( RegexRef ); 
 use namespace::autoclean; 
 use experimental qw( signatures ); 
 
@@ -10,7 +10,7 @@ use experimental qw( signatures );
 #       without explicit spliting later ? 
 has 'force_regex', ( 
     is        => 'ro', 
-    isa       => 'RegexpRef', 
+    isa       => RegexpRef, 
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_force_regex'

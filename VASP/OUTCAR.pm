@@ -2,17 +2,18 @@ package VASP::OUTCAR;
 
 use Moose;  
 use MooseX::Types::Moose qw( Str );  
-use IO::KISS; 
-
 use Try::Tiny; 
 use PDL::Lite; 
+use IO::KISS; 
 
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
-with qw( IO::Reader ); 
-with qw( VASP::Regex ); 
-with qw( VASP::Force ); 
+with qw( 
+    IO::Reader 
+    VASP::Force 
+    Regex::Force 
+); 
 
 has 'file', ( 
     is        => 'ro', 
@@ -26,16 +27,14 @@ has 'POSCAR', (
     isa       => 'VASP::POSCAR',   
     lazy      => 1, 
     init_arg  => undef, 
-    default   => sub { VASP::POSCAR->new }, 
+    default   => '_build_POSCAR', 
     handles   => [ qw( get_true_indieces get_false_indices ) ]
 ); 
 
 # from IO::Reader
-sub _build_reader ( $self ) { 
-    return IO::KISS->new( $self->file, 'r' ) 
-}
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
 
-# from VASP::Force
+# VASP::Force
 # perform regex in list context 
 # open FH to force block string and iterate over each line 
 # The 3,4, and 5 column are fx, fy, and fz 
@@ -71,5 +70,10 @@ sub _build_force ( $self ) {
 } 
 
 __PACKAGE__->meta->make_immutable;
+
+# native 
+sub _build_POSCAR ( $self ) { 
+    return VASP::POSCAR->new 
+}
 
 1 

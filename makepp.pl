@@ -2,8 +2,8 @@
 
 use strict; 
 use warnings; 
-use feature qw( switch );  
-use experimental qw( smartmatch ); 
+use feature qw( switch );   
+use experimental qw( smartmatch );  
 
 use IO::File; 
 use Data::Printer; 
@@ -47,7 +47,7 @@ my $mode;
 my $exchange = 'PAW_PBE'; 
 
 # default output 
-if ( @ARGV==0 ) { pod2usage(-verbose => 1) }
+if ( @ARGV==0 ) { pod2usage( -verbose => 1 ) }
 
 # optional args
 GetOptions( 

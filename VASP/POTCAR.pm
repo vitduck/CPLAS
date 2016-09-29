@@ -3,11 +3,10 @@ package VASP::POTCAR;
 use Moose;  
 use MooseX::Types::Moose qw( Str ArrayRef ); 
 use Moose::Util::TypeConstraints qw( enum );  
-use IO::KISS;  
-use Periodic::Table qw( Element Element_Name ); 
-
 use File::Basename; 
 use File::Spec::Functions; 
+use IO::KISS;  
+use Periodic::Table qw( Element Element_Name ); 
 
 use namespace::autoclean; 
 use feature qw( signatures refaliasing );  
@@ -34,7 +33,7 @@ has 'file', (
 has 'element', ( 
     is        => 'ro', 
     isa       => ArrayRef[ Element ],  
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_element', 
     handles   => { 
@@ -52,7 +51,7 @@ has 'exchange', (
 has 'pp_info', (  
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_pp_info', 
     handles   => { 
@@ -63,7 +62,7 @@ has 'pp_info', (
 has 'config', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_config', 
@@ -75,7 +74,7 @@ has 'config', (
 has 'potcar', ( 
     is        => 'ro', 
     isa       => ArrayRef[ Str ], 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_potcar', 
@@ -94,13 +93,17 @@ sub BUILD ( $self, @ ) {
 
 sub info ( $self ) { 
     printf  "\n=> Pseudopotential: %s\n", $self->exchange;  
-    printf "%-10s %-6s %-10s %-s\n", $_->@[ 1..4 ] for $self->get_pp_info; 
+    printf "%-10s %-6s %-10s %-s\n", @$_ for $self->get_pp_info; 
 } 
 
 sub make ( $self ) { 
     for ( $self->get_potcars ) {  
-        my $potcar = IO::KISS->new($_, 'r'); 
-        $potcar->chomp; 
+        my $potcar = IO::KISS->new( 
+            string   => $_, 
+            mode     => 'r', 
+            do_chomp => 1 
+        ); 
+        
         $self->print( $potcar->slurp ) 
     }
 
@@ -108,14 +111,10 @@ sub make ( $self ) {
 } 
 
 # IO:Reader
-sub _build_reader ( $self ) { 
-    return IO::KISS->new( $self->file, 'r' )
-} 
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) } 
 
 # IO:Writer
-sub _build_writer ( $self ) { 
-    return IO::KISS->new( $self->file, 'w' )
-} 
+sub _build_writer ( $self ) { return IO::KISS->new( $self->file, 'w' ) } 
 
 # IO::Cache
 sub _build_cache ( $self ) { 
@@ -129,19 +128,19 @@ sub _build_cache ( $self ) {
         # Ex: VRHFIN =C: s2p2
         if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
             $element = $1; 
-            my @valences = ();  
+            my @valences = ( $2 =~ /([spdf]\d+)/g ); 
             
             $config  =  
-                ( @valences = ( $2 =~ /([spdf]\d+)/g ) ) ?  
-                join '', @valences : 
-                ( split ' ', $2 )[ 0 ] 
+                @valences  
+                ? join '', @valences 
+                : ( split ' ', $2 )[ 0 ] 
         }
 
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
             ( $exchange, $pseudo, $date ) = ( split )[ 2..4 ]; 
             push $info{$exchange}->@*, 
-                [ $element, to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
+                [ to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
         }
     }
     
@@ -150,11 +149,16 @@ sub _build_cache ( $self ) {
 
 # native
 sub _build_element ( $self ) { 
-    return [ map $_->[ 0 ], $self->get_pp_info ] 
+    return [ map to_Element( $_->[ 0 ] ), $self->get_pp_info ] 
 } 
 
 sub _build_exchange ( $self ) { 
-    return ( keys $self->cache->%* )[ 0 ]
+    my @exchanges = keys $self->cache->%*; 
+
+    return 
+        @exchanges > 1 
+        ? die "Something is wrong... @exchanges\n" 
+        : shift @exchanges 
 }
 
 sub _build_pp_info ( $self ) { 

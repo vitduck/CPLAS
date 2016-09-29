@@ -2,14 +2,15 @@ package VASP::KPOINTS;
 
 use Moose;  
 use MooseX::Types::Moose qw( Str Int ArrayRef );  
+use namespace::autoclean; 
+
+use List::Util qw( product );  
+use Try::Tiny; 
 use IO::KISS; 
 
-use Try::Tiny; 
-use List::Util qw( product );  
-
-use namespace::autoclean; 
 use feature qw( switch );  
-use experimental qw( signatures smartmatch );  
+use experimental qw( signatures smartmatch );    
+
 
 with qw( IO::Reader IO::Cache );  
 
@@ -48,7 +49,7 @@ has 'scheme', (
 has 'grid', ( 
     is       => 'ro', 
     isa      => ArrayRef[ Int ], 
-    traits   => [ 'Array' ], 
+    traits   => [ qw( Array ) ], 
     lazy     => 1, 
     builder  => '_build_grid', 
     handles  => { 
@@ -59,7 +60,7 @@ has 'grid', (
 has 'shift', ( 
     is       => 'ro', 
     isa      => ArrayRef[ Str ], 
-    traits   => [ 'Array' ], 
+    traits   => [ qw( Array ) ], 
     lazy     => 1, 
     builder  => '_build_shift', 
     handles  => { 
@@ -112,25 +113,11 @@ sub _build_cache ( $self ) {
 } 
 
 # native
-sub _build_commnet ( $self ) { 
-    return $self->cache->{ 'comment' }
-} 
-
-sub _build_mode ( $self ) { 
-    return $self->cache->{ 'mode' }
-} 
-
-sub _build_scheme ( $self ) { 
-    return $self->cache->{ 'scheme' }
-} 
-
-sub _build_grid ( $self ) { 
-    return $self->cache->{ 'grid' }
-} 
-
-sub _build_shift ( $self ) { 
-    return $self->cache->{ 'shift' }
-} 
+sub _build_commnet ( $self ) { return $self->cache->{ 'comment' } } 
+sub _build_mode    ( $self ) { return $self->cache->{ 'mode' } } 
+sub _build_scheme  ( $self ) { return $self->cache->{ 'scheme' } } 
+sub _build_grid    ( $self ) { return $self->cache->{ 'grid' } } 
+sub _build_shift   ( $self ) { return $self->cache->{ 'shift' } } 
 
 sub _build_nkpt ( $self ) {
     return 

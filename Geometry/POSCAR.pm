@@ -1,13 +1,22 @@
-package VASP::Geometry; 
+package Geometry::POSCAR; 
 
 use Moose::Role; 
-use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
-use Periodic::Table qw( Element );  
+use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );
 
 use namespace::autoclean; 
-use experimental qw( signatures ); 
+use experimental 'signatures';  
 
-requires qw( cache ); 
+with 'Geometry::General';  
+
+requires qw( 
+    _build_version 
+    _build_scaling 
+    _build_selective 
+    _build_type 
+    _build_dynamics 
+    _build_false_index
+    _build_true_index 
+); 
 
 has 'version', ( 
     is        => 'ro', 
@@ -37,25 +46,26 @@ has 'type', (
     builder   => '_build_type'
 ); 
 
-has 'indexed_dynamics', ( 
+has 'dynamics', ( 
     is        => 'rw', 
     isa       => HashRef, 
-    traits    => [ 'Hash' ], 
+    traits    => [ qw( Hash ) ], 
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_dynamics', 
+    clearer   => '_clear_dynamics', 
     handles   => { 
         set_dynamics         => 'set', 
-        get_dynamics_indices => 'keys', 
         get_dynamics         => 'get', 
-        delete_dynamics      => 'delete' 
+        delete_dynamics      => 'delete', 
+        get_dynamics_indices => 'keys', 
     },   
 ); 
 
 has 'false_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     init_arg  => undef,
     default   =>  '_build_false_index', 
@@ -67,7 +77,7 @@ has 'false_index', (
 has 'true_index', ( 
     is        => 'ro', 
     isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
+    traits    => [ qw( Array ) ], 
     lazy      => 1, 
     init_arg  => undef,
     builder   => '_build_true_index', 
@@ -75,50 +85,5 @@ has 'true_index', (
         get_true_indices => 'elements' 
     } 
 );  
-
-sub _build_version ( $self ) { 
-    return $self->cache->{ 'version' } 
-} 
-
-sub _build_scaling ( $self ) { 
-    return $self->cache->{ 'scaling' } 
-} 
-
-sub _build_selective ( $self ) { 
-    return $self->cache->{ 'selective' } 
-} 
-
-sub _build_type ( $self ) { 
-    return $self->cache->{ 'type' } 
-} 
-
-sub _build_dynamics ( $self ) { 
-    return $self->cache->{ 'dynamics' } 
-} 
-
-sub _build_false_index ( $self ) { 
-    my @f_indices = ();  
-
-    for my $index ( $self->get_dynamics_indices ) { 
-        # off-set index by 1
-        push @f_indices, $index - 1 
-            if grep $_ eq 'F', $self->get_dynamics( $index )->@*;   
-    }
-
-   return \@f_indices;  
-} 
-
-sub _build_true_index ( $self ) {
-    my @t_indices = ();  
-
-    for my $index ( $self->get_dynamics_indices ) { 
-        # off-set index by 1
-        push @t_indices, $index - 1 
-            if ( grep $_ eq 'T', $self->get_dynamics( $index )->@* ) == 3  
-    }
-
-    return \@t_indices;  
-}
-
 
 1

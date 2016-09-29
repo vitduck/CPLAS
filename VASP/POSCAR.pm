@@ -1,21 +1,18 @@
 package VASP::POSCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw( Bool Str Int ArrayRef HashRef );  
+use MooseX::Types::Moose 'Str';  
+use Try::Tiny; 
+use File::Copy 'copy';  
 use IO::KISS; 
 use VASP::POTCAR; 
-use Periodic::Table qw( Element );  
-
-use Try::Tiny; 
-use File::Copy qw( copy );  
+use Periodic::Table qw( Element ); 
 
 use namespace::autoclean; 
-use experimental qw( signatures );  
+use experimental 'signatures';  
 
-with qw( IO::Reader IO::Writer IO::Cache ); 
-with qw( Geometry::General ); 
-with qw( VASP::Geometry );  
-with qw( VASP::Format ); 
+with qw( IO::Reader IO::Writer IO::Cache );  
+with qw( Geometry::POSCAR Format::POSCAR );  
 
 has 'file', ( 
     is        => 'ro', 
@@ -24,76 +21,57 @@ has 'file', (
     default   => 'POSCAR' 
 ); 
 
-has 'dynamics', ( 
+has 'backup_file', ( 
     is        => 'ro', 
     isa       => Str, 
+    init_arg  => undef, 
     lazy      => 1, 
-    predicate => 'has_constraint', 
-    default   => 'F F F', 
-);
-
-has 'constraint', (  
-    is        => 'ro', 
-    isa       => ArrayRef[ Int ],  
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    builder   => '_build_constraint', 
-    handles   => { 
-        get_constraint_indices => 'elements'
-    }
-); 
-
-has 'delete', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Int ],  
-    traits    => [ 'Array' ], 
-    predicate => 'has_delete', 
-    handles   => { 
-        get_delete_indices => 'elements'
-    }
-); 
-
-has 'backup', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    lazy      => 1, 
-    predicate => 'has_backup', 
-    default   => 'POSCAR.bak', 
+    default   => sub { shift->file.'.old' } 
 ); 
 
 has 'save_as', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => Str, 
     lazy      => 1, 
-    predicate => 'has_save_as',  
-    default   => 'POSCAR.new' 
-); 
-
-has 'index', (   
-    is        => 'ro', 
-    isa       => ArrayRef [ Int ], 
-    traits    => [ 'Array' ], 
-    builder   => '_build_index', 
-    handles   => { 
-        get_indices => 'elements' 
-    }
+    init_arg  => undef,
+    default   => sub { shift->file } 
 ); 
 
 sub BUILD ( $self, @ ) { 
     # cache POSCAR
     try { $self->cache };  
-
-    $self->$_ for (
-        map $_->[ 1 ], 
-        grep $self->${ \$_->[ 0 ] }, ( 
-            [ 'has_backup'    , '_backup'     ], 
-            [ 'has_constraint', '_constraint' ], 
-            [ 'has_delete'    , '_delete'     ], 
-        )
-    ); 
 } 
 
-sub write ( $self ) { 
+sub backup ( $self, $poscar = $self->backup_file ) { 
+    copy $self->file => $poscar
+} 
+
+sub delete ( $self, @indices ) { 
+    $self->delete_atom( @indices );  
+    $self->delete_dynamics( @indices ); 
+    $self->delete_coordinate( @indices ); 
+
+    # clear natom and element 
+    $self->_clear_index; 
+    $self->_clear_element; 
+    $self->_clear_natom; 
+}
+
+sub freeze ( $self, $dynamics = 'F F F', @indices ) { 
+    @indices = @indices ? @indices : $self->get_indices;  
+    
+    $self->set_dynamics( 
+        map { $_ => [ split ' ', $dynamics ] } @indices  
+    )  
+} 
+
+sub unfreeze ( $self, @indices ) { 
+    $self->freeze( 'T T T', @indices ) 
+} 
+
+sub write ( $self, $poscar = $self->save_as ) { 
+    $self->save_as( $poscar ); 
+
     $self->write_comment; 
     $self->write_scaling; 
     $self->write_lattice; 
@@ -104,62 +82,18 @@ sub write ( $self ) {
     $self->write_coordinate; 
 
     $self->close_writer; 
+    $self->_clear_writer; 
 } 
 
-sub write_comment ( $self ) { 
-    $self->printf( "%s\n" , $self->comment ) 
-}
-
-sub write_scaling ( $self ) { 
-    $self->printf( $self->get_poscar_format( 'scaling' ), $self->scaling ) 
-} 
-
-sub write_lattice ( $self ) { 
-    for ( $self->get_lattices ) {  
-        $self->printf( $self->get_poscar_format( 'lattice' ), @$_ ) 
-    }
-}  
-
-sub write_element ( $self ) { 
-    $self->printf( $self->get_poscar_format( 'element' ), $self->get_elements )
-}
-
-sub write_natom ( $self ) { 
-    $self->printf( $self->get_poscar_format( 'natom' ), $self->get_natoms )
-}
-
-sub write_selective ( $self ) { 
-    $self->printf( "%s\n", 'Selective Dynamics' ) if $self->selective;  
-}
-
-sub write_type ( $self ) { 
-    $self->printf( "%s\n", $self->type )
-} 
-
-sub write_coordinate ( $self ) { 
-    my $format = $self->get_poscar_format( 'coordinate' ); 
-
-    for ( sort { $a <=> $b } $self->get_coordinate_indices ) {  
-        $self->selective ? 
-        $self->printf( $format, $self->get_coordinate($_)->@*, $self->get_dynamics($_)->@*, $_ ) : 
-        $self->printf( $format, $self->get_coordinate($_)->@*,  $_ ) ;  
-    }
-} 
+########### 
+# BUILDER #
+########### 
 
 # IO::Reader
-sub _build_reader ( $self ) { 
-    return IO::KISS->new( $self->file, 'r' ) 
-}
+sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
 
-# IO::Writer
-sub _build_writer ( $self ) { 
-    my $OUTCAR = 
-        $self->has_save_as 
-        ? $self->save_as 
-        : $self->file; 
-
-    return IO::KISS->new( $OUTCAR, 'w' ) 
-} 
+# IO::Writer 
+sub _build_writer ( $self ) { return IO::KISS->new( $self->save_as, 'w' ) } 
 
 # IO::Cache 
 sub _build_cache ( $self ) { 
@@ -222,37 +156,36 @@ sub _build_cache ( $self ) {
     } 
     
     # indexing 
-    $poscar{ atom } = { map { $_+1 => $atoms[ $_ ] } 0..$#atoms };   
-    $poscar{ dynamics } = { map { $_+1 => $dynamics[ $_] } 0..$#dynamics };  
+    $poscar{ atom }       = { map { $_+1 => $atoms[ $_ ] } 0..$#atoms };   
+    $poscar{ dynamics }   = { map { $_+1 => $dynamics[ $_ ] } 0..$#dynamics };  
     $poscar{ coordinate } = { map { $_+1 => $coordinates[ $_ ] } 0..$#coordinates };  
     
     $self->close_reader; 
 
     return \%poscar; 
-} 
-
-# Geometry::General 
-sub _build_comment ( $self ) { 
-    return $self->cache->{ 'comment' } 
 }
 
-sub _build_lattice ( $self ) { 
-    return $self->cache->{ 'lattice' } 
+# Geometry::POSCAR
+sub _build_version    ( $self ) { return $self->cache->{ 'version' } } 
+sub _build_comment    ( $self ) { return $self->cache->{ 'comment' } }
+sub _build_scaling    ( $self ) { return $self->cache->{ 'scaling' } } 
+sub _build_lattice    ( $self ) { return $self->cache->{ 'lattice' } } 
+sub _build_selective  ( $self ) { return $self->cache->{ 'selective' } } 
+sub _build_type       ( $self ) { return $self->cache->{ 'type' } } 
+sub _build_atom       ( $self ) { return $self->cache->{ 'atom' } } 
+sub _build_coordinate ( $self ) { return $self->cache->{ 'coordinate' } } 
+sub _build_dynamics   ( $self ) { return $self->cache->{ 'dynamics' } } 
+
+# by default, index is built from coordinate_indices
+sub _build_index ( $self ) { 
+    return [ sort { $a <=> $b } $self->get_coordinate_indices ] 
 } 
 
-sub _build_atom ( $self ) { 
-    return $self->cache->{ 'atom' } 
-} 
-
-sub _build_coordinate ( $self ) { 
-    return $self->cache->{ 'coordinate' } 
-} 
-
-# tabulate elements from indexed_atom 
+# similar to List::More qw( unique )
 sub _build_element ( $self ) { 
     my @elements;  
 
-    for my $index ( sort { $a <=> $b } $self->get_atom_indices ) { 
+    for my $index ( $self->get_indices ) { 
         my $element = $self->get_atom( $index ); 
 
         next if grep $element eq $_, @elements; 
@@ -262,7 +195,7 @@ sub _build_element ( $self ) {
     return \@elements; 
 } 
 
-# tabulate natom from indexed_atom 
+# simple count via grep in scalar context  
 sub _build_natom ( $self ) { 
     my @natoms;  
 
@@ -270,7 +203,7 @@ sub _build_natom ( $self ) {
         my $natom = 
             grep $element eq $_, 
             map  $self->get_atom( $_ ), 
-            $self->get_atom_indices; 
+            $self->get_indices;  
 
         push @natoms, $natom; 
     } 
@@ -278,8 +211,33 @@ sub _build_natom ( $self ) {
     return \@natoms; 
 } 
 
-# VASP::Format 
-sub _build_poscar_format ( $self ) { 
+# for VASP::Force 
+sub _build_false_index ( $self ) { 
+    my @f_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
+        push @f_indices, $index - 1 
+            if grep $_ eq 'F', $self->get_dynamics( $index )->@*;   
+    }
+
+   return \@f_indices;  
+} 
+
+sub _build_true_index ( $self ) {
+    my @t_indices = ();  
+
+    for my $index ( $self->get_dynamics_indices ) { 
+        # off-set index by 1
+        push @t_indices, $index - 1 
+            if ( grep $_ eq 'T', $self->get_dynamics( $index )->@* ) == 3  
+    }
+
+    return \@t_indices;  
+}
+
+# Format::POSCAR
+sub _build_format ( $self ) { 
     return { 
         scaling    => join( '', "%19.14f", "\n" ), 
         lattice    => join( '', "%23.16f" x 3, "\n" ), 
@@ -291,37 +249,6 @@ sub _build_poscar_format ( $self ) {
             : join( '', "%20.16f" x 3, "%6d", "\n" )  
     }  
 } 
-
-# native 
-sub _build_index ( $self ) { 
-    return [ sort { $a <=> $b } $self->get_coordinate_indices ] 
-} 
-
-sub _build_constraint ( $self ) { 
-    return $self->index; 
-} 
-
-sub _backup ( $self ) { 
-    copy $self->file => $self->backup 
-} 
-
-sub _constraint ( $self ) { 
-    $self->set_dynamics( 
-        map { $_ =>  [ split ' ', $self->dynamics ] } $self->get_constraint_indices
-    ) 
-} 
-
-sub _delete ( $self ) { 
-    my @indices = $self->get_delete_indices; 
-
-    $self->delete_atom(@indices);  
-    $self->delete_coordinate(@indices); 
-    $self->delete_dynamics(@indices); 
-
-    # clear natom and element 
-    $self->_clear_element; 
-    $self->_clear_natom; 
-}
 
 __PACKAGE__->meta->make_immutable;
 

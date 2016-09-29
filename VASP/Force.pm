@@ -1,11 +1,11 @@
 package VASP::Force; 
 
 use Moose::Role; 
-
 use namespace::autoclean; 
-use experimental qw( signatures ); 
 
-requires qw( _build_force );  
+use experimental qw( signatures );  
+
+requires qw( _build_force );   
 
 has 'force', ( 
     is       => 'ro', 
