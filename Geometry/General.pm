@@ -32,6 +32,7 @@ has 'lattice', (
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_lattice', 
+
     handles   => { 
         get_lattices => 'elements' 
     },  
@@ -45,6 +46,7 @@ has 'index', (
     builder   => '_build_index', 
     clearer   => '_clear_index', 
     writer    => '_set_index', 
+
     handles   => { 
         get_indices => 'elements', 
     }
@@ -57,6 +59,7 @@ has 'atom', (
     lazy      => 1, 
     builder   => '_build_atom',  
     clearer   => '_clear_atom', 
+
     handles   => { 
         get_atom         => 'get', 
         set_atom         => 'set',  
@@ -72,6 +75,7 @@ has 'coordinate', (
     lazy      => 1, 
     builder   => '_build_coordinate', 
     clearer   => '_clear_coordinate', 
+
     handles   => { 
         get_coordinate         => 'get', 
         set_coordinate         => 'set',  
@@ -87,6 +91,7 @@ has 'element', (
     lazy      => 1, 
     builder   => '_build_element',   
     clearer   => '_clear_element', 
+
     handles   => { 
         get_elements  => 'elements' 
     } 
@@ -99,6 +104,7 @@ has 'natom', (
     lazy      => 1, 
     builder   => '_build_natom', 
     clearer   => '_clear_natom', 
+
     handles   => { 
         get_natoms => 'elements' 
     } 

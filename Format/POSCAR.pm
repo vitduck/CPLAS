@@ -15,39 +15,40 @@ has 'poscar_format', (
     lazy     => 1, 
     init_arg => undef, 
     builder  => '_build_format', 
+
     handles  => { 
         get_format => 'get' 
     }  
 ); 
 
 sub write_comment ( $self ) { 
-    $self->printf( "%s\n" , $self->comment ) 
+    $self->_printf( "%s\n" , $self->comment ) 
 }
 
 sub write_scaling ( $self ) { 
-    $self->printf( $self->get_format( 'scaling' ), $self->scaling ) 
+    $self->_printf( $self->get_format( 'scaling' ), $self->scaling ) 
 } 
 
 sub write_lattice ( $self ) { 
     for ( $self->get_lattices ) {  
-        $self->printf( $self->get_format( 'lattice' ), @$_ ) 
+        $self->_printf( $self->get_format( 'lattice' ), @$_ ) 
     }
 }  
 
 sub write_element ( $self ) { 
-    $self->printf( $self->get_format( 'element' ), $self->get_elements )
+    $self->_printf( $self->get_format( 'element' ), $self->get_elements )
 }
 
 sub write_natom ( $self ) { 
-    $self->printf( $self->get_format( 'natom' ), $self->get_natoms )
+    $self->_printf( $self->get_format( 'natom' ), $self->get_natoms )
 }
 
 sub write_selective ( $self ) { 
-    $self->printf( "%s\n", 'Selective Dynamics' ) if $self->selective;  
+    $self->_printf( "%s\n", 'Selective Dynamics' ) if $self->selective;  
 }
 
 sub write_type ( $self ) { 
-    $self->printf( "%s\n", $self->type )
+    $self->_printf( "%s\n", $self->type )
 } 
 
 sub write_coordinate ( $self ) { 
@@ -55,13 +56,13 @@ sub write_coordinate ( $self ) {
 
     for ( sort { $a <=> $b } $self->get_indices ) {  
         $self->selective 
-        ? $self->printf( 
+        ? $self->_printf( 
             $format, 
             $self->get_coordinate( $_ )->@*, 
             $self->get_dynamics( $_ )->@*, 
             $_ 
         )
-        : $self->printf( 
+        : $self->_printf( 
             $format, 
             $self->get_coordinate( $_ )->@*, 
             $_ 

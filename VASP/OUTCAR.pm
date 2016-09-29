@@ -9,11 +9,8 @@ use IO::KISS;
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
-with qw( 
-    IO::Reader 
-    VASP::Force 
-    Regex::Force 
-); 
+with qw( IO::Reader ); 
+with qw( VASP::Force Regex::OUTCAR ); 
 
 has 'file', ( 
     is        => 'ro', 
@@ -28,7 +25,13 @@ has 'POSCAR', (
     lazy      => 1, 
     init_arg  => undef, 
     default   => '_build_POSCAR', 
-    handles   => [ qw( get_true_indieces get_false_indices ) ]
+
+    handles   => [ 
+        qw( 
+            get_true_indieces 
+            get_false_indices 
+        )
+    ]
 ); 
 
 # from IO::Reader
@@ -53,7 +56,7 @@ sub _build_force ( $self ) {
     }; 
 
     # regex in list context
-    my @fblocks = ( $self->slurp =~ /${\$self->force_regex}/g );  
+    my @fblocks = ( $self->_slurp =~ /${\$self->force_regex}/g );  
     
     # double mapping 
     my @forces  = 

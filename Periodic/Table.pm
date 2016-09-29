@@ -160,6 +160,7 @@ coerce Atomic_Number, from Element_Name, via {
 
 coerce Element, from Element_Name, via { 
     my $name = $_;   
+    
     return $table{ to_Atomic_Number( $name ) }[ 0 ]; 
 }; 
 

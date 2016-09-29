@@ -21,6 +21,7 @@ has 'max_force', (
     init_arg  => undef, 
     lazy      => 1, 
     builder   => '_build_max_force', 
+
     handles   => { 
         get_max_forces => 'list' 
     } 

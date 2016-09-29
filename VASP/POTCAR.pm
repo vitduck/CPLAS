@@ -3,12 +3,13 @@ package VASP::POTCAR;
 use Moose;  
 use MooseX::Types::Moose qw( Str ArrayRef ); 
 use Moose::Util::TypeConstraints qw( enum );  
+use namespace::autoclean; 
+
 use File::Basename; 
 use File::Spec::Functions; 
 use IO::KISS;  
 use Periodic::Table qw( Element Element_Name ); 
 
-use namespace::autoclean; 
 use feature qw( signatures refaliasing );  
 use experimental qw( signatures refaliasing ); 
 
@@ -36,6 +37,7 @@ has 'element', (
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_element', 
+
     handles   => { 
         get_elements => 'elements' 
     } 
@@ -54,6 +56,7 @@ has 'pp_info', (
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
     builder   => '_build_pp_info', 
+
     handles   => { 
         get_pp_info => 'elements' 
     } 
@@ -66,6 +69,7 @@ has 'config', (
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_config', 
+
     handles   => { 
         get_configs => 'elements' 
     } 
@@ -78,6 +82,7 @@ has 'potcar', (
     lazy      => 1, 
     init_arg  => undef, 
     builder   => '_build_potcar', 
+
     handles   => { 
         get_potcars => 'elements' 
     }  
@@ -99,15 +104,15 @@ sub info ( $self ) {
 sub make ( $self ) { 
     for ( $self->get_potcars ) {  
         my $potcar = IO::KISS->new( 
-            string   => $_, 
+            file     => $_, 
             mode     => 'r', 
             do_chomp => 1 
         ); 
         
-        $self->print( $potcar->slurp ) 
+        $self->_print( $potcar->slurp ) 
     }
 
-    $self->close_writer; 
+    $self->_close_writer; 
 } 
 
 # IO:Reader
@@ -122,9 +127,9 @@ sub _build_cache ( $self ) {
     my ( $exchange, $element, $pseudo, $config, $date ); 
 
     # remove \n 
-    $self->chomp_reader; 
+    $self->_chomp_reader; 
 
-    for ( $self->get_lines ) { 
+    for ( $self->_get_lines ) { 
         # Ex: VRHFIN =C: s2p2
         if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
             $element = $1; 
@@ -143,6 +148,8 @@ sub _build_cache ( $self ) {
                 [ to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
         }
     }
+
+    $self->_close_reader; 
     
     return \%info;  
 } 

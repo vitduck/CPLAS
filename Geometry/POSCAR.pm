@@ -54,6 +54,7 @@ has 'dynamics', (
     init_arg  => undef, 
     builder   => '_build_dynamics', 
     clearer   => '_clear_dynamics', 
+
     handles   => { 
         set_dynamics         => 'set', 
         get_dynamics         => 'get', 
@@ -69,6 +70,7 @@ has 'false_index', (
     lazy      => 1, 
     init_arg  => undef,
     default   =>  '_build_false_index', 
+
     handles   => { 
         get_false_indices => 'elements' 
     }
@@ -81,6 +83,7 @@ has 'true_index', (
     lazy      => 1, 
     init_arg  => undef,
     builder   => '_build_true_index', 
+
     handles  => {  
         get_true_indices => 'elements' 
     } 

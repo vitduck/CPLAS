@@ -11,7 +11,6 @@ use IO::KISS;
 use feature qw( switch );  
 use experimental qw( signatures smartmatch );    
 
-
 with qw( IO::Reader IO::Cache );  
 
 has 'file', ( 
@@ -52,6 +51,7 @@ has 'grid', (
     traits   => [ qw( Array ) ], 
     lazy     => 1, 
     builder  => '_build_grid', 
+
     handles  => { 
         get_grids => 'elements' 
     } 
@@ -63,6 +63,7 @@ has 'shift', (
     traits   => [ qw( Array ) ], 
     lazy     => 1, 
     builder  => '_build_shift', 
+
     handles  => { 
         get_shifts => 'elements' 
     } 
@@ -90,24 +91,24 @@ sub _build_cache ( $self ) {
     my %kp = ();  
 
     # remove \n
-    $self->chomp_reader; 
+    $self->_chomp_reader; 
     
-    $kp{ comment } = $self->get_line;   
-    $kp{ mode }    = $self->get_line;   
+    $kp{ comment } = $self->_get_line;   
+    $kp{ mode }    = $self->_get_line;   
     $kp{ scheme }  = 
-        $self->get_line  =~ /^M/ 
+        $self->_get_line  =~ /^M/ 
         ? 'Monkhorst-Pack' 
         : 'Gamma-centered' ;
     
     given ( $kp{ mode } ) {   
-        when ( 0 )      { $kp{ grid } = [ map int, map split, $self->get_line ] }
-        when ( $_ > 0 ) { push $kp{ grid }->@*, [ ( split )[ 0..2 ] ] for $self->get_lines } 
+        when ( 0 )      { $kp{ grid } = [ map int, map split, $self->_get_line ] }
+        when ( $_ > 0 ) { push $kp{ grid }->@*, [ ( split )[ 0..2 ] ] for $self->_get_lines } 
         default         { ... } 
     }
     
-    $kp{ shift } = [ map split, $self->get_line ] if $kp{ mode } == 0; 
+    $kp{ shift } = [ map split, $self->_get_line ] if $kp{ mode } == 0; 
 
-    $self->close_reader;  
+    $self->_close_reader;  
 
     return \%kp; 
 } 
@@ -122,7 +123,7 @@ sub _build_shift   ( $self ) { return $self->cache->{ 'shift' } }
 sub _build_nkpt ( $self ) {
     return 
         $self->mode == 0 
-        ? product($self->get_grids)
+        ? product( $self->get_grids )
         : $self->mode 
 }  
 
