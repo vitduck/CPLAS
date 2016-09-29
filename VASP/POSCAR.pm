@@ -42,6 +42,18 @@ sub BUILD ( $self, @ ) {
     try { $self->cache };  
 } 
 
+sub initialize ( $self ) {
+    $self->_clear_reader; 
+    $self->_clear_writer; 
+    $self->_clear_cache; 
+} 
+
+sub update ( $self ) { 
+    $self->_clear_index; 
+    $self->_clear_element; 
+    $self->_clear_natom; 
+} 
+
 sub backup ( $self, $poscar = $self->backup_file ) { 
     copy $self->file => $poscar
 } 
@@ -51,13 +63,10 @@ sub delete ( $self, @indices ) {
     $self->delete_dynamics( @indices ); 
     $self->delete_coordinate( @indices ); 
 
-    # clear natom and element 
-    $self->_clear_index; 
-    $self->_clear_element; 
-    $self->_clear_natom; 
+    $self->update; 
 }
 
-sub freeze ( $self, $dynamics = 'F F F', @indices ) { 
+sub freeze ( $self, $dynamics, @indices ) { 
     @indices = @indices ? @indices : $self->get_indices;  
     
     $self->set_dynamics( 
@@ -82,10 +91,7 @@ sub write ( $self, $poscar = $self->save_as ) {
     $self->write_coordinate; 
 
     $self->_close_writer; 
-
-    # for writing multiple POSCAR 
-    $self->_clear_writer; 
-} 
+}
 
 ########### 
 # BUILDER #

@@ -43,9 +43,9 @@ has 'index', (
     isa       => ArrayRef, 
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
-    builder   => '_build_index', 
-    clearer   => '_clear_index', 
     writer    => '_set_index', 
+    clearer   => '_clear_index', 
+    builder   => '_build_index', 
 
     handles   => { 
         get_indices => 'elements', 
@@ -57,8 +57,8 @@ has 'atom', (
     isa       => HashRef[ Element ],  
     traits    => [ qw( Hash ) ], 
     lazy      => 1, 
-    builder   => '_build_atom',  
     clearer   => '_clear_atom', 
+    builder   => '_build_atom',  
 
     handles   => { 
         get_atom         => 'get', 
@@ -73,8 +73,8 @@ has 'coordinate', (
     isa       => HashRef,  
     traits    => [ qw( Hash ) ], 
     lazy      => 1, 
-    builder   => '_build_coordinate', 
     clearer   => '_clear_coordinate', 
+    builder   => '_build_coordinate', 
 
     handles   => { 
         get_coordinate         => 'get', 
@@ -89,8 +89,8 @@ has 'element', (
     isa       => ArrayRef[ Element ],
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
-    builder   => '_build_element',   
     clearer   => '_clear_element', 
+    builder   => '_build_element',   
 
     handles   => { 
         get_elements  => 'elements' 
@@ -102,8 +102,8 @@ has 'natom', (
     isa       => ArrayRef,   
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
-    builder   => '_build_natom', 
     clearer   => '_clear_natom', 
+    builder   => '_build_natom', 
 
     handles   => { 
         get_natoms => 'elements' 

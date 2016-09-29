@@ -52,8 +52,8 @@ has 'dynamics', (
     traits    => [ qw( Hash ) ], 
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_dynamics', 
     clearer   => '_clear_dynamics', 
+    builder   => '_build_dynamics', 
 
     handles   => { 
         set_dynamics         => 'set', 
@@ -69,7 +69,7 @@ has 'false_index', (
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
     init_arg  => undef,
-    default   =>  '_build_false_index', 
+    builder   =>  '_build_false_index', 
 
     handles   => { 
         get_false_indices => 'elements' 
