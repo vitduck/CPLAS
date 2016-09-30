@@ -2,13 +2,14 @@ package VASP::POSCAR;
 
 use Moose;  
 use MooseX::Types::Moose 'Str';  
+use namespace::autoclean; 
+
 use Try::Tiny; 
 use File::Copy 'copy';  
 use IO::KISS; 
 use VASP::POTCAR; 
 use Periodic::Table qw( Element ); 
 
-use namespace::autoclean; 
 use experimental 'signatures';  
 
 with qw( IO::Reader IO::Writer IO::Cache );  
@@ -35,6 +36,19 @@ has 'save_as', (
     lazy      => 1, 
     init_arg  => undef,
     default   => sub { shift->file } 
+); 
+
+has 'pseudo', ( 
+    is        => 'ro', 
+    isa       => 'VASP::POTCAR', 
+    lazy      => 1, 
+    init_arg  => undef,
+    default   => sub { VASP::POTCAR->new }, 
+
+    handles   => {  
+        pp_info   => 'info', 
+        pp_append => 'append'
+    } 
 ); 
 
 sub BUILD ( $self, @ ) { 

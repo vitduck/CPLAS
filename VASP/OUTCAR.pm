@@ -21,7 +21,7 @@ has 'file', (
     default   => 'OUTCAR' 
 ); 
 
-has 'POSCAR', ( 
+has 'poscar_indices', ( 
     is        => 'ro', 
     isa       => 'VASP::POSCAR',   
     lazy      => 1, 
@@ -30,7 +30,7 @@ has 'POSCAR', (
 
     handles   => [ 
         qw( 
-            get_true_indieces 
+            get_true_indices
             get_false_indices 
         )
     ]

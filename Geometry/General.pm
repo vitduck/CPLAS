@@ -93,6 +93,7 @@ has 'element', (
     builder   => '_build_element',   
 
     handles   => { 
+        add_element   => 'push', 
         get_elements  => 'elements' 
     } 
 ); 
@@ -106,6 +107,7 @@ has 'natom', (
     builder   => '_build_natom', 
 
     handles   => { 
+        add_natom  => 'push', 
         get_natoms => 'elements' 
     } 
 );  
