@@ -53,10 +53,21 @@ sub _build_cache ( $self ) {
     return \%xyz 
 } 
 
-sub _build_comment     ( $self ) { return $self->cache->{ 'comment' } }
-sub _build_total_natom ( $self ) { return $self->cache->{ 'total_natom' } }
-sub _build_atom        ( $self ) { return $self->cache->{ 'atom' } }     
-sub _build_coordinate  ( $self ) { return $self->cache->{ 'coordinate' } } 
+sub _build_comment ( $self ) { 
+    return $self->cache->{ 'comment' } 
+}
+
+sub _build_total_natom ( $self ) { 
+    return $self->cache->{ 'total_natom' } 
+}
+
+sub _build_atom ( $self ) { 
+    return $self->cache->{ 'atom' } 
+}     
+
+sub _build_coordinate ( $self ) { 
+    return $self->cache->{ 'coordinate' } 
+} 
 
 sub _build_lattice ( $self ) { 
     return [ 

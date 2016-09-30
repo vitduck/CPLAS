@@ -108,7 +108,6 @@ sub make ( $self ) {
             mode     => 'r', 
             do_chomp => 1 
         ); 
-        
         $self->_print( $potcar->slurp ) 
     }
 
@@ -116,10 +115,14 @@ sub make ( $self ) {
 } 
 
 # IO:Reader
-sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) } 
+sub _build_reader ( $self ) { 
+    return IO::KISS->new( $self->file, 'r' ) 
+} 
 
 # IO:Writer
-sub _build_writer ( $self ) { return IO::KISS->new( $self->file, 'w' ) } 
+sub _build_writer ( $self ) { 
+    return IO::KISS->new( $self->file, 'w' ) 
+} 
 
 # IO::Cache
 sub _build_cache ( $self ) { 
@@ -128,7 +131,6 @@ sub _build_cache ( $self ) {
 
     # remove \n 
     $self->_chomp_reader; 
-
     for ( $self->_get_lines ) { 
         # Ex: VRHFIN =C: s2p2
         if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
@@ -148,7 +150,6 @@ sub _build_cache ( $self ) {
                 [ to_Element_Name( $element ), $pseudo, $config, $date //= '---' ]; 
         }
     }
-
     $self->_close_reader; 
     
     return \%info;  

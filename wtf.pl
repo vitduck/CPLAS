@@ -59,22 +59,22 @@ my $outcar = VASP::OUTCAR->new( file => $input );
 my @forces = $outcar->get_max_forces; 
 
 # table format
-my $nrow = @forces % $ncol ? int(@forces/$ncol)+1 : @forces/$ncol; 
+my $nrow = @forces % $ncol ? int( @forces/$ncol )+1 : @forces/$ncol; 
 
 # sort force indices based on modulus 
 my @indices = sort { $a % $nrow <=> $b % $nrow } 0..$#forces; 
 
 # print forces
-my $digit = length(scalar(@forces)); 
+my $digit = length( scalar( @forces ) ); 
 
-for my $i (0..$#indices) { 
-    printf "%${digit}d: f = %.2e    ", $indices[$i]+1, $forces[$indices[$i]]; 
+for my $i ( 0..$#indices ) { 
+    printf "%${digit}d: f = %.2e    ", $indices[ $i ]+1, $forces[ $indices[ $i ] ]; 
     
     # the last of us 
-    if ($i == $#indices) { last  }  
+    last if $i == $#indices;  
     
     # break new line due to index wrap around
-    if ($indices[$i] > $indices[$i+1] or $ncol == 1) { print "\n" }  
+    print "\n" if $indices[ $i ] > $indices[ $i+1 ] or $ncol == 1; 
 }
 
 # trailing newline 

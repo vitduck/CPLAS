@@ -61,7 +61,7 @@ given ( $mode ) {
     when ( 'list' ) { VASP::POTCAR->new->info }  
 
     default { 
-        my $PP = VASP::POTCAR->new( element => [@ARGV], exchange => $exchange ); 
+        my $PP = VASP::POTCAR->new( element => [ @ARGV ], exchange => $exchange ); 
         $PP->make;  
         $PP->info; 
     } 

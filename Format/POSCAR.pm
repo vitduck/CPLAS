@@ -36,7 +36,9 @@ sub write_lattice ( $self ) {
 }  
 
 sub write_element ( $self ) { 
-    $self->_printf( $self->get_format( 'element' ), $self->get_elements )
+    if ( $self->version == 5 ) { 
+        $self->_printf( $self->get_format( 'element' ), $self->get_elements )
+    }
 }
 
 sub write_natom ( $self ) { 

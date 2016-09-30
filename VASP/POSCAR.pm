@@ -93,15 +93,15 @@ sub write ( $self, $poscar = $self->save_as ) {
     $self->_close_writer; 
 }
 
-########### 
-# BUILDER #
-########### 
-
 # IO::Reader
-sub _build_reader ( $self ) { return IO::KISS->new( $self->file, 'r' ) }
+sub _build_reader ( $self ) { 
+    return IO::KISS->new( $self->file, 'r' ) 
+}
 
 # IO::Writer 
-sub _build_writer ( $self ) { return IO::KISS->new( $self->save_as, 'w' ) } 
+sub _build_writer ( $self ) { 
+    return IO::KISS->new( $self->save_as, 'w' ) 
+} 
 
 # IO::Cache 
 sub _build_cache ( $self ) { 
@@ -110,10 +110,8 @@ sub _build_cache ( $self ) {
     # remove \n
     $self->_chomp_reader; 
 
-    # header 
+    # header
     $poscar{ comment } = $self->_get_line; 
-    
-    # lattice vectors 
     $poscar{ scaling } = $self->_get_line; 
     $poscar{ lattice }->@* = map [ split ' ', $self->_get_line  ], 0..2; 
 
@@ -122,12 +120,14 @@ sub _build_cache ( $self ) {
     my @has_VASP5 = split ' ', $self->_get_line; 
     if ( ! grep Element->check( $_ ), @has_VASP5 ) { 
         $poscar{ version } = 4; 
+
         # get elements from POTCAR and synchronize with @natoms
         @elements = VASP::POTCAR->new()->get_elements;  
         @natoms   = @has_VASP5;  
         @elements = splice @elements, 0, scalar( @natoms ); 
     } else { 
         $poscar{ version } = 5; 
+
         @elements = @has_VASP5; 
         @natoms   = split ' ', $self->_get_line; 
     } 
@@ -174,15 +174,41 @@ sub _build_cache ( $self ) {
 }
 
 # Geometry::POSCAR
-sub _build_version    ( $self ) { return $self->cache->{ 'version' } } 
-sub _build_comment    ( $self ) { return $self->cache->{ 'comment' } }
-sub _build_scaling    ( $self ) { return $self->cache->{ 'scaling' } } 
-sub _build_lattice    ( $self ) { return $self->cache->{ 'lattice' } } 
-sub _build_selective  ( $self ) { return $self->cache->{ 'selective' } } 
-sub _build_type       ( $self ) { return $self->cache->{ 'type' } } 
-sub _build_atom       ( $self ) { return $self->cache->{ 'atom' } } 
-sub _build_coordinate ( $self ) { return $self->cache->{ 'coordinate' } } 
-sub _build_dynamics   ( $self ) { return $self->cache->{ 'dynamics' } } 
+sub _build_version ( $self ) { 
+    return $self->cache->{ 'version' } 
+} 
+
+sub _build_comment ( $self ) { 
+    return $self->cache->{ 'comment' } 
+}
+
+sub _build_scaling ( $self ) { 
+    return $self->cache->{ 'scaling' } 
+} 
+
+sub _build_lattice ( $self ) { 
+    return $self->cache->{ 'lattice' } 
+} 
+
+sub _build_selective ( $self ) { 
+    return $self->cache->{ 'selective' } 
+} 
+
+sub _build_type ( $self ) { 
+    return $self->cache->{ 'type' } 
+} 
+
+sub _build_atom ( $self ) { 
+    return $self->cache->{ 'atom' } 
+} 
+
+sub _build_coordinate ( $self ) { 
+    return $self->cache->{ 'coordinate' } 
+} 
+
+sub _build_dynamics ( $self ) { 
+    return $self->cache->{ 'dynamics' } 
+} 
 
 # by default, index is built from coordinate_indices
 sub _build_index ( $self ) { 

@@ -105,8 +105,8 @@ sub _build_cache ( $self ) {
         when ( $_ > 0 ) { push $kp{ grid }->@*, [ ( split )[ 0..2 ] ] for $self->_get_lines } 
         default         { ... } 
     }
-    
-    $kp{ shift } = [ map split, $self->_get_line ] if $kp{ mode } == 0; 
+
+    $kp{ shift } = [ map split, $self->_get_line ] if $kp{ mode } == 0;  
 
     $self->_close_reader;  
 
@@ -114,11 +114,25 @@ sub _build_cache ( $self ) {
 } 
 
 # native
-sub _build_commnet ( $self ) { return $self->cache->{ 'comment' } } 
-sub _build_mode    ( $self ) { return $self->cache->{ 'mode' } } 
-sub _build_scheme  ( $self ) { return $self->cache->{ 'scheme' } } 
-sub _build_grid    ( $self ) { return $self->cache->{ 'grid' } } 
-sub _build_shift   ( $self ) { return $self->cache->{ 'shift' } } 
+sub _build_commnet ( $self ) { 
+    return $self->cache->{ 'comment' } 
+} 
+
+sub _build_mode ( $self ) { 
+    return $self->cache->{ 'mode' } 
+} 
+
+sub _build_scheme ( $self ) { 
+    return $self->cache->{ 'scheme' } 
+} 
+
+sub _build_grid ( $self ) { 
+    return $self->cache->{ 'grid' } 
+} 
+
+sub _build_shift ( $self ) { 
+    return $self->cache->{ 'shift' } 
+} 
 
 sub _build_nkpt ( $self ) {
     return 
