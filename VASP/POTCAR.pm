@@ -98,7 +98,7 @@ sub getopt_usage_config {
         headings => 1
 }
 
-sub info ( $self ) { 
+sub info ( $self, $verbose = 1 ) { 
     # cache POTCAR
     -f $self->input ? $self->cache : return; 
 
@@ -107,7 +107,12 @@ sub info ( $self ) {
 
     # print pp  
     for my $xc ( @xcs ) {
-        $self->_print_info ( $xc ); 
+        printf "\n=> Pseudopotential: %s\n", $xc if $verbose;  
+
+        for my $pseudo ( $self->_get_cached( $xc )->@* ) {
+            $self->_add_element( to_Element( $pseudo->[0] ) );  
+            printf "%-10s %-6s %-10s %-s\n", @$pseudo if $verbose;  
+        } 
     }
 
     # sanity check
@@ -173,14 +178,6 @@ sub _select_potcar_config ( $self, @configs ) {
             return catfile( $self->pot_dir, $self->xc, $choice, 'POTCAR' ) 
         }
     }
-} 
-
-sub _print_info( $self, $xc ) { 
-    printf "\n=> Pseudopotential: %s\n", $xc; 
-    for my $pseudo ( $self->_get_cached( $xc )->@* ) {
-        $self->_add_element( to_Element( $pseudo->[0] ) );  
-        printf "%-10s %-6s %-10s %-s\n", @$pseudo  
-    } 
 } 
 
 __PACKAGE__->meta->make_immutable;

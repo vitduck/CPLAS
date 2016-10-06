@@ -23,7 +23,7 @@ sub _build_cache ( $self ) {
 
         # show POTCAR info 
         my $potcar = VASP::POTCAR->new; 
-        $potcar->info; 
+        $potcar->info( 0 );  
 
         # get elements from POTCAR
         @elements = $potcar->get_elements;  
