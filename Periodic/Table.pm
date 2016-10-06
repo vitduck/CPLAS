@@ -5,7 +5,6 @@ use warnings;
 
 use MooseX::Types::Moose qw( Str Int ); 
 use MooseX::Types -declare => [ qw( Element Element_Name Atomic_Number ) ]; 
-use namespace::autoclean; 
 
 my %table = (
       1 => [ 'H',      'Hydrogen', '0.32', '1.00'],

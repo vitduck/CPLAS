@@ -2,27 +2,16 @@ package Geometry::General;
 
 use Moose::Role; 
 use MooseX::Types::Moose qw( Str ArrayRef HashRef );  
-use namespace::autoclean; 
-
-use List::Util qw( sum );  
 use Periodic::Table qw( Element );  
-
+use List::Util qw( sum );  
+use namespace::autoclean; 
 use experimental qw( signatures );  
-
-requires qw( 
-    _build_comment 
-    _build_lattice 
-    _build_index 
-    _build_atom 
-    _build_coordinate 
-    _build_element 
-    _build_natom
-); 
 
 has 'comment', ( 
     is       => 'ro', 
     isa      => Str,  
     lazy     => 1, 
+    reader   => 'get_comment', 
     builder  => '_build_comment'
 ); 
 
@@ -43,7 +32,6 @@ has 'index', (
     isa       => ArrayRef, 
     traits    => [ qw( Array ) ], 
     lazy      => 1, 
-    writer    => '_set_index', 
     clearer   => '_clear_index', 
     builder   => '_build_index', 
 
