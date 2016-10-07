@@ -7,6 +7,16 @@ use List::Util qw( sum );
 use namespace::autoclean; 
 use experimental qw( signatures );  
 
+requires qw( 
+    _build_comment 
+    _build_lattice
+    _build_index 
+    _build_atom 
+    -build_coordinate 
+    _build_element 
+    _build_natom 
+); 
+
 has 'comment', ( 
     is       => 'ro', 
     isa      => Str,  

@@ -128,8 +128,6 @@ sub _build_force ( $self ) {
         @false_indices = ()  
     }; 
 
-    print "@false_indices\n"; 
-
     for ( $self->_slurp =~ /${ \$self->_regex }/g ) { 
         my @iforces;  
 
