@@ -12,7 +12,7 @@ requires qw(
     _build_lattice
     _build_index 
     _build_atom 
-    -build_coordinate 
+    _build_coordinate 
     _build_element 
     _build_natom 
 ); 

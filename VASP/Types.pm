@@ -1,4 +1,4 @@
-package VASP::Pseudo;  
+package VASP::Types; 
 
 use strict; 
 use warnings; 

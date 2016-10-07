@@ -3,17 +3,17 @@ package VASP::POTCAR;
 use Moose;  
 use MooseX::Types::Moose qw( Undef Str ArrayRef HashRef ); 
 use IO::KISS; 
-use Periodic::Table qw( Element ); 
-use VASP::Pseudo qw( Pseudo ); 
+use Periodic::Table qw( Element Element_Name ); 
+use VASP::Types qw( Pseudo ); 
 use File::Basename; 
 use File::Spec::Functions; 
 use namespace::autoclean; 
 use feature qw( signatures refaliasing );  
 use experimental qw( signatures refaliasing ); 
 
+with qw( IO::Reader ); 
+with qw( IO::Writer ); 
 with qw( MooseX::Getopt::Usage ); 
-with qw( IO::Reader IO::Writer ); 
-with qw( VASP::POTCAR::Reader ); 
 
 # Getopt
 has 'xc', ( 
@@ -178,6 +178,38 @@ sub _select_potcar_config ( $self, @configs ) {
             return catfile( $self->pot_dir, $self->xc, $choice, 'POTCAR' ) 
         }
     }
+} 
+
+sub _build_cache ( $self ) { 
+    my %info; 
+    my ( $exchange, $element, $pseudo, $valence, $date ); 
+    my @split_valences; 
+
+    for ( $self->_get_lines ) { 
+        chomp; 
+        # Ex: VRHFIN =C: s2p2
+        if ( /VRHFIN =(\w+)\s*:(.*)/ ) { 
+            $element = $1; 
+            @split_valences = ( $2 =~ /([spdf]\d+)/g ); 
+
+            $valence  =  
+                @split_valences  
+                ? join '', @split_valences 
+                : ( split ' ', $2 )[ 0 ]; 
+        }
+
+        # Ex: TITEL  = PAW_PBE C_s 06Sep2000
+        if ( /TITEL/ ) { 
+            ( $exchange, $pseudo, $date ) = ( split )[ 2..4 ]; 
+
+            push $info{ $exchange }->@*, 
+                [ to_Element_Name( $element ), $pseudo, $valence, $date //= '---' ]; 
+        }
+    }
+
+    $self->_close_reader; 
+
+    return \%info;  
 } 
 
 __PACKAGE__->meta->make_immutable;

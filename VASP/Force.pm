@@ -27,12 +27,12 @@ has 'column', (
     documentation => 'Number of formatted column'
 ); 
 
-has '_regex', ( 
+has '_force_regex', ( 
     is        => 'ro', 
     isa       => RegexpRef, 
     lazy      => 1, 
     init_arg  => undef, 
-    builder   => '_build_regex'
+    builder   => '_build_force_regex'
 ); 
 
 has '_force', ( 
@@ -98,7 +98,7 @@ sub print_forces ( $self ) {
 # match the force block 
 # TODO: is it possible to capture the final three columns 
 #       without explicit split
-sub _build_regex ( $self ) { 
+sub _build_force_regex ( $self ) { 
     return 
         qr/
             (?:
@@ -128,7 +128,7 @@ sub _build_force ( $self ) {
         @false_indices = ()  
     }; 
 
-    for ( $self->_slurp =~ /${ \$self->_regex }/g ) { 
+    for ( $self->_slurp =~ /${ \$self->_force_regex }/g ) { 
         my @iforces;  
 
         for ( IO::KISS->new( \$_, 'r' )->get_lines ) { 
