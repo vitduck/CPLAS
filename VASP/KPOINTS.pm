@@ -9,15 +9,18 @@ use experimental qw( signatures smartmatch );
 
 with qw( IO::Reader ); 
 
+# IO::Reader
 has '+input', ( 
     default  => 'KPOINTS' 
 ); 
 
+# native
 has 'comment', ( 
     is        => 'ro', 
     isa       => Str, 
     lazy      => 1, 
     init_arg  => undef, 
+    reader    => 'get_comment', 
     default   => sub { $_[0]->_get_cached( 'comment' ) }
 ); 
 
@@ -26,6 +29,7 @@ has 'mode', (
     isa       => Int,  
     lazy      => 1, 
     init_arg  => undef, 
+    reader    => 'get_mode', 
     default   => sub { $_[0]->_get_cached( 'mode' ) }
 );  
 
@@ -34,6 +38,7 @@ has 'scheme', (
     isa       => Str,  
     lazy      => 1, 
     init_arg  => undef, 
+    reader    => 'get_scheme', 
     default   => sub { $_[0]->_get_cached( 'scheme' ) }
 ); 
 
@@ -43,27 +48,29 @@ has 'grid', (
     traits   => [ qw( Array ) ], 
     lazy     => 1, 
     default  => sub { $_[0]->_get_cached( 'grid' ) }, 
-    handles  => { _get_grids => 'elements' } 
+    handles  => { get_grids => 'elements' } 
 ); 
 
 has 'shift', ( 
-    is       => 'ro', 
-    isa      => ArrayRef[ Str ], 
-    traits   => [ qw( Array ) ], 
-    lazy     => 1, 
+    is        => 'ro', 
+    isa       => ArrayRef[ Str ], 
+    traits    => [ qw( Array ) ], 
+    lazy      => 1, 
     default   => sub { $_[0]->_get_cached( 'shift' ) }, 
+    handles  => { get_shifts => 'elements' } 
 ); 
 
 has 'nkpt', ( 
-    is       => 'ro', 
-    isa      => Int, 
-    lazy     => 1, 
-    init_arg => undef, 
-    default  => sub ( $self ) { 
+    is        => 'ro', 
+    isa       => Int, 
+    lazy      => 1, 
+    init_arg  => undef, 
+    reader    => 'get_nkpt', 
+    default   => sub ( $self ) { 
         return 
-            $self->mode == 0 
-            ? product( $self->_get_grids )
-            : $self->mode 
+            $self->get_mode == 0 
+            ? product( $self->get_grids )
+            : $self->get_mode 
     } 
 ); 
 

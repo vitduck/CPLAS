@@ -1,7 +1,7 @@
 package VASP::INCAR;  
 
 use Moose;  
-use MooseX::Types::Moose qw( Num HashRef );  
+use MooseX::Types::Moose qw( Num Int HashRef );  
 use String::Util qw( trim ); 
 use namespace::autoclean; 
 use experimental qw( signatures ); 
@@ -9,6 +9,7 @@ use experimental qw( signatures );
 with qw( IO::Reader ); 
 with qw( VASP::Spin ); 
 
+# IO::Reader
 has '+input', ( 
     init_arg  => undef,
     default   => 'INCAR' 
@@ -16,29 +17,18 @@ has '+input', (
 
 has '+cache', ( 
     handles   => { 
-        get_tag => 'get'
-    }
+        get_magmom_tag => [ get => 'MAGMOM' ], 
+        get_mdalgo_tag => [ get => 'MDALGO' ], 
+        get_neb_tag    => [ get => 'ICHAIN' ] 
+    } 
 ); 
 
+# VASP::Spin
 has '+magmom', ( 
     handles   => { 
         get_init_magmom => 'get'
     }
 ); 
-
-sub _build_magmom ( $self ) {  
-    my @magmom;
-
-    for ( split ' ', $self->get_tag( 'MAGMOM' ) ) { 
-        push @magmom, ( 
-            /(\d+)\*(.*)/ 
-            ? ( $2 ) x $1
-            : $_          
-        );
-    } 
-
-    return { map { $_+1 => $magmom[ $_ ] } 0..$#magmom } 
-} 
 
 sub _build_cache ( $self ) { 
     my %incar; 
@@ -55,6 +45,20 @@ sub _build_cache ( $self ) {
     } 
 
     return \%incar; 
+} 
+
+sub _build_magmom ( $self ) {  
+    my @magmom;
+
+    for ( split ' ', $self->get_magmom_tag( 'MAGMOM' ) ) { 
+        push @magmom, ( 
+            /(\d+)\*(.*)/ 
+            ? ( $2 ) x $1
+            : $_          
+        );
+    } 
+
+    return { map { $_+1 => $magmom[ $_ ] } 0..$#magmom } 
 } 
 
 __PACKAGE__->meta->make_immutable;
