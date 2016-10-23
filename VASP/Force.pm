@@ -12,6 +12,7 @@ use experimental qw( signatures );
 with qw( MooseX::Getopt::Usage ); 
 with qw( IO::Reader ); 
 
+# Getopt
 has '+input', ( 
     default   => 'OUTCAR', 
 
@@ -27,6 +28,7 @@ has 'column', (
     documentation => 'Number of formatted column'
 ); 
 
+# native
 has '_force_regex', ( 
     is        => 'ro', 
     isa       => RegexpRef, 
