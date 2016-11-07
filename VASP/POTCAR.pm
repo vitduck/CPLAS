@@ -27,19 +27,27 @@ has 'xc', (
     documentation => 'XC potential'
 ); 
 
-has 'element', ( 
-    is        => 'ro', 
-    isa       => Str,  
-    predicate => '_has_element', 
-    
-    documentation => 'Comma separated list of elements'
+has '+extra_argv', ( 
+    traits   => [ qw( Array ) ], 
+    handles  => { 
+        argv => 'elements'   
+    }
 ); 
 
+# IO::Reader
 has '+input', ( 
     init_arg  => undef, 
     default   => 'POTCAR'
 ); 
 
+has '+cache', ( 
+    handles => { 
+        list_xc => 'keys', 
+        get_pp  => 'get', 
+    }
+); 
+
+# IO::Writer
 has '+output', ( 
     init_arg  => undef, 
     default   => 'POTCAR'
@@ -49,6 +57,7 @@ has '+o_mode', (
     default   => 'a'
 ); 
 
+# native
 has 'pot_dir', ( 
     is        => 'ro', 
     isa       => Str, 
@@ -56,20 +65,14 @@ has 'pot_dir', (
     default   => $ENV{ POT_DIR }, 
 ); 
 
-has 'element_list', ( 
+has 'element', ( 
     is        => 'ro', 
     isa       => ArrayRef[ Element ],   
     traits    => [ qw( Array ) ], 
     init_arg  => undef,
-    lazy      => 1, 
-    default   => sub ( $self ) {
-        return             
-            $self->_has_element 
-            ? [ split( /,/, $self->element ) ] 
-            :[] 
-    },    
     handles   => { 
-        _add_element => 'push', 
+        no_element   => 'is_empty', 
+        add_element  => 'push', 
         get_elements => 'elements', 
     }, 
 ); 
@@ -92,7 +95,7 @@ sub BUILD ( $self, @ ) {
         For example: export POT_DIR=/opt/VASP/POTCAR\n";
     }
 } 
-sub getopt_usage_config {
+sub getopt_usage_config ( $self ) {
     return 
         format   => "Usage: %c <make|append|info> [OPTIONS]", 
         headings => 1
@@ -103,19 +106,19 @@ sub info ( $self, $verbose = 1 ) {
     -f $self->input ? $self->cache : return; 
 
     # list of xc
-    my @xcs = $self->_list_cached; 
+    my @xcs = $self->list_xc; 
 
-    # print pp  
+    # print info
     for my $xc ( @xcs ) {
         printf "\n=> Pseudopotential: %s\n", $xc if $verbose;  
 
-        for my $pseudo ( $self->_get_cached( $xc )->@* ) {
-            $self->_add_element( to_Element( $pseudo->[0] ) );  
-            printf "%-10s %-6s %-10s %-s\n", @$pseudo if $verbose;  
+        for my $pp ( $self->get_pp( $xc )->@* ) {
+            $self->add_element( to_Element( $pp->[0] ) );  
+            printf "%-10s %-6s %-10s %-s\n", $pp->@* if $verbose;  
         } 
     }
 
-    # sanity check
+    # set exchange
     @xcs > 1 
     ? die "\n=> Error: Mixing different exchanges in POTCAR\n" 
     : $self->_set_xc( shift @xcs ); 
@@ -125,17 +128,19 @@ sub make ( $self ) {
     # delete existed POTCAR 
     $self->delete; 
 
-    $self->append( $self->get_elements ); 
-    $self->info; 
+    $self->append( $self->get_elements ) unless $self->no_element; 
 } 
 
 sub append ( $self, @elements ) { 
+    return unless @elements; 
+
     for ( grep is_Element( $_ ), @elements ) {  
-        $self->_select( $_ ); 
+        $self->cache_potcar( $_ ); 
         $self->_print( $self->_get_potcar( $_) ); 
     } 
 
     $self->refresh; 
+    $self->info; 
 } 
 
 sub refresh ( $self ) { 
@@ -148,27 +153,27 @@ sub delete ( $self ) {
     unlink $self->input; 
 } 
 
-sub _select ( $self, $element ) { 
-    my @configs = $self->_list_potcar_configs( $element );  
+sub cache_potcar ( $self, $element ) { 
+    my @configs = $self->list_potcar( $element );  
     
     # populate potcar HashRef
     $self->_set_potcar( 
         $element => IO::KISS->new( 
-            file   => $self->_select_potcar_config( @configs ),  
+            file   => $self->select_potcar( @configs ),  
             mode   => 'r', 
             _chomp => 1 
         )->slurp 
     ); 
 } 
 
-sub _list_potcar_configs ( $self, $element ) { 
+sub list_potcar( $self, $element ) { 
     return 
         map basename( $_ ), 
         grep /\/($element)(\z|\d|_|\.)/, 
         glob "${ \$self->pot_dir }/${ \$self->xc }/*"; 
 } 
 
-sub _select_potcar_config ( $self, @configs ) {  
+sub select_potcar ( $self, @configs ) {  
     while ( 1 ) { 
         # prompt 
         printf "=> Pseudopotentials < %s >: ", join(' | ', @configs );  
