@@ -2,62 +2,54 @@ package VASP::KPOINTS;
 
 use Moose;  
 use MooseX::Types::Moose qw( Str Int ArrayRef );  
-use List::Util qw( product );  
+use List::Util 'product'; 
 use namespace::autoclean; 
-use feature qw( switch );  
+use feature 'switch';   
 use experimental qw( signatures smartmatch );    
 
-with qw( IO::Reader ); 
+with 'IO::Reader'; 
 
-# IO::Reader
 has '+input', ( 
     default  => 'KPOINTS' 
 ); 
 
 # native
 has 'comment', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => Str, 
-    lazy      => 1, 
     init_arg  => undef, 
-    reader    => 'get_comment', 
-    default   => sub { $_[0]->_get_cached( 'comment' ) }
 ); 
 
 has 'mode', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => Int,  
-    lazy      => 1, 
     init_arg  => undef, 
-    reader    => 'get_mode', 
-    default   => sub { $_[0]->_get_cached( 'mode' ) }
 );  
 
 has 'scheme', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => Str,  
-    lazy      => 1, 
     init_arg  => undef, 
-    reader    => 'get_scheme', 
-    default   => sub { $_[0]->_get_cached( 'scheme' ) }
 ); 
 
 has 'grid', ( 
-    is       => 'ro', 
+    is       => 'rw', 
     isa      => ArrayRef[ Int ], 
+    init_arg  => undef, 
     traits   => [ qw( Array ) ], 
-    lazy     => 1, 
-    default  => sub { $_[0]->_get_cached( 'grid' ) }, 
-    handles  => { get_grids => 'elements' } 
+    handles  => { 
+        get_grids => 'elements' 
+    } 
 ); 
 
 has 'shift', ( 
-    is        => 'ro', 
+    is        => 'rw', 
     isa       => ArrayRef[ Str ], 
+    init_arg  => undef, 
     traits    => [ qw( Array ) ], 
-    lazy      => 1, 
-    default   => sub { $_[0]->_get_cached( 'shift' ) }, 
-    handles  => { get_shifts => 'elements' } 
+    handles  => { 
+        get_shifts => 'elements' 
+    } 
 ); 
 
 has 'nkpt', ( 
@@ -65,36 +57,40 @@ has 'nkpt', (
     isa       => Int, 
     lazy      => 1, 
     init_arg  => undef, 
-    reader    => 'get_nkpt', 
-    default   => sub ( $self ) { 
-        return 
-            $self->get_mode == 0 
-            ? product( $self->get_grids )
-            : $self->get_mode 
-    } 
+    builder   => '_build_nkpt'
 ); 
 
-sub _build_cache ( $self ) { 
-    my %kp = ();  
+sub BUILD ( $self, @ ) { 
+    $self->parse
+}
 
-    $kp{ comment } = $self->_get_line;   
-    $kp{ mode }    = $self->_get_line;   
-    $kp{ scheme }  = 
+sub parse ( $self ) { 
+    $self->comment( $self->_get_line );  
+    $self->mode   ( $self->_get_line );  
+    $self->scheme (  
         $self->_get_line  =~ /^M/ 
-        ? 'Monkhorst-Pack' 
-        : 'Gamma-centered' ;
+            ? 'Monkhorst-Pack' 
+            : 'Gamma-centered'
+    ); 
     
-    given ( $kp{ mode } ) {   
-        when ( 0 )      { $kp{ grid } = [ map int, map split, $self->_get_line ] }
-        when ( $_ > 0 ) { push $kp{ grid }->@*, [ ( split )[ 0..2 ] ] for $self->_get_lines } 
+    given ( $self->mode ) {   
+        when ( 0 )      { $self->grid( [ map int, map split, $self->_get_line ] )         }
+        when ( $_ > 0 ) { $self->grid( [ map [ ( split )[ 0..2 ] ], $self->_get_lines ] ) } 
+        # TBI
         default         { ... } 
     }
 
-    $kp{ shift } = [ map split, $self->_get_line ] if $kp{ mode } == 0;  
+    $self->shift( [ map split, $self->_get_line ] ) if $self->mode == 0; 
 
     $self->_close_reader;  
+} 
 
-    return \%kp; 
+sub _build_nkpt ( $self ) { 
+    return (
+        $self->mode == 0 
+            ? product( $self->get_grids )
+            : $self->mode 
+    )
 } 
 
 __PACKAGE__->meta->make_immutable;
