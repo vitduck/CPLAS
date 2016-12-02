@@ -1,55 +1,67 @@
 package VASP::KPOINTS; 
 
+use List::Util 'product'; 
+
 use Moose;  
 use MooseX::Types::Moose qw( Str Int ArrayRef );  
-use List::Util 'product'; 
 use namespace::autoclean; 
+
 use feature 'switch';   
 use experimental qw( signatures smartmatch );    
 
 with 'IO::Reader'; 
+with 'IO::Cache'; 
 
+# IO::Reader
 has '+input', ( 
     default  => 'KPOINTS' 
 ); 
 
-# native
+# Native
 has 'comment', ( 
-    is        => 'rw', 
+    is        => 'ro', 
     isa       => Str, 
     init_arg  => undef, 
+    lazy      => 1, 
+    reader    => 'get_commnet', 
+    default   => sub ( $self ) { $self->cache->{ 'comment' } } 
 ); 
 
 has 'mode', ( 
-    is        => 'rw', 
-    isa       => Int,  
+    is        => 'ro', 
+    isa       => Str,  
     init_arg  => undef, 
+    lazy      => 1, 
+    reader    => 'get_mode', 
+    default   => sub ( $self ) { $self->cache->{ 'mode' } } 
 );  
 
 has 'scheme', ( 
-    is        => 'rw', 
+    is        => 'ro', 
     isa       => Str,  
     init_arg  => undef, 
+    lazy      => 1, 
+    reader    => 'get_scheme', 
+    default   => sub ( $self ) { $self->cache->{ 'scheme' } } 
 ); 
 
 has 'grid', ( 
-    is       => 'rw', 
-    isa      => ArrayRef[ Int ], 
-    init_arg  => undef, 
+    is       => 'ro', 
+    isa      => ArrayRef, 
     traits   => [ qw( Array ) ], 
-    handles  => { 
-        get_grids => 'elements' 
-    } 
+    init_arg => undef, 
+    lazy     => 1, 
+    default  => sub ( $self ) { $self->cache->{ 'grid' } }, 
+    handles  => { get_grids => 'elements' } 
 ); 
 
 has 'shift', ( 
-    is        => 'rw', 
+    is        => 'ro', 
     isa       => ArrayRef[ Str ], 
-    init_arg  => undef, 
     traits    => [ qw( Array ) ], 
-    handles  => { 
-        get_shifts => 'elements' 
-    } 
+    init_arg  => undef, 
+    default   => sub ( $self ) { $self->cache->{ 'shift' } }, 
+    handles   => { get_shifts => 'elements' }
 ); 
 
 has 'nkpt', ( 
@@ -60,36 +72,59 @@ has 'nkpt', (
     builder   => '_build_nkpt'
 ); 
 
-sub BUILD ( $self, @ ) { 
-    $self->parse
-}
+sub _build_cache ( $self ) { 
+    my %kp = ();  
 
-sub parse ( $self ) { 
-    $self->comment( $self->_get_line );  
-    $self->mode   ( $self->_get_line );  
-    $self->scheme (  
-        $self->_get_line  =~ /^M/ 
-            ? 'Monkhorst-Pack' 
-            : 'Gamma-centered'
+    $kp{ comment } = $self->get_line;   
+    $kp{ imode   } = $self->get_line;   
+    $kp{ scheme  } = (
+        $self->get_line =~ /^M/ 
+        ? 'Monkhorst-Pack' 
+        : 'Gamma-centered' 
+    );
+
+    # kmode  
+    given ( $kp{ imode } ) {   
+        # automatic k-messh
+        when ( 0 ) { 
+            $kp{ mode } = 'automatic'; 
+            $kp{ grid } = [ 
+                map int, 
+                map split, 
+                $self->get_line 
+            ] 
+        }
+
+        # manual k-mesh 
+        when ( $_ > 0 ) { 
+            $kp{ mode } = 'manual'; 
+            $kp{ grid } = [ 
+                map [ ( split )[0..2] ],  
+                $self->get_lines 
+            ]
+        } 
+
+        # line mode ( band calculation ) 
+        # TBI 
+        default { 
+            $kp{ mode } = 'line'
+        }
+    }
+    
+    $kp{ shift } = (
+        $kp{ imode } == 0 
+        ? [ split ' ', $self->get_line ]
+        : [ 0, 0, 0 ]
     ); 
     
-    given ( $self->mode ) {   
-        when ( 0 )      { $self->grid( [ map int, map split, $self->_get_line ] )         }
-        when ( $_ > 0 ) { $self->grid( [ map [ ( split )[ 0..2 ] ], $self->_get_lines ] ) } 
-        # TBI
-        default         { ... } 
-    }
-
-    $self->shift( [ map split, $self->_get_line ] ) if $self->mode == 0; 
-
-    $self->_close_reader;  
+    return \%kp; 
 } 
 
 sub _build_nkpt ( $self ) { 
     return (
-        $self->mode == 0 
-            ? product( $self->get_grids )
-            : $self->mode 
+        $self->get_mode eq 'automatic' 
+        ? product( $self->get_grids )
+        : scalar  ( $self->get_grids )
     )
 } 
 
