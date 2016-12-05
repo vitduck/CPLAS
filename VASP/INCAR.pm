@@ -1,16 +1,13 @@
 package VASP::INCAR;  
 
-use String::Util 'trim'; 
-
 use Moose;  
-use MooseX::Types::Moose qw( Num Int HashRef );  
+use MooseX::Types::Moose qw/Num Int HashRef/;  
+use String::Util qw/trim/;  
 use namespace::autoclean; 
+use experimental qw/signatures/;  
 
-use experimental 'signatures';  
-
-with 'IO::Reader'; 
-with 'IO::Cache'; 
-with 'VASP::Spin'; 
+with qw/IO::Reader IO::Cache/;  
+with qw/VASP::Spin/;  
 
 # IO::Reader
 has '+input', ( 
@@ -28,43 +25,33 @@ has '+cache', (
 
 # VASP::Spin
 has '+magmom', ( 
-    handles   => { 
-        get_init_magmom => 'get'
-    }
+    handles   => { get_init_magmom => 'get' }
 ); 
 
 sub _build_cache ( $self ) { 
     my %incar; 
 
+    # skip blank and commented line 
+    # math key = value pair
     while ( defined( local $_ =  $self->get_line ) ) { 
-        # skip empty line
-        next if $_ eq ''; 
-
-        # skip commented line
-        next if /^\s*#/; 
-
-        # tag = value ( in list context ) 
-        my ( $key, $value ) = ( /(.*)=(.*)/g ); 
-
-        # trim leading and trailing whitespaces
-        $incar{ trim( $key ) } = trim( $value );  
-    } 
+        if ( $_ eq ''    ) { next } 
+        if ( /^\s*#/     ) { next }  
+        if ( /(.*)=(.*)/ ) { $incar{ trim( uc( $1 ) ) } = trim( $2 ) } 
+    }
 
     return \%incar; 
 } 
 
 sub _build_magmom ( $self ) {  
-    my @magmom;
+    my @magmom = 
+        map { /(\d+)\*(.*)/ ? ( $2 ) x $1 : $_  }
+        split ' ', $self->get_magmom_tag( 'MAGMOM' );  
 
-    for ( split ' ', $self->get_magmom_tag( 'MAGMOM' ) ) { 
-        # expand short-handed notation, i.e. 5*2.0
-        push @magmom, ( /(\d+)\*(.*)/ ? ( $2 ) x $1 : $_ );
-    } 
-
-    # indexing 
-    my %magmom = map { $_ + 1 => $magmom[ $_ ] } 0..$#magmom; 
-
-    return \%magmom
+    # return indexed hash
+    return { 
+        map { $_ + 1 => $magmom[ $_ ] } 
+        0..$#magmom 
+    }
 } 
 
 __PACKAGE__->meta->make_immutable;

@@ -1,16 +1,13 @@
 package VASP::KPOINTS; 
 
-use List::Util 'product'; 
-
 use Moose;  
-use MooseX::Types::Moose qw( Str Int ArrayRef );  
+use MooseX::Types::Moose qw/Str Int ArrayRef/;  
+use List::Util qw/product/;  
 use namespace::autoclean; 
+use feature qw/switch/; 
+use experimental qw/signatures smartmatch/;    
 
-use feature 'switch';   
-use experimental qw( signatures smartmatch );    
-
-with 'IO::Reader'; 
-with 'IO::Cache'; 
+with qw/IO::Reader IO::Cache/;  
 
 # IO::Reader
 has '+input', ( 
@@ -18,57 +15,35 @@ has '+input', (
 ); 
 
 # Native
-has 'comment', ( 
-    is        => 'ro', 
-    isa       => Str, 
-    init_arg  => undef, 
-    lazy      => 1, 
-    reader    => 'get_commnet', 
-    default   => sub ( $self ) { $self->cache->{ 'comment' } } 
-); 
+for my $atb ( qw/comment mode scheme/ ) { 
+    has $atb, ( 
+        is        => 'ro', 
+        isa       => Str, 
+        init_arg  => undef, 
+        lazy      => 1, 
+        reader    => 'get_' . $atb,  
+        default   => sub { shift->cache->{ $atb } } 
+    )
+}
 
-has 'mode', ( 
-    is        => 'ro', 
-    isa       => Str,  
-    init_arg  => undef, 
-    lazy      => 1, 
-    reader    => 'get_mode', 
-    default   => sub ( $self ) { $self->cache->{ 'mode' } } 
-);  
-
-has 'scheme', ( 
-    is        => 'ro', 
-    isa       => Str,  
-    init_arg  => undef, 
-    lazy      => 1, 
-    reader    => 'get_scheme', 
-    default   => sub ( $self ) { $self->cache->{ 'scheme' } } 
-); 
-
-has 'grid', ( 
-    is       => 'ro', 
-    isa      => ArrayRef, 
-    traits   => [ qw( Array ) ], 
-    init_arg => undef, 
-    lazy     => 1, 
-    default  => sub ( $self ) { $self->cache->{ 'grid' } }, 
-    handles  => { get_grids => 'elements' } 
-); 
-
-has 'shift', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Str ], 
-    traits    => [ qw( Array ) ], 
-    init_arg  => undef, 
-    default   => sub ( $self ) { $self->cache->{ 'shift' } }, 
-    handles   => { get_shifts => 'elements' }
-); 
+for my $atb ( qw/grid shift/ ) { 
+    has $atb, ( 
+        is       => 'ro', 
+        isa      => ArrayRef, 
+        traits   => [ 'Array' ], 
+        init_arg => undef, 
+        lazy     => 1, 
+        default  => sub { shift->cache->{ $atb } }, 
+        handles  => { 'get_' . $atb . 's' => 'elements' } 
+    )
+} 
 
 has 'nkpt', ( 
     is        => 'ro', 
     isa       => Int, 
     lazy      => 1, 
     init_arg  => undef, 
+    reader    => 'get_nkpt',
     builder   => '_build_nkpt'
 ); 
 
@@ -111,6 +86,7 @@ sub _build_cache ( $self ) {
         }
     }
     
+    # mesh shift
     $kp{ shift } = (
         $kp{ imode } == 0 
         ? [ split ' ', $self->get_line ]
@@ -124,7 +100,7 @@ sub _build_nkpt ( $self ) {
     return (
         $self->get_mode eq 'automatic' 
         ? product( $self->get_grids )
-        : scalar  ( $self->get_grids )
+        : scalar ( $self->get_grids )
     )
 } 
 
