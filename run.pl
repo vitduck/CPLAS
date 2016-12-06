@@ -1,19 +1,19 @@
 #!/usr/bin/env perl 
 
-#PBS -l nodes=4:SANDY:ppn=12
-#PBS -N test
+#PBS -l nodes=8:SANDY:ppn=12
+#PBS -N :)
 #PBS -e ./std.err
 #PBS -o ./std.out
 
 use strict; 
 use warnings; 
 use autodie; 
-use experimental qw( signatures ); 
+use experimental qw/signatures/;  
 
-use File::Path qw( make_path ); 
-use File::Copy qw( copy ); 
-use File::Basename qw( basename ); 
-use File::Spec::Functions qw( catfile );  
+use File::Path qw/make_path/;  
+use File::Copy qw/copy/;  
+use File::Basename qw/basename/;  
+use File::Spec::Functions qw/catfile/;  
 
 use Try::Tiny; 
 use Data::Printer; 
@@ -31,7 +31,8 @@ my $bin_dir   = "$ENV{HOME}/DFT/build";
 my $template  = "$ENV{HOME}/DFT/bootstrap"; 
 my $job_id    = $1 if $ENV{PBS_JOBID} =~ /^(\d+)/;
 my $bootstrap = ''; 
-my @inputs    = qw( INCAR KPOINTS POSCAR POTCAR ); 
+
+my @inputs    = qw/INCAR KPOINTS POSCAR POTCAR/;  
 
 #------# 
 # main #
@@ -71,9 +72,11 @@ sub iterator {
         }
 
         for ( @calc ) { 
-            chdir $_; 
-            try { execute_vasp() if /bootstrap/ };  
-            try { execute_vasp() unless -e 'OUTCAR' };  
+            try { 
+                chdir $_; 
+                execute_vasp() if /bootstrap/;  
+                execute_vasp() unless -e 'OUTCAR' 
+            };  
         }
     }
 } 
@@ -131,21 +134,21 @@ sub get_subdir ( $path, $queue ) {
         -f $path ? undef : 
         -l $path ? undef : 
         do { 
-           my $sub_ref = {}; 
+            my $sub_ref = {}; 
 
-           # breadth first 
-           opendir my ( $dir_fh ), $path; 
+            # breadth first 
+            opendir my ( $dir_fh ), $path; 
 
-           unshift $queue->@*,  
-           map { [ $_, $sub_ref ] }     # sub_ref is {} 
-           map { catfile( $path, $_ ) } # recover full path 
-           sort { $a cmp $b }           # sorting
-           grep { ! /^\.\.?$/ }         # skip "." and ".."
-           readdir $dir_fh;
+            unshift $queue->@*,  
+                map { [ $_, $sub_ref ] }     # sub_ref is {} 
+                map { catfile( $path, $_ ) } # recover full path 
+                sort { $a cmp $b }           # sorting
+                grep { ! /^\.\.?$/ }         # skip "." and ".."
+                readdir $dir_fh;
 
-           closedir $dir_fh; 
+            closedir $dir_fh; 
 
-           $sub_ref; 
+            $sub_ref; 
         }
     )
 }

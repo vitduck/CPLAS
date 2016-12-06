@@ -3,6 +3,7 @@ package VASP::KPOINTS;
 use Moose;  
 use MooseX::Types::Moose qw/Str Int ArrayRef/;  
 use List::Util qw/product/;  
+
 use namespace::autoclean; 
 use feature qw/switch/; 
 use experimental qw/signatures smartmatch/;    
@@ -48,22 +49,22 @@ has 'nkpt', (
 ); 
 
 sub _build_cache ( $self ) { 
-    my %kp = ();  
+    my %cache = ();  
 
-    $kp{ comment } = $self->get_line;   
-    $kp{ imode   } = $self->get_line;   
-    $kp{ scheme  } = (
+    $cache{ comment } = $self->get_line;   
+    $cache{ imode   } = $self->get_line;   
+    $cache{ scheme  } = (
         $self->get_line =~ /^M/ 
         ? 'Monkhorst-Pack' 
         : 'Gamma-centered' 
     );
 
     # kmode  
-    given ( $kp{ imode } ) {   
+    given ( $cache{ imode } ) {   
         # automatic k-messh
         when ( 0 ) { 
-            $kp{ mode } = 'automatic'; 
-            $kp{ grid } = [ 
+            $cache{ mode } = 'automatic'; 
+            $cache{ grid } = [ 
                 map int, 
                 map split, 
                 $self->get_line 
@@ -72,8 +73,8 @@ sub _build_cache ( $self ) {
 
         # manual k-mesh 
         when ( $_ > 0 ) { 
-            $kp{ mode } = 'manual'; 
-            $kp{ grid } = [ 
+            $cache{ mode } = 'manual'; 
+            $cache{ grid } = [ 
                 map [ ( split )[0..2] ],  
                 $self->get_lines 
             ]
@@ -82,18 +83,18 @@ sub _build_cache ( $self ) {
         # line mode ( band calculation ) 
         # TBI 
         default { 
-            $kp{ mode } = 'line'
+            $cache{ mode } = 'line'
         }
     }
     
     # mesh shift
-    $kp{ shift } = (
-        $kp{ imode } == 0 
+    $cache{ shift } = (
+        $cache{ imode } == 0 
         ? [ split ' ', $self->get_line ]
         : [ 0, 0, 0 ]
     ); 
     
-    return \%kp; 
+    return \%cache; 
 } 
 
 sub _build_nkpt ( $self ) { 

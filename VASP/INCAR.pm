@@ -3,6 +3,7 @@ package VASP::INCAR;
 use Moose;  
 use MooseX::Types::Moose qw/Num Int HashRef/;  
 use String::Util qw/trim/;  
+
 use namespace::autoclean; 
 use experimental qw/signatures/;  
 
@@ -29,17 +30,17 @@ has '+magmom', (
 ); 
 
 sub _build_cache ( $self ) { 
-    my %incar; 
+    my %cache; 
 
     # skip blank and commented line 
     # math key = value pair
     while ( defined( local $_ =  $self->get_line ) ) { 
         if ( $_ eq ''    ) { next } 
         if ( /^\s*#/     ) { next }  
-        if ( /(.*)=(.*)/ ) { $incar{ trim( uc( $1 ) ) } = trim( $2 ) } 
+        if ( /(.*)=(.*)/ ) { $cache{ trim( uc( $1 ) ) } = trim( $2 ) } 
     }
 
-    return \%incar; 
+    return \%cache 
 } 
 
 sub _build_magmom ( $self ) {  
