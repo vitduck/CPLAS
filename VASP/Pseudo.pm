@@ -3,10 +3,11 @@ package VASP::Pseudo;
 use Moose;  
 use MooseX::Types::Moose qw/Str ArrayRef/;  
 use IO::KISS; 
-use Periodic::Table qw( Element Element_Name ); 
+use Periodic::Table qw/Element Element_Name/; 
 use VASP::Types qw/Pseudo/; 
 use File::Basename; 
 use File::Spec::Functions; 
+
 use namespace::autoclean; 
 use experimental qw/signatures/;  
 
@@ -16,7 +17,7 @@ with qw/IO::Reader IO::Cache/;
 has '+input', ( 
     init_arg  => undef, 
     lazy      => 1, 
-    builder   => '_build_potcar'
+    builder   => '_build_pseudo'
 ); 
 
 # Native
@@ -45,14 +46,14 @@ has 'element', (
     reader    => 'get_element'
 ); 
 
-has 'exchange', ( 
+has 'xc', ( 
     is        => 'ro', 
     isa       => Pseudo, 
-    reader    => 'get_exchange', 
+    reader    => 'get_xc', 
     default   => 'PAW_PBE'
 ); 
 
-for my $atb ( qw/name valence date/ ) { 
+for my $atb ( qw/name pseudo valence date/ ) { 
     has $atb, ( 
         is        => 'ro', 
         isa       => Str, 
@@ -75,15 +76,24 @@ sub BUILD ( $self, @ ) {
     $self->_clear_reader; 
 } 
 
+sub info ( $self ) { 
+    printf "%-10s %-10s %-6s %-10s %-s\n", 
+        $self->get_xc,
+        $self->get_name, 
+        $self->get_pseudo,  
+        $self->get_valence, 
+        $self->get_date, 
+} 
+
 sub _build_config ( $self ) {  
     return [   
         map basename( $_ ), 
         grep /\/(${ \$self->get_element })(\z|\d|_|\.)/, 
-        glob "${ \$self->get_potcar_dir }/${ \$self->get_exchange }/*"
+        glob "${ \$self->get_potcar_dir }/${ \$self->get_xc }/*"
     ]
 } 
 
-sub _build_potcar ( $self ) { 
+sub _build_pseudo ( $self ) { 
     while ( 1 ) { 
         # prompt 
         printf "=> Pseudopotentials < %s >: ", join(' | ', $self->get_configs );  
@@ -91,10 +101,10 @@ sub _build_potcar ( $self ) {
 
         if ( grep $choice eq $_ , $self->get_configs ) { 
             return catfile( 
-                    $self->get_potcar_dir,
-                    $self->get_exchange, 
-                    $choice, 
-                    'POTCAR' 
+                $self->get_potcar_dir,
+                $self->get_xc, 
+                $choice, 
+                'POTCAR' 
             ), 
         }
     }
@@ -119,11 +129,13 @@ sub _build_cache ( $self ) {
         # Ex: TITEL  = PAW_PBE C_s 06Sep2000
         if ( /TITEL/ ) { 
             ( $cache{ pseudo }, $cache{ date } ) = ( split )[3,4]; 
+            last
         }
-
-        $cache{ name }   = to_Element_Name( $self->get_element );  
-        $cache{ date } //= '---'
+        
     }
+    
+    $cache{ name }   = to_Element_Name( $self->get_element );  
+    $cache{ date } //= '---'; 
 
     return \%cache
 } 

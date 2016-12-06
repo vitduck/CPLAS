@@ -2,21 +2,22 @@
 
 use strict; 
 use warnings; 
-use feature qw( switch );   
-use experimental qw( smartmatch );  
+use feature qw/switch/;  
+use experimental qw/smartmatch/;  
 
 use VASP::POTCAR; 
 
+# init
 my $potcar = VASP::POTCAR->new_with_options; 
 
+# parse cmd 
 my ( $mode, @elements ) = $potcar->argv; 
 
-# set POTCAR elements 
-$potcar->add_element( @elements ) if @elements; 
+# set POTCAR's elements
+$potcar->add_element( @elements ); 
 
-given ( shift @ARGV // 'default' ) {
-    when ( 'info'   ) { $potcar->info                }
-    when ( 'append' ) { $potcar->append( @elements ) } 
-    when ( 'make'   ) { $potcar->make                }
-    default           { print $potcar->getopt_usage  }  
+given ( $mode //= 'default' ) {
+    when ( 'append' ) { $potcar->append } 
+    when ( 'make'   ) { $potcar->make   }
+    default           { $potcar->help   }  
 } 
