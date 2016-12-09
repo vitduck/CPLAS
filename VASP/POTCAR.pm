@@ -1,19 +1,21 @@
 package VASP::POTCAR; 
 
 use Moose;  
-use MooseX::Types::Moose qw/ArrayRef/; 
-use IO::KISS; 
-use VASP::Pseudo; 
-use VASP::Types qw/Pseudo/; 
-use Periodic::Table qw/Element/; 
+use MooseX::Types::Moose qw/Str ArrayRef/;  
+use VASP::Potential; 
+use VASP::Types 'Pseudo'; 
+use Data::Printer; 
 
 use namespace::autoclean; 
-use experimental qw/signatures/; 
+use feature 'switch'; 
+use experimental qw/signatures smartmatch/;  
 
-with qw/IO::Reader IO::Writer/; 
-with qw/MooseX::Getopt::Usage/;  
+with 'IO::Reader'; 
+with 'IO::Writer'; 
+with 'IO::Cache'; 
+with 'MooseX::Getopt::Usage';  
 
-# IO::Reader
+# IO::Writer
 has '+input', ( 
     init_arg  => undef, 
     default   => 'POTCAR'
@@ -30,6 +32,15 @@ has '+o_mode', (
 ); 
 
 # MooseX::Getopt::Usage
+has '+extra_argv', ( 
+    traits   => [ 'Array' ], 
+    handles  => { 
+        get_arg  => 'shift', 
+        get_args => 'elements'   
+    }
+); 
+
+# Native 
 has 'xc', ( 
     is        => 'ro', 
     isa       => Pseudo, 
@@ -40,48 +51,56 @@ has 'xc', (
     documentation => 'XC potential'
 ); 
 
-has '+extra_argv', ( 
-    traits   => [ 'Array' ], 
-    handles  => { 
-        argv => 'elements'   
+for my $atb ( qw/element config potential/ ) { 
+    has $atb, ( 
+        is        => 'ro', 
+        isa       => ArrayRef,  
+        traits    => [ 'Array' ], 
+        init_arg  => undef,
+        lazy      => 1, 
+        default   => sub { [] }, 
+        handles   => { 
+            'clear_'.$atb      => 'clear',
+            'add_'  .$atb      => 'push',
+            'get_'  .$atb .'s' => 'elements' 
+        }
+    )
+} 
+
+sub BUILD ( $self, @args ) { 
+    # caching 
+    if ( -f $self->input ) { 
+        $self->cache; 
+        
+        my @elements = $self->get_cached( 'element' )->@*; 
+        my @configs  = $self->get_cached( 'config'  )->@*;  
+
+        $self->add_element( @elements ); 
+        $self->add_config ( @configs  ); 
+
+        $self->add_potential( 
+            map VASP::Potential->new( 
+                element => $elements[$_],  
+                config  => $configs[$_],
+                xc      => $self->get_xc 
+            ), 0..$#elements
+        ); 
     }
-); 
 
-has 'element', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Element ],   
-    traits    => [ 'Array' ], 
-    init_arg  => undef,
-    handles   => { 
-        add_element  => 'push', 
-        has_element  => 'count',
-        get_elements => 'elements'
+    # parse cmd
+    given ( $self->get_arg ) {
+        when ( 'info'   ) { $self->info                      }
+        when ( 'make'   ) { $self->make                      }
+        when ( 'add'    ) { $self->add   ( $self->get_args ) }
+        when ( 'remove' ) { $self->remove( $self->get_args ) }
+        when ( 'order'  ) { $self->order ( $self->get_args ) }
+        default           { $self->help                      }  
     }
-); 
-
-has 'cached_element', ( 
-    is        => 'ro', 
-    isa       => ArrayRef[ Element ],   
-    traits    => [ 'Array' ], 
-    lazy      => 1, 
-    init_arg  => undef,
-    builder   => '_build_cached_element', 
-    handles   => { get_cached_elements => 'elements' } 
-); 
-
-has 'potcar', ( 
-    is        => 'ro', 
-    isa       => ArrayRef,
-    traits    => [ 'Array' ], 
-    init_arg  => undef,
-    lazy      => 1, 
-    builder   => '_build_potcar', 
-    handles   => { get_potcars => 'elements' }, 
-); 
+}
 
 sub getopt_usage_config ( $self ) {
     return ( 
-        format   => "Usage: %c <make|append> [OPTIONS]", 
+        format   => "Usage: %c <info|make|add|remove|reorder> [OPTIONS]", 
         headings => 1
     )
 }
@@ -90,47 +109,81 @@ sub help ( $self ) {
     print $self->getopt_usage
 } 
 
-sub make ( $self ) { 
-    $self->delete;  
-    $self->append; 
+sub make ( $self ) {  
+    $self->clear; 
+    $self->add( $self->get_args )  
 } 
 
-sub append ( $self ) { 
-    $self->help && exit unless $self->has_element; 
+sub add ( $self, @elements ) { 
+    my @potentials = 
+        map VASP::Potential->new( 
+            element => $_, 
+            xc      => $self->get_xc 
+        ), @elements; 
 
-    for my $potcar ( $self->get_potcars ) { 
-        $self->print( $potcar->slurp ) 
+    $self->write( @potentials ); 
+    $self->info 
+} 
+
+sub remove ( $self, @elements ) { 
+    my @new_potentials; 
+
+    for my $potential ( $self->get_potentials ) {  
+        push @new_potentials, $potential 
+            unless grep $potential->get_element eq $_, $self->get_args
+    } 
+    
+    $self->clear; 
+    $self->write( @new_potentials ); 
+    $self->info 
+}  
+
+sub order( $self, @elements ) { 
+    my @new_potentials; 
+
+    for my $element ( @elements ) { 
+        push @new_potentials, 
+            ( grep $element eq $_->get_element, $self->get_potentials )[0] 
     } 
 
-    $self->info; 
+    $self->clear; 
+    $self->write( @new_potentials ); 
+    $self->info 
 } 
 
 sub info ( $self ) { 
-    print "\n=> Summary:\n"; 
-    for my $potcar ( $self->get_potcars ) { 
-        $potcar->info; 
+    print "\nPOTCAR:\n"; 
+    for my $potential ( $self->get_potentials ) { 
+        $potential->info; 
     } 
 } 
 
-sub delete ( $self ) { 
-    unlink $self->input; 
+sub write ( $self, @potentials ) { 
+    for ( @potentials ) { 
+        $_->select unless $_->get_config; 
+        $self->add_potential( $_ ); 
+        $self->print( $_->get_potcar ); 
+    } 
 } 
 
-sub _build_cached_element ( $self ) { 
-    return [ 
-        map { ( split /=|:/ )[1] }  
-        grep /VRHFIN =(\w+)\s*:/, 
-        $self->get_lines 
-    ]
-} 
+sub clear ( $self ) { 
+    unlink $self->output; 
 
-sub _build_potcar ( $self ) { 
-    return [ 
-        map VASP::Pseudo->new( element => $_, xc => $self->get_xc ),  
-        grep is_Element( $_ ), 
-        $self->get_elements
-    ]
+    $self->clear_element;   
+    $self->clear_config;
+    $self->clear_potential 
 }
+
+sub _build_cache ( $self ) { 
+    my %cache; 
+
+    for ( $self->get_lines ) { 
+        push $cache{ element }->@*, $1         if /VRHFIN =(\w+):/; 
+        push $cache{ config  }->@*, (split)[3] if /TITEL/; 
+    } 
+
+    return \%cache
+} 
 
 __PACKAGE__->meta->make_immutable;
 
