@@ -2,17 +2,18 @@ package VASP::KPOINTS;
 
 use Moose;  
 use MooseX::Types::Moose qw/Str Int ArrayRef/;  
-use List::Util qw/product/;  
+use List::Util 'product';  
 
 use namespace::autoclean; 
-use feature qw/switch/; 
+use feature 'switch';  
 use experimental qw/signatures smartmatch/;    
 
-with qw/IO::Reader IO::Cache/;  
+with 'IO::Reader'; 
+with 'IO::Cache';  
 
 # IO::Reader
 has '+input', ( 
-    default  => 'KPOINTS' 
+    default   => 'KPOINTS' 
 ); 
 
 # Native
@@ -23,7 +24,7 @@ for my $atb ( qw/comment mode scheme/ ) {
         init_arg  => undef, 
         lazy      => 1, 
         reader    => 'get_' . $atb,  
-        default   => sub { shift->cache->{ $atb } } 
+        default   => sub { shift->get_cached( $atb ) } 
     )
 }
 
@@ -34,7 +35,7 @@ for my $atb ( qw/grid shift/ ) {
         traits   => [ 'Array' ], 
         init_arg => undef, 
         lazy     => 1, 
-        default  => sub { shift->cache->{ $atb } }, 
+        default  => sub { shift->get_cached( $atb ) }, 
         handles  => { 'get_' . $atb . 's' => 'elements' } 
     )
 } 

@@ -5,7 +5,7 @@ use MooseX::Types::Moose qw/Num HashRef/;
 
 use namespace::autoclean; 
  
-requires qw/_build_magmom/;  
+requires '_build_magmom';  
 
 has 'magmom', ( 
     is        => 'ro', 

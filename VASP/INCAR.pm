@@ -2,13 +2,14 @@ package VASP::INCAR;
 
 use Moose;  
 use MooseX::Types::Moose qw/Num Int HashRef/;  
-use String::Util qw/trim/;  
+use String::Util 'trim';  
 
 use namespace::autoclean; 
-use experimental qw/signatures/;  
+use experimental 'signatures';  
 
-with qw/IO::Reader IO::Cache/;  
-with qw/VASP::Spin/;  
+with 'IO::Reader';  
+with 'IO::Cache';  
+with 'VASP::Spin';  
 
 # IO::Reader
 has '+input', ( 
@@ -44,9 +45,10 @@ sub _build_cache ( $self ) {
 } 
 
 sub _build_magmom ( $self ) {  
-    my @magmom = 
+    my @magmom = (
         map { /(\d+)\*(.*)/ ? ( $2 ) x $1 : $_  }
-        split ' ', $self->get_magmom_tag( 'MAGMOM' );  
+        split ' ', $self->get_magmom_tag( 'MAGMOM' ) 
+    ); 
 
     # return indexed hash
     return { 

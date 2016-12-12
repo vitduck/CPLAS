@@ -4,10 +4,10 @@ use Moose;
 use MooseX::Types::Moose qw/Str Num ArrayRef HashRef RegexpRef/;  
 
 use namespace::autoclean; 
-use experimental qw/signatures/;  
+use experimental 'signatures';  
 
-with qw/IO::Reader/;  
-with qw/VASP::Spin/;  
+with 'IO::Reader';  
+with 'VASP::Spin';  
 
 # IO::Reader
 has '+input', ( 
@@ -58,9 +58,10 @@ has '_energy_regex', (
 sub _build_magmom ( $self ) {
     my $magmom = ( $self->slurped =~ /${ \$self->_magmom_regex }/g )[-1]; 
 
-    my @magmom = 
+    my @magmom = (
         map { (split)[-1] } 
-        IO::KISS->new( \ $magmom, 'r' )->get_lines; 
+        IO::KISS->new( \ $magmom, 'r' )->get_lines 
+    ); 
     
     # return indexed hash
     return { 

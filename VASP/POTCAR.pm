@@ -51,56 +51,43 @@ has 'xc', (
     documentation => 'XC potential'
 ); 
 
-for my $atb ( qw/element config potential/ ) { 
-    has $atb, ( 
-        is        => 'ro', 
-        isa       => ArrayRef,  
-        traits    => [ 'Array' ], 
-        init_arg  => undef,
-        lazy      => 1, 
-        default   => sub { [] }, 
-        handles   => { 
-            'clear_'.$atb      => 'clear',
-            'add_'  .$atb      => 'push',
-            'get_'  .$atb .'s' => 'elements' 
-        }
-    )
-} 
+has 'element', ( 
+    is        => 'ro', 
+    isa       => ArrayRef, 
+    traits    => [ 'Array' ], 
+    init_arg  => undef,
+    lazy      => 1, 
+    builder   => '_build_elemenet', 
+    handles   => { get_elements => 'elements' }
+); 
+
+has 'potential', ( 
+    is        => 'ro', 
+    isa       => ArrayRef,  
+    traits    => [ 'Array' ], 
+    init_arg  => undef,
+    lazy      => 1, 
+    clearer   => 'clear_potential', 
+    builder   => '_build_potential', 
+    handles   => { 
+        has_potential    => 'count',
+        add_potential    => 'push',
+        delete_potential => 'delete',
+        get_potentials   => 'elements' 
+    }
+); 
 
 sub BUILD ( $self, @args ) { 
-    # caching 
-    if ( -f $self->input ) { 
-        $self->cache; 
-        
-        my @elements = $self->get_cached( 'element' )->@*; 
-        my @configs  = $self->get_cached( 'config'  )->@*;  
-
-        $self->add_element( @elements ); 
-        $self->add_config ( @configs  ); 
-
-        $self->add_potential( 
-            map VASP::Potential->new( 
-                element => $elements[$_],  
-                config  => $configs[$_],
-                xc      => $self->get_xc 
-            ), 0..$#elements
-        ); 
-    }
-
-    # parse cmd
-    given ( $self->get_arg ) {
-        when ( 'info'   ) { $self->info                      }
-        when ( 'make'   ) { $self->make                      }
-        when ( 'add'    ) { $self->add   ( $self->get_args ) }
-        when ( 'remove' ) { $self->remove( $self->get_args ) }
-        when ( 'order'  ) { $self->order ( $self->get_args ) }
-        default           { $self->help                      }  
+    given ( my $mode = $self->get_arg ) {
+        when ( 'info' )                         { $self->info                }
+        when ( /make|add|remove|order|select/ ) { $self->$mode; $self->info  }
+        default                                 { $self->help                }  
     }
 }
 
 sub getopt_usage_config ( $self ) {
     return ( 
-        format   => "Usage: %c <info|make|add|remove|reorder> [OPTIONS]", 
+        format   => "Usage: %c <info|make|add|remove|order|select> [OPTIONS]", 
         headings => 1
     )
 }
@@ -110,69 +97,95 @@ sub help ( $self ) {
 } 
 
 sub make ( $self ) {  
-    $self->clear; 
-    $self->add( $self->get_args )  
+    $self->delete; 
+    $self->add; 
 } 
 
-sub add ( $self, @elements ) { 
-    my @potentials = 
-        map VASP::Potential->new( 
+sub add ( $self ) { 
+    my @potentials = map VASP::Potential->new( 
             element => $_, 
             xc      => $self->get_xc 
-        ), @elements; 
-
-    $self->write( @potentials ); 
-    $self->info 
+    ), $self->get_args;   
+    
+    $self->update( @potentials )
 } 
 
-sub remove ( $self, @elements ) { 
-    my @new_potentials; 
+sub remove ( $self ) {  
+    my @potentials; 
 
     for my $potential ( $self->get_potentials ) {  
-        push @new_potentials, $potential 
+        push @potentials, $potential 
             unless grep $potential->get_element eq $_, $self->get_args
-    } 
-    
-    $self->clear; 
-    $self->write( @new_potentials ); 
-    $self->info 
+    }
+   
+    $self->delete; 
+    $self->update( @potentials );  
 }  
 
-sub order( $self, @elements ) { 
-    my @new_potentials; 
+sub order ( $self ) { 
+    my @potentials; 
 
-    for my $element ( @elements ) { 
-        push @new_potentials, 
+    for my $element ( $self->get_args ) { 
+        push @potentials, 
             ( grep $element eq $_->get_element, $self->get_potentials )[0] 
     } 
 
-    $self->clear; 
-    $self->write( @new_potentials ); 
-    $self->info 
+    $self->delete; 
+    $self->update( @potentials );  
 } 
+
+sub select ( $self ) { 
+    my @potentials; 
+    
+    for my $potential ( $self->get_potentials ) {  
+        if ( grep $potential->get_element eq $_, $self->get_args ) {  
+            $potential->clear_config; 
+        }
+
+        push @potentials, $potential
+    }
+
+    $self->delete; 
+    $self->update( @potentials );  
+}
 
 sub info ( $self ) { 
-    print "\nPOTCAR:\n"; 
-    for my $potential ( $self->get_potentials ) { 
-        $potential->info; 
+    if ( $self->has_potential ) { 
+        print "\nPOTCAR:\n"; 
+        for my $potential ( $self->get_potentials ) { 
+            $potential->info; 
+        }
     } 
 } 
 
-sub write ( $self, @potentials ) { 
-    for ( @potentials ) { 
-        $_->select unless $_->get_config; 
-        $self->add_potential( $_ ); 
-        $self->print( $_->get_potcar ); 
-    } 
-} 
-
-sub clear ( $self ) { 
+sub delete ( $self ) { 
     unlink $self->output; 
+    $self->clear_potential; 
+} 
 
-    $self->clear_element;   
-    $self->clear_config;
-    $self->clear_potential 
-}
+sub update ( $self, @potentials ) {  
+    for my $potential ( @potentials ) { 
+        $self->add_potential( $potential ); 
+        $self->print( $potential->get_potcar ); 
+    } 
+} 
+
+sub _build_potential ( $self ) { 
+    if ( -f $self->input ) {  
+        my @elements = $self->get_cached( 'element' )->@*; 
+        my @configs  = $self->get_cached( 'config'  )->@*;  
+
+        return [ 
+            map VASP::Potential->new( 
+                element => $elements[$_],  
+                config  => $configs[$_],
+                xc      => $self->get_xc 
+            ), 0..$#elements
+        ]
+    } else {  
+        return [ ]
+    }
+} 
 
 sub _build_cache ( $self ) { 
     my %cache; 

@@ -61,8 +61,8 @@ has 'config', (
     isa       => Str, 
     lazy      => 1, 
     reader    => 'get_config', 
-    writer    => 'set_config',
-    default   => '', 
+    clearer   => 'clear_config',
+    builder   => '_build_config'
 ); 
 
 has 'potcar', ( 
@@ -101,16 +101,13 @@ sub info ( $self ) {
         $self->get_date, 
 } 
 
-sub select ( $self ) { 
+sub _build_config ( $self ) { 
     while ( 1 ) { 
         # prompt 
         printf "Select > %s: ", join(' | ', $self->get_available_configs );  
         chomp ( my $select = <STDIN> =~ s/\s+//rg ); 
 
-        if ( grep $select eq $_ , $self->get_available_configs ) { 
-            $self->set_config( $select ); 
-            last; 
-        }
+        return $select if grep $select eq $_ , $self->get_available_configs 
     }
 } 
 
