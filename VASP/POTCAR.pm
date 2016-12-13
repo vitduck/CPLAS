@@ -7,8 +7,7 @@ use VASP::Types 'Pseudo';
 use Data::Printer; 
 
 use namespace::autoclean; 
-use feature 'switch'; 
-use experimental qw/signatures smartmatch/;  
+use experimental 'signatures';  
 
 with 'IO::Reader'; 
 with 'IO::Writer'; 
@@ -57,7 +56,7 @@ has 'element', (
     traits    => [ 'Array' ], 
     init_arg  => undef,
     lazy      => 1, 
-    builder   => '_build_elemenet', 
+    builder   => '_build_element', 
     handles   => { get_elements => 'elements' }
 ); 
 
@@ -72,18 +71,9 @@ has 'potential', (
     handles   => { 
         has_potential    => 'count',
         add_potential    => 'push',
-        delete_potential => 'delete',
         get_potentials   => 'elements' 
     }
 ); 
-
-sub BUILD ( $self, @args ) { 
-    given ( my $mode = $self->get_arg ) {
-        when ( 'info' )                         { $self->info                }
-        when ( /make|add|remove|order|select/ ) { $self->$mode; $self->info  }
-        default                                 { $self->help                }  
-    }
-}
 
 sub getopt_usage_config ( $self ) {
     return ( 
@@ -170,6 +160,12 @@ sub update ( $self, @potentials ) {
     } 
 } 
 
+sub _build_element ( $self ) { 
+    $self->info; 
+    
+    return $self->get_cached( 'element' )
+}  
+
 sub _build_potential ( $self ) { 
     if ( -f $self->input ) {  
         my @elements = $self->get_cached( 'element' )->@*; 
@@ -183,7 +179,7 @@ sub _build_potential ( $self ) {
             ), 0..$#elements
         ]
     } else {  
-        return [ ]
+        return []
     }
 } 
 

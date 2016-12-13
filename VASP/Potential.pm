@@ -80,7 +80,7 @@ for my $atb ( qw/name valence date/ ) {
         isa       => Str, 
         init_arg  => undef, 
         lazy      => 1, 
-        reader    => 'get_' . $atb, 
+        reader    => "get_$atb", 
         default   => sub { shift->get_cached( $atb ) }
     )
 }
