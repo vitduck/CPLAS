@@ -1,19 +1,19 @@
 #!/usr/bin/env perl 
 
 #PBS -l nodes=8:SANDY:ppn=12
-#PBS -N :)
+#PBS -N GIST
 #PBS -e ./std.err
 #PBS -o ./std.out
 
 use strict; 
 use warnings; 
 use autodie; 
-use experimental qw/signatures/;  
+use experimental 'signatures'; 
 
-use File::Path qw/make_path/;  
-use File::Copy qw/copy/;  
-use File::Basename qw/basename/;  
-use File::Spec::Functions qw/catfile/;  
+use File::Path 'make_path'; 
+use File::Copy 'copy'; 
+use File::Basename 'basename'; 
+use File::Spec::Functions 'catfile';  
 
 use Try::Tiny; 
 use Data::Printer; 
@@ -31,8 +31,7 @@ my $bin_dir   = "$ENV{HOME}/DFT/build";
 my $template  = "$ENV{HOME}/DFT/bootstrap"; 
 my $job_id    = $1 if $ENV{PBS_JOBID} =~ /^(\d+)/;
 my $bootstrap = ''; 
-
-my @inputs    = qw/INCAR KPOINTS POSCAR POTCAR/;  
+my @inputs    = qw/INCAR KPOINTS POSCAR POTCAR/; 
 
 #------# 
 # main #
@@ -120,11 +119,7 @@ sub get_nkpt {
 } 
 
 sub get_nprocs { 
-    my @nprocs  = IO::KISS->new( 
-        file   => $ENV{ PBS_NODEFILE }, 
-        mode   => 'r', 
-        _chomp => 1
-    )->get_lines;  
+    my @nprocs  = IO::KISS->new( $ENV{ PBS_NODEFILE }, 'r' )->get_lines;  
 
     return scalar( @nprocs )
 }
