@@ -13,7 +13,20 @@ has '_magmom_regex', (
     isa       => RegexpRef, 
     init_arg  => undef, 
     lazy      => 1, 
-    builder   => '_build_magmom_regex'
+    default   => sub { 
+        qr/
+            (?:
+                magnetization\ \(x\)\n
+                .+?\n
+                # of ion\s+s\s+p\s+d\s+tot\n
+                -+\n
+            )
+            (.+?) 
+            (?: 
+                -+\n
+            )
+        /xs 
+    } 
 ); 
 
 sub _build_magmom ( $self ) {
@@ -29,21 +42,6 @@ sub _build_magmom ( $self ) {
         map { $_ + 1 => $magmom[ $_ ] } 
         0..$#magmom 
     }
-} 
-
-sub _build_magmom_regex ( $self ) { 
-    return  qr/
-        (?:
-            magnetization\ \(x\)\n
-            .+?\n
-            # of ion\s+s\s+p\s+d\s+tot\n
-            -+\n
-        )
-        (.+?) 
-        (?: 
-            -+\n
-        )
-    /xs 
 } 
 
 1 

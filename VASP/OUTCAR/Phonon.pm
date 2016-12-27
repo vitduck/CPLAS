@@ -6,22 +6,24 @@ use MooseX::Types::Moose qw/ArrayRef RegexpRef/;
 use namespace::autoclean; 
 use experimental 'signatures';  
 
-has 'eigenvalue', ( 
-    is        => 'ro', 
-    isa       => ArrayRef, 
-    traits    => [ 'Array' ], 
-    init_arg  => undef, 
-    lazy      => 1, 
-    builder   => '_build_eigenvalue',
-    handles   => { get_eigenvalues => 'elements' }
-); 
+with 'Thermo::Phonon'; 
 
 has '_eigenvalue_regex', ( 
     is        => 'ro', 
     isa       => RegexpRef, 
     init_arg  => undef, 
     lazy      => 1, 
-    builder   => "_build_eigenvalue_regex"
+    default   => sub { 
+        qr/
+            (?:
+                f\ \ =.+?cm-1\s+
+            )
+            (.+?)
+            (?:
+                \ meV
+            )
+        /xs
+    }
 ); 
 
 sub _build_eigenvalue ( $self ) { 
@@ -29,17 +31,5 @@ sub _build_eigenvalue ( $self ) {
         $self->slurped =~ /${ \$self->_eigenvalue_regex }/g
     ]
 } 
-
-sub _build_eigenvalue_regex ( $self ) { 
-    return qr/
-        (?:
-            f\ \ =.+?cm-1\s+
-        )
-        (.+?)
-        (?:
-            \ meV
-        )
-    /xs
-}
 
 1 
