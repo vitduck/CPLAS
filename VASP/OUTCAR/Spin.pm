@@ -6,7 +6,7 @@ use MooseX::Types::Moose 'RegexpRef';
 use namespace::autoclean; 
 use experimental 'signatures';  
 
-with 'VASP::Spin';  
+with 'General::Spin';  
 
 has '_magmom_regex', ( 
     is        => 'ro', 

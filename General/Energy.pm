@@ -1,4 +1,4 @@
-package VASP::Energy; 
+package General::Energy; 
 
 use Moose::Role; 
 use MooseX::Types::Moose qw/ArrayRef/;  

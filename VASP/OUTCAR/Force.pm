@@ -3,11 +3,23 @@ package VASP::OUTCAR::Force;
 use Moose::Role;  
 use MooseX::Types::Moose qw/RegexpRef/;  
 use IO::KISS; 
+use VASP::POSCAR; 
 use PDL::Lite; 
 use Try::Tiny; 
 
 use namespace::autoclean; 
 use experimental 'signatures';  
+
+with 'General::Force'; 
+
+has '_POSCAR', ( 
+    is        => 'ro', 
+    isa       => 'VASP::POSCAR',   
+    lazy      => 1, 
+    init_arg  => undef, 
+    default   => sub { VASP::POSCAR->new },  
+    handles   => [ qw/get_true_indices get_false_indices/ ] 
+); 
 
 # TODO: is it possible to capture the final three columns 
 #       without explicit split
@@ -27,25 +39,6 @@ has '_force_regex', (
                 \ -+\n
             )
         /xs 
-    } 
-); 
-
-has 'force', ( 
-    is       => 'ro', 
-    isa      => 'PDL', 
-    init_arg => undef, 
-    lazy     => 1, 
-    builder  => '_build_force' 
-); 
-
-has 'max_force', ( 
-    is        => 'ro', 
-    isa       => 'PDL', 
-    init_arg  => undef, 
-    lazy      => 1, 
-    builder   => '_build_max_force', 
-    handles   => { 
-        get_max_forces => 'list' 
     } 
 ); 
 

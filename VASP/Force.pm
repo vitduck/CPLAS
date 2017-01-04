@@ -26,15 +26,6 @@ has 'column', (
     documentation => 'Number of formatted column'
 ); 
 
-has '_POSCAR', ( 
-    is        => 'ro', 
-    isa       => 'VASP::POSCAR',   
-    lazy      => 1, 
-    init_arg  => undef, 
-    default   => sub { VASP::POSCAR->new },  
-    handles   => [ qw/get_true_indices get_false_indices/ ] 
-); 
-
 sub print_forces ( $self ) { 
     my @forces = $self->get_max_forces; 
 

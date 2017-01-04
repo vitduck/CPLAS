@@ -1,4 +1,4 @@
-package VASP::Spin; 
+package General::Spin; 
 
 use Moose::Role; 
 use MooseX::Types::Moose qw/Num HashRef/;   

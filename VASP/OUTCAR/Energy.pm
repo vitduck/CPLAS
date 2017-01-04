@@ -6,7 +6,7 @@ use MooseX::Types::Moose qw/ArrayRef RegexpRef/;
 use namespace::autoclean; 
 use experimental 'signatures';  
 
-with 'VASP::Energy'; 
+with 'General::Energy'; 
 
 has '_energy_regex', ( 
     is        => 'ro', 
