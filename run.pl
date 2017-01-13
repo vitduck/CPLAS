@@ -1,13 +1,14 @@
 #!/usr/bin/env perl 
 
-#PBS -l nodes=8:SANDY:ppn=12
-#PBS -N GIST
+#PBS -l nodes=8:g1:ppn=12
+#PBS -N job_name 
+#PBS -q default 
 #PBS -e ./std.err
 #PBS -o ./std.out
 
+use autodie; 
 use strict; 
 use warnings; 
-use autodie; 
 use experimental 'signatures'; 
 
 use File::Path 'make_path'; 
