@@ -5,7 +5,7 @@ use Moose::Role;
 use namespace::autoclean; 
 use experimental 'signatures';  
 
-with 'VASP::Spin';  
+with 'General::Spin';  
 
 sub _build_magmom ( $self ) {  
     my @magmom = (

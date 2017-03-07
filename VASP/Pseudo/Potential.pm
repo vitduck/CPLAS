@@ -88,6 +88,4 @@ sub _build_potcar ( $self ) {
     return $self->slurp
 } 
 
-
-
 1
