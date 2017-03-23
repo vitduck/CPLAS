@@ -9,7 +9,7 @@ use PDL::GSL::INTERP;
 use File::Find; 
 
 our @ISA       = 'Exporter'; 
-our @EXPORT    = qw( cspline minima ); 
+our @EXPORT    = qw( cspline minima maxima ); 
 
 sub cspline ( $energy, $spline ) { 
     my @cc = sort { $a <=> $b } keys $energy->%*; 
@@ -25,12 +25,18 @@ sub cspline ( $energy, $spline ) {
     my @grids = map { $cc[0] + $_* $dgrid } 0..$ngrid; 
 
     # interpolation 
-    $spline->%* = map { $grids[$_] => $csp->eval( $grids[$_] ) } 0..$#grids
+    # remove final points ? 
+    $spline->%* = map { $grids[$_] => $csp->eval( $grids[$_] ) } 0..$#grids-1; 
 } 
 
 sub minima ( $spline ) { 
     my @sorted = sort { $spline->{$a} <=> $spline->{$b} } keys $spline->%*; 
     printf "=> Minima:%7.3f (A)\t%7.3f (eV)\n", $sorted[0], $spline->{ $sorted[0] }
+} 
+
+sub maxima ( $spline ) { 
+    my @sorted = sort { $spline->{$a} <=> $spline->{$b} } keys $spline->%*; 
+    printf "=> Minima:%7.3f (A)\t%7.3f (eV)\n", $sorted[-1], $spline->{ $sorted[-1] }
 } 
 
 1

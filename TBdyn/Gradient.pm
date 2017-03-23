@@ -2,88 +2,127 @@ package Gradient;
 
 use strict; 
 use warnings; 
-use experimental qw( signatures ); 
+use experimental 'signatures'; 
 
-use File::Find; 
+use PDL; 
+use PDL::Stats::Basic; 
+use PDL::Graphics::Gnuplot; 
+use Number::WithError;
+
 use IO::KISS;  
+use Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
-    read_report read_gradient read_gradients 
-    acc_average trapezoidal
-);  
+    read_report 
+    get_igrad get_agrad get_mgrad 
+    write_grad plot_grad 
+); 
 
-sub read_report ( $file, $cc, $gradient ) { 
-    my $report = IO::KISS->new( $file, 'r' ); 
+sub read_report ( $cc, $bm ) { 
+    my ( @cc, @z_12, @lpGkT ); 
+    my $report = IO::KISS->new( 'REPORT', 'r' ); 
 
     while ( local $_ = $report->get_line ) { 
-        $$cc = (split)[2]               if /cc>/; 
-        push $gradient->@*, (split)[-1] if /b_m>/ 
+        # Const_coord 
+        if ( /cc>/  ) { 
+            push @cc, (split)[2] 
+        } 
+
+        # Blue_moon 
+        if ( /b_m>/ ) {  
+            my @bm = split; 
+            push @z_12,  $bm[ 2]; 
+            push @lpGkT, $bm[-1]; 
+        }
     } 
+
     $report->close; 
+
+    $$cc = PDL->new( @cc ); 
+    $$bm = PDL->new( \@z_12, \@lpGkT ); 
 }
 
-sub read_gradient ( $gradient ) { 
-    find ( 
-        sub { 
-            if ( /^gradient.dat/ ) {  
-                my $cc  = ( split /\//, $File::Find::name )[1]; 
-                my $io = IO::KISS->new( $_, 'r' ); 
-                while ( local $_ = $io->get_line ) { 
-                    $gradient->{ $cc } = (split)[-1]; 
-                }
-            }
-        }, '.'
+sub get_igrad ( $bm, $igrad ) { 
+    my $time =     my $grad =     
+    $$igrad  = cat( 
+        sequence( $$bm->getdim(0) ), 
+        $$bm->slice( ':, (1)' ) / $$bm->slice( ':, (0)' )
+    )
+}
+
+sub get_agrad ( $bm, $agrad, $nblock = 10 ) { 
+    my ( @time, @grad ); 
+    
+    for ( 0 .. $$bm->getdim(0) - 1 ) { 
+        if ( ( $_ +  1 ) % $nblock == 0 ) { 
+            my $z_12  = $$bm->slice( "0:$_, (0)" );  
+            my $lpGkT = $$bm->slice( "0:$_, (1)" );  
+            
+            push @time, $_; 
+            push @grad, $lpGkT->average / $z_12->average; 
+        } 
+    } 
+
+    $$agrad = cat( 
+        PDL->new( @time ), 
+        PDL->new( @grad ) 
     ); 
 } 
 
-sub read_gradients ( $file, $gradient ) { 
-    for ( IO::KISS->new( $file, 'r' )->get_lines ) { 
-        my ( $cc, $acc_average ) = split; 
-        $gradient->{ $cc } = $acc_average;  
-    } 
+sub get_mgrad ( $bm, $start = 0 ) { 
+    my $z_12  = $$bm->slice( "$start:-1, (0)" );  
+    my $lpGkT = $$bm->slice( "$start:-1, (1)" );  
+    
+    # stderr
+    my $mean_z_12  = Number::WithError->new(  $z_12->average,  $z_12->se ); 
+    my $mean_lpGkT = Number::WithError->new( $lpGkT->average, $lpGkT->se ); 
+    my $mean_grad  = $mean_lpGkT / $mean_z_12; 
+    
+    printf "=> <dF/dl>: %s\n", $mean_grad
 } 
 
-sub acc_average ( $gradient, $average ) {  
-    my $sum = 0;  
-    my $io  = IO::KISS->new( 'gradient.dat', 'w' ); 
+sub write_grad ( $grad, $file ) {
+    my $io = IO::KISS->new( $file, 'w' ); 
 
-    for my $index ( 0..$gradient->$#* ) { 
-        # accumlate averages 
-        $sum += $gradient->[ $index ]; 
-
-        # print to grdient.dat 
+    for ( 0..$$grad->getdim(0) - 1 ) { 
         $io->printf( 
-            "%d\t%f\t%f\n", 
-            $index + 1, 
-            $gradient->[ $index ], 
-            $sum / ( $index + 1 )
-        );  
-
-        # add to @averages 
-        push $average->@*, $sum / ( $index + 1 ) 
+            "%d\t%7.3e\n", 
+            $$grad->at( $_, 0 ) + 1, 
+            $$grad->at( $_, 1 )
+        )
     }
+
     $io->close; 
+}
 
-    # check convergence
-    print "\n=> Convergence of <dA/ds>\n"; 
-    for ( $gradient->$#* - 10 .. $gradient->$#* ) { 
-        printf "%d\t%f\t%f\n", $_+1, $gradient->[$_], $average->[$_]; 
-    }
-} 
+sub plot_grad ( $cc, $x1y1, $x2y2 ) { 
+    my $figure = gpwin( 'x11', persist => 1, raise => 1 ); 
+   
+    $figure->plot( 
+        # plot options
+        { 
+            title  => sprintf( "d-%s", $$cc->uniq ),  
+            xlabel => 'NSTEP', 
+            ylabel => 'eV',
+            grid   => 1
+        }, 
 
-sub trapezoidal ( $gradient, $trapz ) { 
-    my @cc  = sort { $a <=> $b } keys $gradient->%*; 
+        # curve options 
+        ( 
+            with      => 'lines', 
+            linecolor => [ rgb => $color{ red } ], 
+            linewidth => 2, 
+            legend    => 'dA/ds'
+        ), $$x1y1->slice( ":, (0)" ), $$x1y1->slice( ":, (1)" ), 
         
-    # first point 
-    $trapz->{ $cc[0] } = 0; 
-
-    my $sum = 0; 
-    for my $index ( 0..$#cc - 1 ) { 
-        my $h = $cc[ $index+1 ] - $cc[ $index ]; 
-        $sum += 0.5 * $h * ( $gradient->{ $cc[ $index ] } + $gradient->{ $cc[ $index+1 ] } ); 
-        $trapz->{ $cc[$index+1] } = $sum; 
-    } 
-} 
+        ( 
+            with      => 'lines', 
+            linecolor => [ rgb => $color{ blue } ], 
+            linewidth => 2, 
+            legend    => '<dA/ds>' 
+        ), $$x2y2->slice( ":, (0)" ), $$x2y2->slice( ":, (1)" ), 
+    )
+}
 
 1

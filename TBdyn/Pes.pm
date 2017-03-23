@@ -15,6 +15,7 @@ sub pes ( $energy ) {
         sub {
             if ( /OUTCAR/ ) {  
                 my $cc  = ( split /\//, $File::Find::name )[1]; 
+                $cc     =~ s/d-//; 
                 $energy->{ $cc } = VASP::OUTCAR->new->get_energy 
             } 
         }, '.'

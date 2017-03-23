@@ -8,6 +8,7 @@ use Exporter;
 
 use Pes; 
 use Gradient; 
+use Pmf; 
 use Cspline; 
 use Print; 
 use Plot; 
@@ -15,9 +16,9 @@ use Plot;
 our @ISA    = 'Exporter'; 
 our @EXPORT = ( 
     qw( pes ),  
-    qw( read_report read_gradient read_gradients acc_average trapezoidal ), 
-    qw( cspline minima ), 
-    qw( plot_free_ene plot_grad ), 
+    qw( read_gradient write_gradient ), 
+    qw( read_pmf trapezoidal plot_free_ene ), 
+    qw( cspline minima maxima ), 
     qw( print_hash shift_hash ), 
 ); 
 

@@ -1,4 +1,4 @@
-!/usr/bin/env perl 
+#!/usr/bin/env perl 
 
 use autodie; 
 use strict; 
@@ -7,12 +7,13 @@ use warnings;
 use TBdyn; 
 use Data::Printer; 
 
-my ( %gradient, %trapz, %spline ); 
+my ( %pmf, %trapz, %spline ); 
 
-read_gradients( shift @ARGV // 'gradients.dat', \%gradient ); 
-trapezoidal   ( \%gradient, \%trapz ); 
-shift_hash    ( \%trapz, -1 ); 
-print_hash    ( \%trapz => 'test.dat' ); 
+read_pmf      ( \%pmf ); 
+trapezoidal   ( \%pmf, \%trapz ); 
+# shift_hash    ( \%trapz, -1 ); 
+print_hash    ( \%trapz => 'free_ene.dat' ); 
 cspline       ( \%trapz, \%spline ); 
+print_hash    ( \%spline => 'cspline.dat' ); 
 minima        ( \%spline ); 
 plot_free_ene ( \%trapz, \%spline ); 

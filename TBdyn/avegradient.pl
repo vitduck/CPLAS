@@ -4,10 +4,15 @@ use autodie;
 use strict; 
 use warnings; 
 
-use TBdyn; 
+use Gradient; 
+use Plot; 
 
-my ( $cc, @gradients, @averages );  
+my ( $cc, $bm, $igrad, $agrad ); 
 
-read_report( shift @ARGV // 'REPORT', \$cc, \@gradients );  
-acc_average( \@gradients, \@averages ); 
-plot_grad  ( \@gradients, \@averages );  
+read_report( \$cc, \$bm ); 
+get_igrad  ( \$bm, \$igrad );  
+get_agrad  ( \$bm, \$agrad ); 
+get_mgrad  ( \$bm ); 
+write_grad ( \$igrad => 'igrad.dat' ); 
+write_grad ( \$agrad => 'agrad.dat' ); 
+plot_grad  ( \$cc, \$igrad, \$agrad ); 
