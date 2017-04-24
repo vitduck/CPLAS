@@ -9,14 +9,14 @@ use PDL::GSL::INTERP;
 use File::Find; 
 
 our @ISA       = 'Exporter'; 
-our @EXPORT    = qw( cspline minima maxima ); 
+our @EXPORT    = qw( cspline print_cspline minima maxima ); 
 
-sub cspline ( $energy, $spline ) { 
-    my @cc = sort { $a <=> $b } keys $energy->%*; 
+sub cspline ( $trapz, $spline ) { 
+    my @cc = sort { $a <=> $b } keys $trapz->%*; 
 
     # cubic spline object 
     my $x = PDL->new( @cc );  
-    my $y = PDL->new( $energy->@{ @cc } ); 
+    my $y = PDL->new( map $trapz->{ $_ }[0], @cc ); 
     my $csp = PDL::GSL::INTERP->init( 'cspline', $x, $y ); 
 
     # grid
@@ -27,6 +27,16 @@ sub cspline ( $energy, $spline ) {
     # interpolation 
     # remove final points ? 
     $spline->%* = map { $grids[$_] => $csp->eval( $grids[$_] ) } 0..$#grids-1; 
+} 
+
+sub print_cspline ( $cspline, $output ) { 
+    print "=> Cubic spline fitting: $output\n"; 
+
+    my $io = IO::KISS->new( $output, 'w' ); 
+    for ( sort { $a <=> $b } keys $cspline->%* ) { 
+        $io->printf( "%f\t%f\n", $_, $cspline->{ $_ } )
+    } 
+    $io->close; 
 } 
 
 sub minima ( $spline ) { 

@@ -51,7 +51,8 @@ sub get_igrad ( $bm, $igrad ) {
     )
 }
 
-sub get_agrad ( $bm, $agrad, $nblock = 10 ) { 
+# this number is from block_averaging
+sub get_agrad ( $bm, $agrad, $nblock = 75 ) { 
     my ( @time, @grad ); 
     
     for ( 0 .. $$bm->getdim(0) - 1 ) { 
@@ -70,16 +71,18 @@ sub get_agrad ( $bm, $agrad, $nblock = 10 ) {
     ); 
 } 
 
-sub get_mgrad ( $bm, $start = 0 ) { 
+sub get_mgrad ( $cc, $bm, $start = 0 ) { 
     my $z_12  = $$bm->slice( "$start:-1, (0)" );  
     my $lpGkT = $$bm->slice( "$start:-1, (1)" );  
     
-    # stderr
-    my $mean_z_12  = Number::WithError->new(  $z_12->average,  $z_12->se ); 
-    my $mean_lpGkT = Number::WithError->new( $lpGkT->average, $lpGkT->se ); 
+    # flatten piddle 
+    my $mean_lpGkT = Number::WithError->new( block_average( $lpGkT->list ) ); 
+    my $mean_z_12  = Number::WithError->new( block_average( $z_12->list  ) ); 
+    
     my $mean_grad  = $mean_lpGkT / $mean_z_12; 
     
-    printf "=> <dF/dl>: %s\n", $mean_grad
+    #printf "=> <dF/dl>: %s\n", $mean_grad
+    printf "%7.3f %-s\n", $$cc->index(0) , $mean_grad
 } 
 
 sub write_grad ( $grad, $file ) {
@@ -123,6 +126,26 @@ sub plot_grad ( $cc, $x1y1, $x2y2 ) {
             legend    => '<dA/ds>' 
         ), $$x2y2->slice( ":, (0)" ), $$x2y2->slice( ":, (1)" ), 
     )
+}
+
+# simple block averaging
+sub block_average ( @block ) { 
+    my @avg; 
+    my $nblock = 75; 
+    
+    while ( my @sub_block = splice @block, 0, $nblock ) { 
+        my $sb = PDL->new( @sub_block ); 
+
+        # average of sub block 
+        push @avg, $sb->average; 
+    }
+
+    my $avg = PDL->new( @avg ); 
+    
+    # debug 
+    # printf "Debug: %f\t%f\n", $avg->average, $avg->se; 
+    
+    return ( $avg->average, $avg->stdv ) 
 }
 
 1

@@ -12,7 +12,7 @@ my ( $cc, $bm, $igrad, $agrad );
 read_report( \$cc, \$bm ); 
 get_igrad  ( \$bm, \$igrad );  
 get_agrad  ( \$bm, \$agrad ); 
-get_mgrad  ( \$bm ); 
+get_mgrad  ( \$cc, \$bm ); 
 write_grad ( \$igrad => 'igrad.dat' ); 
 write_grad ( \$agrad => 'agrad.dat' ); 
 plot_grad  ( \$cc, \$igrad, \$agrad ); 
