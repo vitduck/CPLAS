@@ -5,7 +5,6 @@ use warnings;
 use experimental 'signatures'; 
 
 use PDL; 
-use PDL::Stats::Basic; 
 use PDL::Graphics::Gnuplot; 
 
 use IO::KISS;  
