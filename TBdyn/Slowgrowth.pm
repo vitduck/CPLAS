@@ -69,7 +69,7 @@ sub plot_slow_growth ( $cc, $gradient, $free_ene ) {
         # gradient
         ( 
             with      => 'lines', 
-            linestyle => -1, 
+            linecolor => [ rgb => $color{ red } ], 
             linewidth => 3, 
             legend    => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
         ), $$cc, $$gradient, 
@@ -77,7 +77,7 @@ sub plot_slow_growth ( $cc, $gradient, $free_ene ) {
         # free energy
         ( 
             with      => 'lines', 
-            linecolor => [ rgb => $color{ red } ], 
+            linestyle => -1, 
             linewidth => 3, 
             legend    => '{/Symbol D}A'
         ), $$cc, $$free_ene, 

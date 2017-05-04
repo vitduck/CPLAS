@@ -16,8 +16,8 @@ use Slowgrowth;
 # PDL piddle
 my ( $cc, $z_12, $lpGkT, $gradient, $free_ene ); 
 
-read_report      ( \$cc, \$z_12, \$lpGkT                                              ); 
-get_gradient     (       \$z_12, \$lpGkT, \$gradient                                  );  
-integ_slow_growth( \$cc,                  \$gradient, \$free_ene                      ); 
-write_slow_growth( \$cc,                  \$gradient, \$free_ene => 'slow_growth.dat' ); 
-plot_slow_growth ( \$cc,                  \$gradient, \$free_ene                      ); 
+read_report      ( \$cc, \$z_12, \$lpGkT ); 
+get_gradient     ( \$z_12, \$lpGkT, \$gradient );  
+integ_slow_growth( \$cc, \$gradient, \$free_ene ); 
+write_slow_growth( \$cc, \$gradient, \$free_ene => 'slow_growth.dat' ); 
+plot_slow_growth ( \$cc, \$gradient, \$free_ene ); 

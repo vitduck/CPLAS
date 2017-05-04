@@ -7,6 +7,7 @@ use experimental 'signatures';
 use PDL; 
 use PDL::Graphics::Gnuplot; 
 
+use Data::Printer; 
 use IO::KISS;  
 use Plot; 
 
@@ -15,14 +16,17 @@ our @EXPORT = qw( read_pmf trapezoidal print_free_ene plot_free_ene );
 
 sub read_pmf ( $pmf ) { 
     for ( IO::KISS->new( 'pmf.dat', 'r' )->get_lines ) { 
-        my ( $cc, $mean_grad, $se ) = split; 
+        next if /#/; 
+
+        my ( $cc, $mean_grad, $stdv, $se ) = split; 
+
         # variance of gradient: stdv**2
-        $pmf->{ $cc } = [ $mean_grad, $se**2 ] 
+        $pmf->{ $cc } = [ $mean_grad, $stdv**2 ] 
     } 
 } 
 
 sub trapezoidal ( $pmf, $trapz ) { 
-    my @cc  = sort { $a <=> $b } keys $pmf->%*; 
+    my @cc  = sort { $b <=> $a } keys $pmf->%*; 
 
     #  1st index of trapz is free energy 
     my $sum  = 0; 
@@ -43,14 +47,15 @@ sub trapezoidal ( $pmf, $trapz ) {
     # from #2 to the end 
     for my $i ( 2..$#cc ) { 
         # first and last point 
-        my $variance = 
-            0.25 * ( $cc[ 1] - $cc[ 0] )**2 * $pmf->{ $cc[ 0] }[1] +  
-            0.25 * ( $cc[-1] - $cc[-2] )**2 * $pmf->{ $cc[-1] }[1] ; 
+        my $variance =  
+            0.25 * ( $cc[ 1] - $cc[ 0] )**2 * $pmf->{ $cc[ 0] }[1]; 
 
         # this is due to cancellation of trapz form
         for my $j ( 1..$i-1 ) {  
             $variance += 0.25 * ( $cc[$j+1] - $cc[$j-1] )**2 * $pmf->{ $cc[$j] }[1];  
         }
+        
+        $variance +=0.25 * ( $cc[$i] - $cc[$i-1] )**2 * $pmf->{ $cc[$i] }[1] ; 
 
         # stderr
         $trapz->{ $cc[$i] }[1] = sqrt( $variance )
@@ -124,7 +129,7 @@ sub plot_free_ene ( $trapz, $spline ) {
         ( 
             with      => 'lines', 
             linestyle => -1,
-            linewidth =>  1, 
+            linewidth =>  2, 
         ), $x1, $zero  
     )
 }
