@@ -14,7 +14,7 @@ our @ISA    = 'Exporter';
 our @EXPORT = qw( 
     integ_slow_growth 
     write_slow_growth
-     plot_slow_growth
+    plot_slow_growth
 ); 
 
 sub integ_slow_growth ( $cc, $gradient, $free_ene) { 
@@ -26,7 +26,7 @@ sub integ_slow_growth ( $cc, $gradient, $free_ene) {
     # slice asignment
     $$free_ene->slice( "1:") .=  
         PDL->new( 
-            map $cspline->integ( $$cc->index(0), $$cc->index($_) ), 
+            map $cspline->integ( $$cc->at(0), $$cc->at($_) ), 
             1 .. $$cc->nelem - 1 
         ); 
 } 
@@ -37,9 +37,9 @@ sub write_slow_growth ( $cc, $gradient, $free_ene, $output ) {
     for ( 0..$$cc->nelem - 1 ) { 
         $io->printf( 
             "%10.5f  %10.5f  %10.5f\n", 
-                  $$cc->index( $_ ), 
-            $$gradient->index( $_ ), 
-            $$free_ene->index( $_ )
+                  $$cc->at( $_ ), 
+            $$gradient->at( $_ ), 
+            $$free_ene->at( $_ )
         )
     }
 

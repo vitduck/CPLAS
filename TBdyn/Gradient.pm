@@ -14,11 +14,11 @@ use Plot;
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
     read_report 
-      get_gradient
+    get_gradient
     write_igradient
-      acc_gradient
+    acc_gradient
     write_agradient
-     plot_gradient
+    plot_gradient
 ); 
 
 sub read_report ( $cc, $z_12, $lpGkT ) { 
@@ -78,7 +78,7 @@ sub write_igradient ( $gradient, $output ) {
     my $io = IO::KISS->new( $output, 'w' ); 
 
     for ( 0..$$gradient->nelem - 1 ) { 
-        $io->printf( "%d  %10.5f\n", $_, $$gradient->index( $_ ) )
+        $io->printf( "%d  %10.5f\n", $_, $$gradient->at( $_ ) )
     }
 
     $io->close; 
@@ -90,8 +90,8 @@ sub write_agradient ( $moving_index, $moving_gradient, $output ) {
     for ( 0..$$moving_index->nelem - 1 ) { 
         $io->printf( 
             "%d  %10.5f\n", 
-            $$moving_index->index( $_ ), 
-            $$moving_gradient->index( $_ ), 
+            $$moving_index->at( $_ ), 
+            $$moving_gradient->at( $_ ), 
         )
     }
     
@@ -109,7 +109,7 @@ sub plot_gradient ( $cc, $gradient, $moving_index, $moving_gradient ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "d-%-7.3f", $$cc->index(0) ),  
+            title  => sprintf( "d-%-7.3f", $$cc->at(0) ),  
             xlabel => 'MD Step', 
             ylabel => 'Gradient (eV/A)', 
             xrange => '[100:]',

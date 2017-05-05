@@ -14,7 +14,7 @@ our @ISA    = 'Exporter';
 our @EXPORT = qw( 
     block_average
     write_stderr 
-     plot_stderr
+    plot_stderr
 ); 
 
 sub block_average ( $z_12, $lpGkT, $bsize, $bavg, $bstdv, $bstde ) { 
@@ -61,10 +61,10 @@ sub write_stderr ( $bsize, $bavg, $bstdv, $bstde, $output ) {
     for ( 0..$$bsize->nelem -1 ) { 
         $io->printf(
             "%d %10.5f %10.5f %10.5f\n", 
-            $$bsize->index( $_ ),  
-             $$bavg->index( $_ ),  
-            $$bstdv->index( $_ ),  
-            $$bstde->index( $_ ),  
+            $$bsize->at( $_ ),  
+             $$bavg->at( $_ ),  
+            $$bstdv->at( $_ ),  
+            $$bstde->at( $_ ),  
         )
     }
     
@@ -82,7 +82,7 @@ sub plot_stderr ( $cc, $bsize, $bstde ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "d-%-7.3f", $$cc->index(0) ),  
+            title  => sprintf( "d-%-7.3f", $$cc->at(0) ),  
             xlabel => 'Block size', 
             ylabel => '{/Symbol s}', 
             grid   => 1
