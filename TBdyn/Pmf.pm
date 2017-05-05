@@ -1,138 +1,142 @@
 package Pmf; 
 
+use autodie; 
 use strict; 
 use warnings; 
 use experimental 'signatures'; 
 
 use PDL; 
 use PDL::Graphics::Gnuplot; 
-
 use Data::Printer; 
-use IO::KISS;  
+
 use Plot; 
+use IO::KISS;  
 
 our @ISA    = 'Exporter'; 
-our @EXPORT = qw( read_pmf trapezoidal print_free_ene plot_free_ene );  
+our @EXPORT = qw( 
+    read_pmf 
+    integ_trapz
+    print_free_ene 
+    plot_free_ene 
+);  
 
-sub read_pmf ( $pmf ) { 
-    for ( IO::KISS->new( 'pmf.dat', 'r' )->get_lines ) { 
+sub read_pmf ( $input, $cc, $gradient, $variance ) { 
+    my ( @cc, @gradients, @variances ); 
+
+    for ( IO::KISS->new( $input, 'r' )->get_lines ) { 
         next if /#/; 
 
-        my ( $cc, $mean_grad, $stdv, $se ) = split; 
+        my ( $cc, $gradient, $stdv, $se ) = split; 
 
-        # variance of gradient: stdv**2
-        $pmf->{ $cc } = [ $mean_grad, $stdv**2 ] 
+        push @cc, $cc; 
+        push @gradients, $gradient; 
+        push @variances, $stdv**2; 
     } 
+
+    # deref PDL piddle
+    $$cc       = PDL->new( @cc ); 
+    $$gradient = PDL->new( @gradients ); 
+    $$variance = PDL->new( @variances ); 
 } 
 
-sub trapezoidal ( $pmf, $trapz ) { 
-    my @cc  = sort { $b <=> $a } keys $pmf->%*; 
+sub integ_trapz ( $cc, $gradient, $variance, $free_ene, $prop_err ) { 
+    my ( @free_enes, @prop_errs ); 
 
-    #  1st index of trapz is free energy 
-    my $sum  = 0; 
-    $trapz->{ $cc[0] }[0] = 0;  
+    # reference point 
+    $free_enes[0] = 0; 
+    $prop_errs[0] = 0; 
 
-    for my $index ( 0..$#cc - 1 ) { 
-        my $h = $cc[ $index+1 ] - $cc[ $index ]; 
-        $sum += 0.5 * $h * ( $pmf->{ $cc[ $index ] }[0] + $pmf->{ $cc[ $index+1 ] }[0] ); 
-        $trapz->{ $cc[$index+1] }[0] = $sum;
+    # Trapezoidal integration
+    # Ref: T. Bucko, Journal of Cataylysis (2007)
+    for my $i ( 1 .. $$cc->nelem - 1 ) { 
+        # first and last point
+        $free_enes[$i] = 
+            0.50 * $$gradient->at(0)  * ( $$cc->at(1)  - $$cc->at(0) ) + 
+            0.50 * $$gradient->at($i) * ( $$cc->at($i) - $$cc->at($i-1) ); 
+
+        $prop_errs[$i] = 
+            0.25 * $$variance->at(0)  * ( $$cc->at(1)  - $$cc->at(0) )**2 + 
+            0.25 * $$variance->at($i) * ( $$cc->at($i)  - $$cc->at($i-1) )**2; 
+            
+        # middle point with cancellation
+        for my $j ( 1..$i - 1 ) { 
+            $free_enes[$i] += 
+                0.50 * $$gradient->at($j) * ( $$cc->at($j+1) - $$cc->at($j-1) ); 
+            
+            $prop_errs[$i] += 
+                0.25 * $$variance->at($j) * ( $$cc->at($j+1) - $$cc->at($j-1) )**2 
+        } 
+
     }
 
-    # 2nd index of trapz is variance
-    # first two is trivial 
-    $trapz->{ $cc[0] }[1] = 0;    
-    $trapz->{ $cc[1] }[1] = 
-        0.5 * ( $cc[1] - $cc[0] ) * sqrt( $pmf->{ $cc[0] }[1] + $pmf->{ $cc[1] }[1] ); 
+    # deref PDL piddle 
+    $$free_ene = PDL->new( @free_enes );  
+    $$prop_err = PDL->new( @prop_errs )->sqrt;  
+}
 
-    # from #2 to the end 
-    for my $i ( 2..$#cc ) { 
-        # first and last point 
-        my $variance =  
-            0.25 * ( $cc[ 1] - $cc[ 0] )**2 * $pmf->{ $cc[ 0] }[1]; 
-
-        # this is due to cancellation of trapz form
-        for my $j ( 1..$i-1 ) {  
-            $variance += 0.25 * ( $cc[$j+1] - $cc[$j-1] )**2 * $pmf->{ $cc[$j] }[1];  
-        }
-        
-        $variance +=0.25 * ( $cc[$i] - $cc[$i-1] )**2 * $pmf->{ $cc[$i] }[1] ; 
-
-        # stderr
-        $trapz->{ $cc[$i] }[1] = sqrt( $variance )
-    } 
-} 
-
-sub print_free_ene ( $trapz, $output ) { 
-    print "=> Free energy with statistical error: $output\n"; 
-    
+sub print_free_ene ( $cc, $free_ene, $prop_err, $output ) { 
     my $io = IO::KISS->new( $output, 'w' ); 
     
-    for ( sort { $a <=> $b } keys $trapz->%* ) { 
-        $io->printf( "%f\t%f\t%f\n", $_, $trapz->{ $_ }->@* )
-    } 
-
+    for ( 0..$$cc->nelem - 1 ) { 
+        $io->printf( 
+            "%10.5f  %10.5f  %10.5f\n", 
+                  $$cc->at( $_ ), 
+            $$free_ene->at( $_ ), 
+            $$prop_err->at( $_ )
+        )
+    }
+    
     $io->close; 
 } 
 
-sub plot_free_ene ( $trapz, $spline ) { 
-    my $figure = gpwin( 'x11', persist => 1, raise => 1 ); 
+sub plot_free_ene ( $cc, $free_ene, $prop_err ) { 
+    my $zeroes = PDL->zeroes( $$cc->nelem );  
 
-    my @cc    = sort { $a <=> $b } keys $trapz->%*;  
-    my @grids = sort { $a <=> $b } keys $spline->%*;  
+    my $figure = gpwin( 
+        'x11', 
+        persist  => 1, 
+        raise    => 1, 
+        enhanced => 1 
+    ); 
 
-    my $x1  = PDL->new( @cc );  
-    my $y1  = PDL->new( map $trapz->{$_}[0], @cc ); 
-    my $y1e = PDL->new( map $trapz->{$_}[1], @cc ); 
-
-    my $x2 = PDL->new( @grids ); 
-    my $y2 = PDL->new( $spline->@{ @grids } ); 
-
-    # zero 
-    my $zero = zeroes( scalar( @cc ) );
-
-    # yrange 
-    # min and max clash with PDL
-    my $y_min = List::Util::min( $spline->@{ @grids } ); 
-    my $y_max = List::Util::max( $spline->@{ @grids } ); 
-
+    my ( $x_min, $x_max ) = ( $$cc->min, $$cc->max ); 
+    my ( $y_min, $y_max ) = ( $$free_ene->min, $$free_ene->max ); 
 
     $figure->plot( 
         # plot options
         { 
-            xlabel => 'Reaction Path (A)', 
-            xtics  => 0.25,  
-
+            xlabel => 'Reaction Coordinate (A)', 
             ylabel => 'Free Energy (eV)',
-            # ytics  => 0.25, 
-            yrange => [ $y_min - 0.25, $y_max + 0.25 ], 
-
+            xrange => [ $x_min - 0.05, $x_max + 0.05 ], 
+            yrange => [ $y_min - 0.50, $y_max + 0.50 ], 
             grid   => 1,
         }, 
 
-        ( 
-            with      => 'yerrorbars',
-            tuplesize => 3,
-            linecolor => [ rgb => $color{ red } ], 
-            linewidth => 2,
-            # pointsize => 2,
-            # pointtype => 4,
-            legend    => 'Integrated <dA/ds>' 
-        ), $x1, $y1, $y1e, 
-
+        # cubic spline
         ( 
             with      => 'lines', 
             linecolor => [ rgb => $color{ red } ], 
-            linewidth => 1, 
-            legend    => 'Cubic splines' 
-        ), $x2, $y2, 
+            linewidth => 3, 
+            smooth    => 'cspline', 
+        ), $$cc, $$free_ene, 
+
+        # free energy 
+        ( 
+            with      => 'yerrorbars',
+            tuplesize => 3,
+            linestyle => -1, 
+            linewidth => 2,
+            pointsize => 1,
+            pointtype => 4,
+            legend    => '{/Symbol D}A', 
+        ), $$cc, $$free_ene, $$prop_err, 
 
         ( 
             with      => 'lines', 
             linestyle => -1,
             linewidth =>  2, 
-        ), $x1, $zero  
+        ), $$cc, $zeroes  
     )
 }
-
 
 1
