@@ -15,9 +15,9 @@ our @ISA    = 'Exporter';
 our @EXPORT = qw( 
     read_report 
     get_gradient
-    write_igradient
-    acc_gradient
-    write_agradient
+    get_avg_gradient
+    write_gradient
+    write_avg_gradient
     plot_gradient
 ); 
 
@@ -52,7 +52,7 @@ sub get_gradient ( $z_12, $lpGkT, $gradient ) {
     $$gradient = $$lpGkT / $$z_12; 
 } 
 
-sub acc_gradient ( $cc, $z_12, $lpGkT, $moving_index, $moving_gradient ) { 
+sub get_avg_gradient ( $cc, $z_12, $lpGkT, $moving_index, $moving_gradient ) { 
     # default !
     my $size  = 25; 
     my $bound = -1; 
@@ -74,7 +74,7 @@ sub acc_gradient ( $cc, $z_12, $lpGkT, $moving_index, $moving_gradient ) {
     $$moving_gradient = PDL->new( @moving_gradient ); 
 }
 
-sub write_igradient ( $gradient, $output ) {
+sub write_gradient ( $gradient, $output ) {
     my $io = IO::KISS->new( $output, 'w' ); 
 
     for ( 0..$$gradient->nelem - 1 ) { 
@@ -84,7 +84,7 @@ sub write_igradient ( $gradient, $output ) {
     $io->close; 
 }
 
-sub write_agradient ( $moving_index, $moving_gradient, $output ) {
+sub write_avg_gradient ( $moving_index, $moving_gradient, $output ) {
     my $io = IO::KISS->new( $output, 'w' ); 
 
     for ( 0..$$moving_index->nelem - 1 ) { 
@@ -119,7 +119,7 @@ sub plot_gradient ( $cc, $gradient, $moving_index, $moving_gradient ) {
         # igradient.dat
         ( 
             with      => 'lines', 
-            linewidth => 3, 
+            linewidth => 2, 
             linecolor => [ rgb => $color{ red } ], 
             legend    => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
         ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
@@ -128,7 +128,7 @@ sub plot_gradient ( $cc, $gradient, $moving_index, $moving_gradient ) {
         ( 
             with      => 'lines', 
             linestyle => -1, 
-            linewidth => 3, 
+            linewidth => 2, 
             legend    => '<{/Symbol \266}A/{/Symbol \266}{/Symbol x}>', 
         ), $$moving_index, $$moving_gradient
     )
