@@ -17,7 +17,7 @@ our @EXPORT = qw(
     plot_stderr
 ); 
 
-sub block_average ( $z_12, $lpGkT, $bsize, $bavg, $bstdv, $bstde ) { 
+sub block_average ( $z_12, $H, $bsize, $bavg, $bstdv, $bstde ) { 
     my $nelem = $$z_12->nelem; 
     
     my $min_block_size = 1; 
@@ -35,7 +35,7 @@ sub block_average ( $z_12, $lpGkT, $bsize, $bavg, $bstdv, $bstde ) {
         for ( 1 .. $nblock ) { 
             $rb = $lb + $size - 1; 
 
-            push @avg, $$lpGkT->slice( "$lb:$rb" )->sum / $$z_12->slice( "$lb:$rb" )->sum; 
+            push @avg, $$H->slice( "$lb:$rb" )->sum / $$z_12->slice( "$lb:$rb" )->sum; 
                 
             # shift left bound
             $lb += $size; 
@@ -96,4 +96,5 @@ sub plot_stderr ( $cc, $bsize, $bstde ) {
         ), $$bsize, $$bstde
     ); 
 } 
+
 1

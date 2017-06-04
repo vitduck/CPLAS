@@ -13,5 +13,5 @@ my ( $bsize, $bavg, $bstdv, $bstde );
 
 read_report  ( \$cc, \$z_12, \$lpGkT ); 
 block_average( \$z_12,  \$lpGkT, \$bsize, \$bavg, \$bstdv, \$bstde ); 
-write_stderr ( \$bsize, \$bavg, \$bstdv, \$bstde => 'block.dat' );  
+write_stderr ( \$bsize, \$bavg, \$bstdv, \$bstde => 'blocked_gradient.dat' );  
 plot_stderr  ( \$cc, \$bsize, \$bstde ); 

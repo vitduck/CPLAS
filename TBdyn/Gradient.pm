@@ -21,7 +21,7 @@ our @EXPORT = qw(
     plot_gradient
 ); 
 
-sub read_report ( $cc, $z_12, $lpGkT ) { 
+sub read_report ( $cc, $z_12, $lpGkT, $nequilibrium = 0 ) { 
     my ( @cc, @z_12, @lpGkT );  
 
     my $report = IO::KISS->new( 'REPORT', 'r' ); 
@@ -41,6 +41,9 @@ sub read_report ( $cc, $z_12, $lpGkT ) {
     } 
 
     $report->close; 
+
+    # equilibrartion 
+    map { splice @$_, 0, $nequilibrium } ( \@cc, \@z_12, \@lpGkT ); 
 
     # deref the piddle
     $$cc    = PDL->new( @cc    ); 
@@ -109,7 +112,7 @@ sub plot_gradient ( $cc, $gradient, $moving_index, $moving_gradient ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "d-%-7.3f", $$cc->at(0) ),  
+            title  => sprintf( "d = %-7.3f", $$cc->at(0) ),  
             xlabel => 'MD Step', 
             ylabel => 'Gradient (eV/A)', 
             xrange => '[100:]',

@@ -115,6 +115,7 @@ sub plot_free_ene ( $cc, $free_ene, $prop_err ) {
         # cubic spline
         ( 
             with      => 'lines', 
+            linestyle => 1,
             linecolor => [ rgb => $color{ red } ], 
             linewidth => 3, 
             smooth    => 'cspline', 
