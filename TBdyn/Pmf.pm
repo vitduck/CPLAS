@@ -79,7 +79,7 @@ sub print_free_ene ( $cc, $free_ene, $prop_err, $output ) {
     
     for ( 0..$$cc->nelem - 1 ) { 
         $io->printf( 
-            "%10.5f  %10.5f  %10.5f\n", 
+            "%7.3f  %10.5f  %10.5f\n", 
                   $$cc->at( $_ ), 
             $$free_ene->at( $_ ), 
             $$prop_err->at( $_ )

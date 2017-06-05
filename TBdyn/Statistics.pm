@@ -55,8 +55,14 @@ sub block_average ( $z_12, $H, $bsize, $bavg, $bstdv, $bstde ) {
     $$bstde = PDL->new( @bstde ); 
 }
 
-sub write_stderr ( $bsize, $bavg, $bstdv, $bstde, $output ) { 
+sub write_stderr ( $cc, $bsize, $bavg, $bstdv, $bstde, $output ) { 
     my $io = IO::KISS->new( $output, 'w' ); 
+
+    # header
+    $io->printf( 
+        "# %7.3f\n", 
+        $$cc->at(0)
+    ); 
 
     for ( 0..$$bsize->nelem -1 ) { 
         $io->printf(
@@ -69,9 +75,11 @@ sub write_stderr ( $bsize, $bavg, $bstdv, $bstde, $output ) {
     }
     
     $io->close; 
+
+    print "=> $output\n"; 
 } 
 
-sub plot_stderr ( $cc, $bsize, $bstde ) { 
+sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics' ) { 
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
@@ -82,7 +90,7 @@ sub plot_stderr ( $cc, $bsize, $bstde ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "d-%-7.3f", $$cc->at(0) ),  
+            title  => sprintf( '%s (cc = %f)', $title, $$cc->at(0) ),  
             xlabel => 'Block size', 
             ylabel => '{/Symbol s}', 
             grid   => 1

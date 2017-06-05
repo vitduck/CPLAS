@@ -1,5 +1,6 @@
 package Gradient; 
 
+use autodie; 
 use strict; 
 use warnings; 
 use experimental 'signatures'; 
@@ -9,47 +10,18 @@ use PDL::Stats::Basic;
 use PDL::Graphics::Gnuplot; 
 
 use IO::KISS;  
+
+use Report; 
 use Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
-    read_report 
     get_gradient
     get_avg_gradient
     write_gradient
     write_avg_gradient
     plot_gradient
 ); 
-
-sub read_report ( $cc, $z_12, $lpGkT, $nequilibrium = 0 ) { 
-    my ( @cc, @z_12, @lpGkT );  
-
-    my $report = IO::KISS->new( 'REPORT', 'r' ); 
-
-    while ( local $_ = $report->get_line ) { 
-        # constraint 
-        if ( /cc>/  ) { 
-            push @cc, ( split )[2] 
-        } 
-
-        # blue moon
-        if ( /b_m>/ ) {  
-            my @bm = split; 
-            push @z_12,  $bm[ 2]; 
-            push @lpGkT, $bm[-1]; 
-        }
-    } 
-
-    $report->close; 
-
-    # equilibrartion 
-    map { splice @$_, 0, $nequilibrium } ( \@cc, \@z_12, \@lpGkT ); 
-
-    # deref the piddle
-    $$cc    = PDL->new( @cc    ); 
-    $$z_12  = PDL->new( @z_12  ); 
-    $$lpGkT = PDL->new( @lpGkT ); 
-}
 
 sub get_gradient ( $z_12, $lpGkT, $gradient ) { 
     $$gradient = $$lpGkT / $$z_12; 
