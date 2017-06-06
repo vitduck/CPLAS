@@ -1,5 +1,6 @@
-package Statistics; 
+package VASP::TBdyn::Statistics; 
 
+use autodie; 
 use strict; 
 use warnings; 
 use experimental qw( signatures ); 
@@ -8,7 +9,7 @@ use PDL;
 use PDL::Stats::Basic; 
 use PDL::Graphics::Gnuplot; 
 
-use Plot; 
+use VASP::TBdyn::Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
@@ -58,11 +59,12 @@ sub block_average ( $z_12, $H, $bsize, $bavg, $bstdv, $bstde ) {
 sub write_stderr ( $cc, $bsize, $bavg, $bstdv, $bstde, $output ) { 
     my $io = IO::KISS->new( $output, 'w' ); 
 
+    print "=> Correlation length for $output: "; 
+    chomp ( my $corr_length = <STDIN> ); 
+
     # header
-    $io->printf( 
-        "# %7.3f\n", 
-        $$cc->at(0)
-    ); 
+    $io->printf( "# Constraint: %7.3f\n", $$cc->uniq->at(0) ); 
+    $io->printf( "# Correlation length: %d steps\n", $corr_length  ); 
 
     for ( 0..$$bsize->nelem -1 ) { 
         $io->printf(
@@ -75,11 +77,9 @@ sub write_stderr ( $cc, $bsize, $bavg, $bstdv, $bstde, $output ) {
     }
     
     $io->close; 
-
-    print "=> $output\n"; 
 } 
 
-sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics' ) { 
+sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics', $color='red' ) { 
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
@@ -99,7 +99,7 @@ sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics' ) {
         # stderr 
         ( 
             with      => 'lines', 
-            linecolor => [ rgb => $color{ red } ], 
+            linecolor => [ rgb => $hcolor{ $color } ], 
             linewidth => 2, 
         ), $$bsize, $$bstde
     ); 

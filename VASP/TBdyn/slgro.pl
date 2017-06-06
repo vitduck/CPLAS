@@ -10,8 +10,8 @@ use PDL::Stats::Basic;
 
 use IO::KISS; 
 
-use Gradient; 
-use Slowgrowth; 
+use VASP::TBdyn::Gradient; 
+use VASP::TBdyn::Slowgrowth; 
 
 # PDL piddle
 my ( $cc, $z_12, $lpGkT, $gradient, $free_ene ); 

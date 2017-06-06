@@ -1,4 +1,4 @@
-package Report; 
+package VASP::TBdyn::Report; 
 
 use autodie; 
 use strict; 
@@ -12,7 +12,7 @@ our @EXPORT = qw(
     read_report 
 ); 
 
-sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $nequilibrium = 0 ) { 
+sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $equilibration = 500 ) { 
     my ( @cc, @z_12, @lpGkT, @e_pots );  
 
     my $report = IO::KISS->new( 'REPORT', 'r' ); 
@@ -40,7 +40,7 @@ sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $nequilibrium = 0 ) {
     $report->close; 
 
     # equilibrartion ( !? ) 
-    map { splice @$_, 0, $nequilibrium } ( \@cc, \@z_12, \@lpGkT, \@e_pots ); 
+    map { splice @$_, 0, $equilibration } ( \@cc, \@z_12, \@lpGkT, \@e_pots ); 
 
     # deref the piddle
     $$cc    = PDL->new( @cc    ); 

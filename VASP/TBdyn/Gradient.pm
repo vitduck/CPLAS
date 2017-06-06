@@ -1,4 +1,4 @@
-package Gradient; 
+package VASP::TBdyn::Gradient; 
 
 use autodie; 
 use strict; 
@@ -11,8 +11,8 @@ use PDL::Graphics::Gnuplot;
 
 use IO::KISS;  
 
-use Report; 
-use Plot; 
+use VASP::TBdyn::Report; 
+use VASP::TBdyn::Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
@@ -95,7 +95,7 @@ sub plot_gradient ( $cc, $gradient, $moving_index, $moving_gradient ) {
         ( 
             with      => 'lines', 
             linewidth => 2, 
-            linecolor => [ rgb => $color{ red } ], 
+            linecolor => [ rgb => $hcolor{ red } ], 
             legend    => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
         ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
         

@@ -1,4 +1,4 @@
-package Pmf; 
+package VASP::TBdyn::Pmf; 
 
 use autodie; 
 use strict; 
@@ -9,8 +9,8 @@ use PDL;
 use PDL::Graphics::Gnuplot; 
 use Data::Printer; 
 
-use Plot; 
 use IO::KISS;  
+use VASP::TBdyn::Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
@@ -26,7 +26,7 @@ sub read_pmf ( $input, $cc, $gradient, $variance ) {
     for ( IO::KISS->new( $input, 'r' )->get_lines ) { 
         next if /#/; 
 
-        my ( $cc, $gradient, $stdv, $se ) = split; 
+        my ( $cc, $corr, $gradient, $stdv, $se ) = split; 
 
         push @cc, $cc; 
         push @gradients, $gradient; 
@@ -116,7 +116,7 @@ sub plot_free_ene ( $cc, $free_ene, $prop_err ) {
         ( 
             with      => 'lines', 
             linestyle => 1,
-            linecolor => [ rgb => $color{ red } ], 
+            linecolor => [ rgb => $hcolor{ red } ], 
             linewidth => 3, 
             smooth    => 'cspline', 
         ), $$cc, $$free_ene, 

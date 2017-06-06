@@ -4,13 +4,13 @@ use autodie;
 use strict; 
 use warnings; 
 
-use Gradient; 
-use Plot; 
+use VASP::TBdyn::Gradient; 
+use VASP::TBdyn::Report; 
 
-my ( $cc, $z_12, $lpGkT, $gradient   ); 
+my ( $cc, $z_12, $lpGkT, $e_pot, $gradient ); 
 my ( $moving_index, $moving_gradient ); 
 
-read_report       ( \$cc, \$z_12, \$lpGkT ); 
+read_report       ( \$cc, \$z_12, \$lpGkT, \$e_pot ); 
 get_gradient      ( \$z_12, \$lpGkT, \$gradient );  
 get_avg_gradient  ( \$cc, \$z_12, \$lpGkT, \$moving_index, \$moving_gradient ); 
 write_gradient    ( \$gradient => 'igradient.dat' ); 

@@ -14,7 +14,6 @@ my @files   = qw/INCAR POSCAR KPOINTS CONTCAR OSZICAR XDATCAR OUTCAR REPORT/;
 create_history(); 
 log_history();  
 
-
 sub create_history { 
     make_path( 'history' ) unless -d 'history'; 
 } 
@@ -40,9 +39,3 @@ sub latest_index {
         ? 1 + max( @indices )
         : 1
 }
-
-# sub save_trajectory { 
-    # my $latest = latest_index(); 
-    
-    # copy $_ => "history/$latest.$_" for @files; 
-# } 

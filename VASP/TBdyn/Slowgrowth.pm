@@ -1,5 +1,6 @@
-package Slowgrowth; 
+package VASP::TBdyn::Slowgrowth; 
 
+use autodie; 
 use strict; 
 use warnings; 
 use experimental 'signatures'; 
@@ -8,7 +9,7 @@ use PDL;
 use PDL::Graphics::Gnuplot; 
 
 use IO::KISS;  
-use Plot; 
+use VASP::TBdyn::Plot; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
@@ -69,7 +70,7 @@ sub plot_slow_growth ( $cc, $gradient, $free_ene ) {
         # gradient
         ( 
             with      => 'lines', 
-            linecolor => [ rgb => $color{ red } ], 
+            linecolor => [ rgb => $hcolor{ red } ], 
             linewidth => 3, 
             legend    => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
         ), $$cc, $$gradient, 
