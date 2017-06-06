@@ -9,8 +9,9 @@ our @ISA       = 'Exporter';
 our @EXPORT    = qw( %hcolor ); 
 
 our %hcolor = ( 
-    red  => "#cc9393", 
-    blue => "#94bff3",  
+    red   => "#cc9393", 
+    blue  => "#94bff3",  
+    green => "#60b48a",
 ); 
 
 1

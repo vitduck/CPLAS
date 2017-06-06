@@ -26,14 +26,15 @@ collect_data('blocked_pot.dat',  'epot.dat') unless -e 'epot.dat';
 read_data   ( 'pmf.dat', \$cc, \$gradient, \$gradient_var ); 
 integ_trapz ( \$cc, \$gradient, \$gradient_var, \$dA, \$dA_var ); 
 print_thermo( \$cc, \$dA, \$dA_var, 'dA.dat' );  
-plot_thermo ( \$cc, \$dA, \$dA_var, 'Free Energy', 'red' ); 
+plot_thermo ( \$cc, \$dA, \$dA_var, 'dA', 'red' ); 
 
 # potential 
 read_data   ( 'epot.dat', \$cc, \$dU, \$dU_var ); 
 shift_epot  ( \$dU ); 
 print_thermo( \$cc, \$dU, \$dU_var, 'dU.dat' );  
-plot_thermo ( \$cc, \$dU, \$dU_var, 'Internal Energy', 'blue' ); 
+plot_thermo ( \$cc, \$dU, \$dU_var, 'dU', 'blue' ); 
 
 # entropy 
 entropy     ( \$dA, \$dU, \$TdS, \$dA_var, \$dU_var, \$TdS_var ); 
 print_thermo( \$cc, \$TdS, \$TdS_var, 'TdS.dat' );  
+plot_thermo ( \$cc, \$TdS, \$TdS_var, 'TdS = dU - dA', 'green' ); 
