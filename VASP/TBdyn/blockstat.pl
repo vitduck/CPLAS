@@ -4,13 +4,13 @@ use autodie;
 use strict; 
 use warnings; 
 
-use VASP::TBdyn::Report; 
-use VASP::TBdyn::Gradient; 
-use VASP::TBdyn::Statistics; 
-
 use IO::KISS; 
 
 use Data::Printer; 
+
+use VASP::TBdyn::Report; 
+use VASP::TBdyn::Gradient; 
+use VASP::TBdyn::Statistics; 
 
 my $dir_in  = shift @ARGV; 
 
@@ -24,7 +24,7 @@ chomp ( my @dirs =
 my $top_dir = $ENV{PWD}; 
 
 for my $dir ( @dirs ) { 
-    print "=> Processing: $_\n" unless $dir eq '.';  
+    print "\n=> Processing: $dir\n" unless $dir eq '.';  
 
     chdir $dir; 
 
