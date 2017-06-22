@@ -10,7 +10,7 @@ use VASP::TBdyn::Report;
 my ( $cc, $z_12, $lpGkT, $e_pot, $gradient ); 
 my ( $moving_index, $moving_gradient ); 
 
-read_report       ( \$cc, \$z_12, \$lpGkT, \$e_pot ); 
+read_report       ( \$cc, \$z_12, \$lpGkT, \$e_pot, 0 ); 
 get_gradient      ( \$z_12, \$lpGkT, \$gradient );  
 get_avg_gradient  ( \$cc, \$z_12, \$lpGkT, \$moving_index, \$moving_gradient ); 
 write_gradient    ( \$gradient => 'igradient.dat' ); 

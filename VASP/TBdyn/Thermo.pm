@@ -101,7 +101,7 @@ sub plot_thermo ( $cc, $thermo, $variance, $title, $color ) {
         { 
             title  => $title, 
             xlabel => 'Reaction Coordinate (A)', 
-            ylabel => 'Free Energy (eV)',
+            ylabel => 'Energy (eV)',
             xrange => [ $x_min - 0.05, $x_max + 0.05 ], 
             yrange => [ $y_min - 0.50, $y_max + 0.50 ], 
             grid   => 1,
@@ -124,7 +124,7 @@ sub plot_thermo ( $cc, $thermo, $variance, $title, $color ) {
             linewidth => 2,
             pointsize => 1,
             pointtype => 4,
-            legend    => '{/Symbol D}A', 
+            # legend    => '{/Symbol D}A', 
         ), $$cc, $$thermo, $$variance->sqrt, 
 
         ( 

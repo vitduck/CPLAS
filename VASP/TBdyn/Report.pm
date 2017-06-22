@@ -12,7 +12,7 @@ our @EXPORT = qw(
     read_report 
 ); 
 
-sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $equilibration = 500 ) { 
+sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $equilibration = 0 ) { 
     my ( @cc, @z_12, @lpGkT, @e_pots );  
 
     my $report = IO::KISS->new( 'REPORT', 'r' ); 

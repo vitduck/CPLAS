@@ -93,6 +93,8 @@ sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics', $color='red' ) {
             title  => sprintf( '%s (cc = %f)', $title, $$cc->at(0) ),  
             xlabel => 'Block size', 
             ylabel => '{/Symbol s}', 
+            xrange => '[:300]',
+            xtics  => 25, 
             grid   => 1
         }, 
 

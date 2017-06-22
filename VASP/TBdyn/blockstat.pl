@@ -35,7 +35,7 @@ for my $dir ( @dirs ) {
     my ( $bsize, $bavg, $bstdv, $bstde ); 
 
     # parse REPORT 
-    read_report  ( \$cc, \$z_12, \$lpGkT, \$e_pot ); 
+    read_report  ( \$cc, \$z_12, \$lpGkT, \$e_pot, 1000 ); 
 
     # gradient 
     block_average( \$z_12,  \$lpGkT, \$bsize, \$bavg, \$bstdv, \$bstde ); 
