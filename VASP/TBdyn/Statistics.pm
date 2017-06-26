@@ -13,97 +13,95 @@ use VASP::TBdyn::Plot;
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
-    block_average
-    write_stderr 
-    plot_stderr
+    block_analysis
+    write_SI
+    plot_SI
 ); 
 
-sub block_average ( $z_12, $H, $bsize, $bavg, $bstdv, $bstde ) { 
-    my $nelem = $$z_12->nelem; 
+sub block_analysis ( $tserie, $bsize, $bvar, $SI ) { 
+    my $nelem = $$tserie->nelem; 
     
-    my $min_block_size = 1; 
-    my $max_block_size = int( $nelem / 4 ); 
-
-    my ( @bsize, @bavg, @bstdv, @bstde ); 
+    my $min_block_size = 2; 
+    my $max_block_size = int( $nelem / 20 ); 
+    
+    my ( @block_sizes, @block_vars ); 
     
     for my $size ( $min_block_size .. $max_block_size ) { 
-        my @avg; 
-        
-        my $lb     = 0; 
-        my $rb     = 0; 
+        my $lb = 0; 
+        my $rb = 0; 
+
+        # truncates if neccessary
         my $nblock = int( $nelem / $size ); 
+
+        # average of sub-blocks 
+        my @block_avgs;  
 
         for ( 1 .. $nblock ) { 
             $rb = $lb + $size - 1; 
 
-            push @avg, $$H->slice( "$lb:$rb" )->sum / $$z_12->slice( "$lb:$rb" )->sum; 
-                
+            push @block_avgs, $$tserie->slice( "$lb:$rb" )->average; 
+
             # shift left bound
             $lb += $size; 
-       } 
+        } 
 
-        my $avg = PDL->new( @avg ); 
+        my $block_avg = PDL->new( @block_avgs ); 
 
-        push @bsize, $size; 
-        push @bavg,  $avg->average; 
-        push @bstdv, $avg->stdv; 
-        push @bstde, $avg->se
+        push @block_sizes, $size; 
+        push @block_vars, $block_avg->var; 
     }
 
-    $$bsize = PDL->new( @bsize ); 
-    $$bavg  = PDL->new( @bavg  ); 
-    $$bstdv = PDL->new( @bstdv ); 
-    $$bstde = PDL->new( @bstde ); 
+    $$bsize = PDL->new( @block_sizes ); 
+    $$bvar  = PDL->new( @block_vars  ); 
+
+    $$SI = $$bsize * $$bvar / $$tserie->var; 
 }
 
-sub write_stderr ( $cc, $bsize, $bavg, $bstdv, $bstde, $output ) { 
+sub write_SI ( $bsize, $SI, $output ) { 
+    print "=> blocking analysis for $output\n";
+
     my $io = IO::KISS->new( $output, 'w' ); 
 
-    print "=> Correlation length for $output: "; 
-    chomp ( my $corr_length = <STDIN> ); 
-
-    # header
-    $io->printf( "# Constraint: %7.3f\n", $$cc->uniq->at(0) ); 
-    $io->printf( "# Correlation length: %d steps\n", $corr_length  ); 
-
     for ( 0..$$bsize->nelem -1 ) { 
-        $io->printf(
-            "%d %10.5f %10.5f %10.5f\n", 
-            $$bsize->at( $_ ),  
-             $$bavg->at( $_ ),  
-            $$bstdv->at( $_ ),  
-            $$bstde->at( $_ ),  
-        )
+        $io->printf( "%10.5f %10.5f\n", sqrt( $$bsize->at( $_ ) ), $$SI->at( $_ ) ) 
     }
-    
+
     $io->close; 
+    
 } 
 
-sub plot_stderr ( $cc, $bsize, $bstde, $title = 'Statistics', $color='red' ) { 
+sub plot_SI ( $cc, $bsize, $bvar, $SI, $title = 'SI', $color='red' ) { 
+    if ( $$bvar->max < 1e-8 ) { 
+        print "=> Warning: Very narrow distribution for $title\n"; 
+        return
+    }  
+
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
         raise    => 1, 
-        enhanced => 1 
+        enhanced => 1, 
+        font     => 'terminal-14',
     ); 
 
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( '%s (cc = %f)', $title, $$cc->at(0) ),  
-            xlabel => 'Block size', 
-            ylabel => '{/Symbol s}', 
-            xrange => '[:300]',
+            title  => sprintf( '%s  (%.3f)', $title, $$cc->at(0) ),  
+            xlabel => '{/Symbol=\326}n_b',
+            ylabel => 'n_b{/Symbol s}_n/{/Symbol s}_1', 
             xtics  => 25, 
             grid   => 1
         }, 
 
         # stderr 
         ( 
-            with      => 'lines', 
+            with      => 'linespoint', 
+            pointtype => 4,
+            pointsize => 1,
             linecolor => [ rgb => $hcolor{ $color } ], 
             linewidth => 2, 
-        ), $$bsize, $$bstde
+        ), $$bsize, $$SI
     ); 
 } 
 

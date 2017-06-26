@@ -18,12 +18,12 @@ sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $equilibration = 0 ) {
     my $report = IO::KISS->new( 'REPORT', 'r' ); 
 
     while ( local $_ = $report->get_line ) { 
-        # constraint 
+        # constraints
         if ( /cc>/  ) { 
             push @cc, ( split )[2] 
         } 
 
-        # bluemoon stuff
+        # bluemoon statistics
         if ( /b_m>/ ) {  
             my @bm = split; 
             push @z_12,  $bm[ 2]; 
@@ -48,7 +48,7 @@ sub read_report ( $cc, $z_12, $lpGkT, $e_pot, $equilibration = 0 ) {
     $$lpGkT = PDL->new( @lpGkT ); 
     $$e_pot = PDL->new( @e_pots ); 
     
-    # z^-1/2 x E_pot  (unlike lpGkT) 
+    # z^-1/2 x E_pot 
     $$e_pot = $$e_pot * $$z_12; 
 }
 
