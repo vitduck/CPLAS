@@ -71,11 +71,6 @@ sub write_SI ( $bsize, $SI, $output ) {
 } 
 
 sub plot_SI ( $cc, $bsize, $bvar, $SI, $title = 'SI', $color='red' ) { 
-    if ( $$bvar->max < 1e-8 ) { 
-        print "=> Warning: Very narrow distribution for $title\n"; 
-        return
-    }  
-
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
