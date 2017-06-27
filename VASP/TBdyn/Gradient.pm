@@ -49,7 +49,7 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
         persist  => 1, 
         raise    => 1, 
         enhanced => 1,
-        font     => 'terminal-14',
+        font     => 'Helvetica,14',
     ); 
 
     $figure->plot( 
