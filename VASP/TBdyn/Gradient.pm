@@ -10,25 +10,28 @@ use PDL::Stats::TS;
 use PDL::Graphics::Gnuplot; 
 
 use IO::KISS;  
-use VASP::TBdyn::Plot; 
+use VASP::TBdyn::Color; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
     get_gradient
-    plot_gradient
+    get_avg_gradient
+    write_avg_gradient
+    plot_avg_gradient
 ); 
 
-sub get_gradient ( $z_12, $z_12xlGkT, $gradient, $avg_gradient, $output ) { 
-    # instantaneous gradient 
+sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {  
     $$gradient = $$z_12xlGkT / $$z_12; 
+}
 
-    # moving average filter 
-    $$avg_gradient = $$z_12xlGkT->dseason(250) / $$z_12->dseason(250);   
+sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 250 ) { 
+    $$avg_gradient = $$z_12xlGkT->dseason( $period ) / $$z_12->dseason( $period );   
+}
 
-    # write gradients to file
+sub write_avg_gradient ( $gradient, $avg_gradient, $output ) {  
     my $fh = IO::KISS->new( $output, 'w' ); 
 
-    for ( 0..$->nelem - 1 ) { 
+    for ( 0..$$gradient->nelem - 1 ) { 
         $fh->printf( 
             "%d %15.8f %15.8f\n", 
             $_+1,
@@ -40,7 +43,7 @@ sub get_gradient ( $z_12, $z_12xlGkT, $gradient, $avg_gradient, $output ) {
     $fh->close; 
 } 
 
-sub plot_gradient ( $cc, $gradient, $avg_gradient ) { 
+sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) { 
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
@@ -53,26 +56,28 @@ sub plot_gradient ( $cc, $gradient, $avg_gradient ) {
         # plot options
         { 
             title  => sprintf( "{/Symbol x} = %.3f", $$cc->at(0) ),  
-            xlabel => 'MD Step', 
-            ylabel => 'Gradient', 
-            xrange => '[100:]',
-            grid   => 1
+            xlabel => 'MD step', 
+            ylabel => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
+            key    => 'top right spacing 1.5',
+            size   => 'ratio 0.666', 
+            grid   => 1, 
         }, 
 
-        # igradient.dat
+        # gradient
         ( 
             with      => 'lines', 
             linewidth => 2, 
             linecolor => [ rgb => $hcolor{ red } ], 
-            legend    => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
+            legend    => 'Gradient', 
         ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
         
-        # mgradient.dat
+        # avg_gradient
         ( 
             with      => 'lines', 
-            linestyle => -1, 
             linewidth => 2, 
-            legend    => '<{/Symbol \266}A/{/Symbol \266}{/Symbol x}>', 
+            dashtype  => 2,  
+            linecolor => [ rgb => $hcolor{ white } ], 
+            legend    => 'Moving average', 
         ), PDL->new( 1.. $$cc->nelem ), $$avg_gradient, 
     )
 }
