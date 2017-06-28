@@ -19,55 +19,57 @@ our @EXPORT = qw(
 ); 
 
 sub block_analysis ( $tserie, $bsize, $bvar, $SI ) { 
-    my $nelem = $$tserie->nelem; 
-    
-    my $min_block_size = 2; 
-    my $max_block_size = int( $nelem / 20 ); 
-    
     my ( @block_sizes, @block_vars ); 
-    
-    for my $size ( $min_block_size .. $max_block_size ) { 
-        my $nblock    = int( $nelem / $size ); 
+
+    for my $size ( 2 .. int( $$tserie->nelem / 4 ) ) { 
+        my $nblock = int( $$tserie->nelem / $size ); 
 
         # work on a 'copy' of the original time serie
         # reshape is equivalent to bloking operation 
         my $block_avg = $$tserie->copy->reshape($size, $nblock)->daverage; 
-        
+
         push @block_sizes, $size; 
         push @block_vars, $block_avg->var; 
+    }
 
-   }
-
-    $$bsize = PDL->new( @block_sizes ); 
-    $$bvar  = PDL->new( @block_vars  ); 
+    # deref
+    $$bsize = PDL->new( @block_sizes );  
+    $$bvar  = PDL->new( @block_vars );  
 
     # statistical ineffeciency 
     $$SI = $$bsize * $$bvar / $$tserie->var; 
 
-    # convinient coordinate sqrt(n_b) 
+    # convenient coordinate: sqrt(n_b)
     $$bsize->inplace->sqrt; 
 }
 
-sub write_SI ( $bsize, $SI, $output ) { 
+sub write_SI ( $bsize, $bvar, $SI, $output ) { 
     print "=> blocking analysis for $output\n";
 
-    my $io = IO::KISS->new( $output, 'w' ); 
+    my $fh = IO::KISS->new( $output, 'w' ); 
 
-    for ( 0..$$bsize->nelem -1 ) { 
-        $io->printf( 
-            "%10.5f %10.5f\n", 
-            $$bsize->at($_),   
-            $$SI->at($_) 
+    for ( 0..$$SI->nelem -1 ) { 
+        $fh->printf( 
+            "%10.5f %10.5f %10.5f\n", 
+            $$bsize->at($_),
+             $$bvar->at($_),
+               $$SI->at($_), 
         ) 
     }
 
-    $io->close; 
+    $fh->close; 
 } 
 
-sub plot_SI ( $cc, $bsize, $bvar, $SI, $title, $color='red' ) { 
+sub plot_SI ( $cc, $bsize, $SI, $type ) { 
     my %symbol = ( 
-        'grad' => '|z|^{-1/2}({/Symbol l} + GkT)', 
-        'pot'  => '|z|^{-1/2}E_{pot}'
+        'gradient' => { 
+            legend => '|z|^{-1/2}({/Symbol l} + GkT)', 
+            color  => 'red'  
+        }, 
+        'potential' => { 
+            legend  => '|z|^{-1/2}E_{pot}',  
+            color   => 'blue' 
+        }, 
     ); 
 
     my $figure = gpwin( 
@@ -76,26 +78,26 @@ sub plot_SI ( $cc, $bsize, $bvar, $SI, $title, $color='red' ) {
         raise    => 1, 
         enhanced => 1, 
     ); 
-
+    
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( '%s  ({/Symbol x} = %.3f)', $symbol{$title}, $$cc->at(0) ),  
+            key    => 'top right spacing 2',
+            title  => sprintf( 'Constrain {/Symbol x} = %.3f', $$cc->at(0) ),  
             xrange => sprintf( '%d:%d', $$bsize->min, $$bsize->max ), 
             xlabel => '{/Symbol=\326}n_b',
             ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
         }, 
 
-        # stderr 
         ( 
             with      => 'linespoint', 
             dashtype  => 1,
             pointtype => 4,
             linewidth => 2, 
-            linecolor => [ rgb => $hcolor{ $color } ], 
-            legend    => 'Statistical Ineffeciency'
-        ), $$bsize, $$SI
-    ); 
+            linecolor => [ rgb => $hcolor{ $symbol{ $type }{ color } } ], 
+            legend    => $symbol{ $type }{ legend },  
+        ),$$bsize, $$SI, 
+    );  
 } 
 
 1

@@ -59,7 +59,6 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
             ylabel => '{/Symbol \266}A / {/Symbol \266}{/Symbol x}', 
             key    => 'top right spacing 1.5',
             size   => 'ratio 0.666', 
-            # grid   => 1, 
         }, 
 
         # gradient
