@@ -24,8 +24,8 @@ sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {
     $$gradient = $$z_12xlGkT / $$z_12; 
 }
 
-sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 100 ) { 
-    $$avg_gradient = $$z_12xlGkT->dseason( $period ) / $$z_12->dseason( $period );   
+sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 250 ) { 
+    $$avg_gradient = $$z_12xlGkT->filter_ma( $period ) / $$z_12->filter_ma( $period );   
 }
 
 sub write_avg_gradient ( $gradient, $avg_gradient, $output ) {  
@@ -75,7 +75,7 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
         ( 
             with      => 'lines', 
             dashtype  => 1,  
-            linewidth => 2, 
+            linewidth => 3, 
             linecolor => [ rgb => $hcolor{ white } ], 
             legend    => 'Moving average', 
         ), PDL->new( 1.. $$cc->nelem ), $$avg_gradient, 
