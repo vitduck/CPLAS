@@ -24,7 +24,7 @@ sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {
     $$gradient = $$z_12xlGkT / $$z_12; 
 }
 
-sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 250 ) { 
+sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 100 ) { 
     $$avg_gradient = $$z_12xlGkT->dseason( $period ) / $$z_12->dseason( $period );   
 }
 
@@ -49,23 +49,23 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
         persist  => 1, 
         raise    => 1, 
         enhanced => 1,
-        font     => 'Helvetica,14',
     ); 
 
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "{/Symbol x} = %.3f", $$cc->at(0) ),  
+            title  => sprintf( "Constrain {/Symbol x} = %.3f", $$cc->at(0) ),  
             xlabel => 'MD step', 
-            ylabel => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
+            ylabel => '{/Symbol \266}A / {/Symbol \266}{/Symbol x}', 
             key    => 'top right spacing 1.5',
             size   => 'ratio 0.666', 
-            grid   => 1, 
+            # grid   => 1, 
         }, 
 
         # gradient
         ( 
             with      => 'lines', 
+            dashtype  => 1,  
             linewidth => 2, 
             linecolor => [ rgb => $hcolor{ red } ], 
             legend    => 'Gradient', 
@@ -74,8 +74,8 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
         # avg_gradient
         ( 
             with      => 'lines', 
+            dashtype  => 1,  
             linewidth => 2, 
-            dashtype  => 2,  
             linecolor => [ rgb => $hcolor{ white } ], 
             legend    => 'Moving average', 
         ), PDL->new( 1.. $$cc->nelem ), $$avg_gradient, 

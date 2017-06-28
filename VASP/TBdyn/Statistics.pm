@@ -3,13 +3,13 @@ package VASP::TBdyn::Statistics;
 use autodie; 
 use strict; 
 use warnings; 
-use experimental qw( signatures ); 
+use experimental 'signatures';  
 
 use PDL; 
 use PDL::Stats::Basic; 
 use PDL::Graphics::Gnuplot; 
 
-use VASP::TBdyn::Plot; 
+use VASP::TBdyn::Color; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
@@ -27,34 +27,25 @@ sub block_analysis ( $tserie, $bsize, $bvar, $SI ) {
     my ( @block_sizes, @block_vars ); 
     
     for my $size ( $min_block_size .. $max_block_size ) { 
-        my $lb = 0; 
-        my $rb = 0; 
+        my $nblock    = int( $nelem / $size ); 
 
-        # truncates if neccessary
-        my $nblock = int( $nelem / $size ); 
-
-        # average of sub-blocks 
-        my @block_avgs;  
-
-        for ( 1 .. $nblock ) { 
-            $rb = $lb + $size - 1; 
-
-            push @block_avgs, $$tserie->slice( "$lb:$rb" )->average; 
-
-            # shift left bound
-            $lb += $size; 
-        } 
-
-        my $block_avg = PDL->new( @block_avgs ); 
-
+        # work on a 'copy' of the original time serie
+        # reshape is equivalent to bloking operation 
+        my $block_avg = $$tserie->copy->reshape($size, $nblock)->daverage; 
+        
         push @block_sizes, $size; 
         push @block_vars, $block_avg->var; 
-    }
+
+   }
 
     $$bsize = PDL->new( @block_sizes ); 
     $$bvar  = PDL->new( @block_vars  ); 
 
+    # statistical ineffeciency 
     $$SI = $$bsize * $$bvar / $$tserie->var; 
+
+    # convinient coordinate sqrt(n_b) 
+    $$bsize->inplace->sqrt; 
 }
 
 sub write_SI ( $bsize, $SI, $output ) { 
@@ -63,39 +54,46 @@ sub write_SI ( $bsize, $SI, $output ) {
     my $io = IO::KISS->new( $output, 'w' ); 
 
     for ( 0..$$bsize->nelem -1 ) { 
-        $io->printf( "%10.5f %10.5f\n", sqrt( $$bsize->at( $_ ) ), $$SI->at( $_ ) ) 
+        $io->printf( 
+            "%10.5f %10.5f\n", 
+            $$bsize->at($_),   
+            $$SI->at($_) 
+        ) 
     }
 
     $io->close; 
-    
 } 
 
-sub plot_SI ( $cc, $bsize, $bvar, $SI, $title = 'SI', $color='red' ) { 
+sub plot_SI ( $cc, $bsize, $bvar, $SI, $title, $color='red' ) { 
+    my %symbol = ( 
+        'grad' => '|z|^{-1/2}({/Symbol l} + GkT)', 
+        'pot'  => '|z|^{-1/2}E_{pot}'
+    ); 
+
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
         raise    => 1, 
         enhanced => 1, 
-        font     => 'terminal-14',
     ); 
 
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( '%s  (%.3f)', $title, $$cc->at(0) ),  
+            title  => sprintf( '%s  ({/Symbol x} = %.3f)', $symbol{$title}, $$cc->at(0) ),  
+            xrange => sprintf( '%d:%d', $$bsize->min, $$bsize->max ), 
             xlabel => '{/Symbol=\326}n_b',
-            ylabel => 'n_b{/Symbol s}_n/{/Symbol s}_1', 
-            xtics  => 25, 
-            grid   => 1
+            ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
         }, 
 
         # stderr 
         ( 
             with      => 'linespoint', 
+            dashtype  => 1,
             pointtype => 4,
-            pointsize => 1,
-            linecolor => [ rgb => $hcolor{ $color } ], 
             linewidth => 2, 
+            linecolor => [ rgb => $hcolor{ $color } ], 
+            legend    => 'Statistical Ineffeciency'
         ), $$bsize, $$SI
     ); 
 } 
