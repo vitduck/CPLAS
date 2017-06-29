@@ -7,6 +7,7 @@ use experimental 'signatures';
 
 use PDL; 
 use PDL::Stats::Basic; 
+use PDL::Stats::TS; 
 use PDL::Graphics::Gnuplot; 
 
 use VASP::TBdyn::Color; 
@@ -14,6 +15,7 @@ use VASP::TBdyn::Color;
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
     block_analysis
+    corased_grain
     write_SI
     plot_SI
 ); 
@@ -44,8 +46,6 @@ sub block_analysis ( $tserie, $bsize, $bvar, $SI ) {
 }
 
 sub write_SI ( $bsize, $bvar, $SI, $output ) { 
-    print "=> blocking analysis for $output\n";
-
     my $fh = IO::KISS->new( $output, 'w' ); 
 
     for ( 0..$$SI->nelem -1 ) { 
@@ -60,15 +60,21 @@ sub write_SI ( $bsize, $bvar, $SI, $output ) {
     $fh->close; 
 } 
 
+sub coarsed_grain( $tserie, $output ) { 
+
+}
+
 sub plot_SI ( $cc, $bsize, $SI, $type ) { 
-    my %symbol = ( 
-        'gradient' => { 
-            legend => '|z|^{-1/2}({/Symbol l} + GkT)', 
-            color  => 'red'  
+    my %plot = ( 
+        'gradient'  => { 
+            title   => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
+            color   => 'red',   
+            pt      => 4, 
         }, 
         'potential' => { 
-            legend  => '|z|^{-1/2}E_{pot}',  
-            color   => 'blue' 
+            title   => '|z|^{-1/2} * E_{pot}',  
+            color   => 'blue', 
+            pt      => 6, 
         }, 
     ); 
 
@@ -82,21 +88,27 @@ sub plot_SI ( $cc, $bsize, $SI, $type ) {
     $figure->plot( 
         # plot options
         { 
-            key    => 'top right spacing 2',
-            title  => sprintf( 'Constrain {/Symbol x} = %.3f', $$cc->at(0) ),  
+            key    => 'top left spacing 2',
+            title  => sprintf( "$plot{ $type }{ title }  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
             xrange => sprintf( '%d:%d', $$bsize->min, $$bsize->max ), 
             xlabel => '{/Symbol=\326}n_b',
             ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
+            size   => 'ratio 0.75', 
+            grid   => 1
         }, 
 
         ( 
-            with      => 'linespoint', 
+            with      => 'point', 
+            pointtype => $plot{ $type }{ pt }, 
+            linecolor => [ rgb => $hcolor{ $plot{ $type }{ color } } ], 
+        ), $$bsize, $$SI, 
+        
+        ( 
+            with      => 'lines', 
             dashtype  => 1,
-            pointtype => 4,
-            linewidth => 2, 
-            linecolor => [ rgb => $hcolor{ $symbol{ $type }{ color } } ], 
-            legend    => $symbol{ $type }{ legend },  
-        ),$$bsize, $$SI, 
+            linewidth => 3, 
+            linecolor => [ rgb => $hcolor{ white } ], 
+        ), $$bsize, $$SI->filter_ma( 5 ), 
     );  
 } 
 

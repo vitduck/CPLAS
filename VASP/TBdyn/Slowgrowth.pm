@@ -63,17 +63,19 @@ sub plot_slow_growth ( $cc, $gradient, $free_ene ) {
     $figure->plot( 
         # plot options
         { 
-            title  => 'Slow growth integration',  
+            title  => 'Slow Growth',  
+            xrange => sprintf( "%.1f:%.1f", $$cc->min, $$cc->max ), 
             xlabel => 'Reaction Coordinate', 
-            ylabel => '{/Symbol \266}A/{/Symbol \266}{/Symbol x}', 
+            ylabel => '{/Symbol \266}A / {/Symbol \266}{/Symbol x}', 
             key    => 'top right spacing 1.5', 
-            size   => 'ratio 0.666',
+            size   => 'ratio 0.75',
             grid   => 1, 
         }, 
 
         # gradient
         ( 
             with      => 'lines', 
+            dashtype  => 1,  
             linewidth => 2, 
             linecolor => [ rgb => $hcolor{ red } ], 
             legend    => 'Gradient', 
@@ -82,8 +84,8 @@ sub plot_slow_growth ( $cc, $gradient, $free_ene ) {
         # free energy
         ( 
             with      => 'lines', 
-            dashtype  => 2,
-            linewidth => 2, 
+            dashtype  => 1,  
+            linewidth => 3, 
             linecolor => [ rgb => $hcolor{ white } ], 
             legend    => 'Free Energy', 
         ), $$cc, $$free_ene, 

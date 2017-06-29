@@ -24,7 +24,7 @@ sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {
     $$gradient = $$z_12xlGkT / $$z_12; 
 }
 
-sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 250 ) { 
+sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 100 ) { 
     $$avg_gradient = $$z_12xlGkT->filter_ma( $period ) / $$z_12->filter_ma( $period );   
 }
 
@@ -54,11 +54,12 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "Constrain {/Symbol x} = %.3f", $$cc->at(0) ),  
+            title  => sprintf( "Free Energy Gradient  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
             xlabel => 'MD step', 
             ylabel => '{/Symbol \266}A / {/Symbol \266}{/Symbol x}', 
             key    => 'top right spacing 1.5',
-            size   => 'ratio 0.666', 
+            size   => 'ratio 0.75', 
+            grid   => 1
         }, 
 
         # gradient
@@ -67,7 +68,6 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
             dashtype  => 1,  
             linewidth => 2, 
             linecolor => [ rgb => $hcolor{ red } ], 
-            legend    => 'Gradient', 
         ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
         
         # avg_gradient
