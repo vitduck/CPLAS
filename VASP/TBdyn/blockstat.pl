@@ -29,24 +29,25 @@ for my $dir ( @dirs ) {
     chdir $dir; 
 
     # bluemoon data
-    my ( $cc, $z_12, $lpGkT, $e_pot ); 
-
-    # block statistic  
-    my ( $bsize, $bavg, $bstdv, $bstde ); 
+    my ( $cc, $z_12 );  
+    my ( $z_12xlGkT, $grad_bsize, $grad_bvar, $grad_SI ); 
+    my ( $z_12xEpot, $epot_bsize, $epot_bvar, $epot_SI );  
 
     # parse REPORT 
-    read_report  ( \$cc, \$z_12, \$lpGkT, \$e_pot, 1000 ); 
+    read_report   ( \$cc, \$z_12, \$z_12xlGkT, \$z_12xEpot, 1000 ); 
 
     # gradient 
-    block_average( \$z_12,  \$lpGkT, \$bsize, \$bavg, \$bstdv, \$bstde ); 
-    plot_stderr  ( \$cc, \$bsize, \$bstde, 'gradient', 'red' ); 
-    write_stderr ( \$cc, \$bsize, \$bavg, \$bstdv, \$bstde => 'blocked_grad.dat' );  
-
+    block_analysis( \$z_12xlGkT, \$grad_bsize, \$grad_bvar, \$grad_SI );  
+    plot_SI       ( \$cc, \$grad_bsize, \$grad_SI, 'grad' );  
+    write_SI      ( \$grad_bsize, \$grad_bvar, \$grad_SI => 'SI_grad.dat' ); 
+    coarsed_grain ( \$cc, \$z_12, \$z_12xlGkT => 'CS_grad.dat' ); 
+    
     # potential 
-    block_average( \$z_12, \$e_pot, \$bsize, \$bavg, \$bstdv, \$bstde ); 
-    plot_stderr  ( \$cc, \$bsize, \$bstde, 'potential', 'blue' ); 
-    write_stderr ( \$cc, \$bsize, \$bavg, \$bstdv, \$bstde => 'blocked_pot.dat' );  
-
+    block_analysis( \$z_12xEpot, \$epot_bsize, \$epot_bvar, \$epot_SI );  
+    plot_SI       ( \$cc, \$epot_bsize, \$epot_SI, 'epot' );  
+    write_SI      ( \$epot_bsize, \$epot_bvar, \$epot_SI => 'SI_epot.dat' ); 
+    coarsed_grain ( \$cc, \$z_12, \$z_12xEpot => 'CS_epot.dat' ); 
+   
     # return 
     chdir $top_dir; 
 } 

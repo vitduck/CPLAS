@@ -10,42 +10,14 @@ use PDL::Graphics::Gnuplot;
 
 use IO::KISS; 
 
-use VASP::TBdyn::Plot; 
+use VASP::TBdyn::Color; 
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
-    collect_data
     read_data
     print_thermo
     plot_thermo
 ); 
-
-sub collect_data ( $input, $output ) { 
-    my @thermo; 
-
-    # read list of dirs from dir.in
-    chomp ( my @dirs = IO::KISS->new( 'dir.in', 'r' )->get_lines  ); 
-    
-    # loop through the list of directories
-    for ( @dirs ) {  
-        chomp ( my @lines = IO::KISS->new( "$_/$input", 'r' )->get_lines );   
-
-        # header; 
-        my $constraint  = ( split ' ', shift @lines )[2]; 
-        my $corr_length = ( split ' ', shift @lines )[3];  
-        
-        # nth line of blocked_*.dat
-        push @thermo, [ $constraint, split ' ', $lines[ $corr_length -1 ] ];  
-    }
-    
-    # open output: pmf.dat | dU.dat
-    
-    my $io = IO::KISS->new( $output , 'w' ); 
-    $io->printf( "%7.3f %d %10.5f %10.5f %10.5f\n", @$_ ) for @thermo; 
-    $io->close; 
-    
-    print "=> $output\n"; 
-} 
 
 sub read_data ( $input, $cc, $thermo, $variance ) { 
     my ( @cc, @thermos, @variances ); 
@@ -53,11 +25,11 @@ sub read_data ( $input, $cc, $thermo, $variance ) {
     for ( IO::KISS->new( $input, 'r' )->get_lines ) { 
         next if /#/; 
 
-        my ( $cc, $corr_length, $thermo, $stdv, $se ) = split; 
+        my ( $cc, $SI, $thermo, $se ) = split; 
 
         push @cc, $cc; 
         push @thermos, $thermo; 
-        push @variances, $stdv**2; 
+        push @variances, $se**2; 
     } 
 
     # deref PDL piddle
@@ -83,8 +55,24 @@ sub print_thermo ( $cc, $thermo, $variance, $output ) {
     print "=> $output\n"; 
 } 
 
-sub plot_thermo ( $cc, $thermo, $variance, $title, $color ) { 
-    my $zeroes = PDL->zeroes( $$cc->nelem );  
+sub plot_thermo ( $cc, $thermo, $variance, $type ) { 
+    my %plot = ( 
+        'dA' => { 
+            title => '{/Symbol D}A', 
+            color => 'red', 
+            pt    => 4,
+        }, 
+        'dU' => { 
+            title => '{/Symbol D}U', 
+            color => 'blue', 
+            pt    => 6,
+        }, 
+        'TdS' => { 
+            title => 'T{/Symbol D}S = {/Symbol D}A - {/Symbol D}U', 
+            color => 'green', 
+            pt    => 8,
+        }
+    ); 
 
     my $figure = gpwin( 
         'x11', 
@@ -93,45 +81,33 @@ sub plot_thermo ( $cc, $thermo, $variance, $title, $color ) {
         enhanced => 1 
     ); 
 
-    my ( $x_min, $x_max ) = ( $$cc->min, $$cc->max ); 
-    my ( $y_min, $y_max ) = ( $$thermo->min, $$thermo->max ); 
-
     $figure->plot( 
         # plot options
         { 
-            title  => $title, 
+            title  => $plot{ $type }{ title }, 
             xlabel => 'Reaction Coordinate (A)', 
             ylabel => 'Energy (eV)',
-            xrange => [ $x_min - 0.05, $x_max + 0.05 ], 
-            yrange => [ $y_min - 0.50, $y_max + 0.50 ], 
-            grid   => 1,
+            xrange => [ $$cc->min-0.05, $$cc->max+0.05 ], 
+            size   => 'ratio 0.75', 
+            grid   => 1, 
         }, 
 
-        # cubic spline
+        # thermo data
         ( 
             with      => 'lines', 
-            linestyle => 1,
-            linecolor => [ rgb => $hcolor{ $color } ], 
+            linecolor => $hcolor{ $plot{ $type }{ color } }, 
+            dashtype  => 1, 
             linewidth => 3, 
-            smooth    => 'cspline', 
         ), $$cc, $$thermo, 
 
-        # free energy 
+        # error bar
         ( 
             with      => 'yerrorbars',
             tuplesize => 3,
-            linestyle => -1, 
             linewidth => 2,
-            pointsize => 1,
-            pointtype => 4,
-            # legend    => '{/Symbol D}A', 
+            pointtype => $plot{ $type }{ pt }, 
+            linecolor => $hcolor{ white }, 
         ), $$cc, $$thermo, $$variance->sqrt, 
-
-        ( 
-            with      => 'lines', 
-            linestyle => -1,
-            linewidth =>  2, 
-        ), $$cc, $zeroes  
     )
 }
 

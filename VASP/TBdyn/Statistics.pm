@@ -7,6 +7,7 @@ use experimental 'signatures';
 
 use PDL; 
 use PDL::Stats::Basic; 
+use PDL::NiceSlice;
 use PDL::Stats::TS; 
 use PDL::Graphics::Gnuplot; 
 
@@ -15,7 +16,7 @@ use VASP::TBdyn::Color;
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
     block_analysis
-    corased_grain
+    coarsed_grain
     write_SI
     plot_SI
 ); 
@@ -45,36 +46,58 @@ sub block_analysis ( $tserie, $bsize, $bvar, $SI ) {
     $$bsize->inplace->sqrt; 
 }
 
-sub write_SI ( $bsize, $bvar, $SI, $output ) { 
+sub coarsed_grain ( $cc, $z_12, $tserie, $output ) { 
     my $fh = IO::KISS->new( $output, 'w' ); 
 
+    printf "=> Statistical ineffeciency (%s): ", $output; 
+    chomp ( my $SI = <STDIN> );  
+
+    # round-up
+    $SI = sprintf "%.0f", $SI; 
+    
+    # one value per rela;
+    my $CS_tserie = $$tserie( :-1:$SI );  
+    my $CS_z_12   =   $$z_12( :-1:$SI );  
+    my $CS_grad   = $CS_tserie / $CS_z_12; 
+
+    # the stderr of z_12 is small, and can be ignored
+    $fh->printf( 
+        "%.3f  %4d %10.5f %10.5f\n", 
+        $$cc->at(0), 
+        $SI, 
+        $CS_grad->avg,
+        $CS_tserie->se 
+    ); 
+
+    $fh->close; 
+} 
+
+sub write_SI ( $bsize, $bvar, $SI, $output ) { 
+    my $fh = IO::KISS->new( $output, 'w' ); 
+    
     for ( 0..$$SI->nelem -1 ) { 
         $fh->printf( 
             "%10.5f %10.5f %10.5f\n", 
-            $$bsize->at($_),
-             $$bvar->at($_),
-               $$SI->at($_), 
+            $$bsize->at($_), 
+             $$bvar->at($_), 
+               $$SI->at($_) 
         ) 
     }
 
     $fh->close; 
 } 
 
-sub coarsed_grain( $tserie, $output ) { 
-
-}
-
 sub plot_SI ( $cc, $bsize, $SI, $type ) { 
     my %plot = ( 
-        'gradient'  => { 
-            title   => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
-            color   => 'red',   
-            pt      => 4, 
+        'grad' => { 
+            title => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
+            color => 'red',   
+            pt    => 4, 
         }, 
-        'potential' => { 
-            title   => '|z|^{-1/2} * E_{pot}',  
-            color   => 'blue', 
-            pt      => 6, 
+        'epot' => { 
+            title => '|z|^{-1/2} * E_{pot}',  
+            color => 'blue', 
+            pt    => 6, 
         }, 
     ); 
 
@@ -90,19 +113,21 @@ sub plot_SI ( $cc, $bsize, $SI, $type ) {
         { 
             key    => 'top left spacing 2',
             title  => sprintf( "$plot{ $type }{ title }  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
-            xrange => sprintf( '%d:%d', $$bsize->min, $$bsize->max ), 
+            xrange => [ $$bsize->min, $$bsize->max ],
             xlabel => '{/Symbol=\326}n_b',
             ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
             size   => 'ratio 0.75', 
             grid   => 1
         }, 
 
+        # statistical inefficiency
         ( 
             with      => 'point', 
             pointtype => $plot{ $type }{ pt }, 
             linecolor => [ rgb => $hcolor{ $plot{ $type }{ color } } ], 
         ), $$bsize, $$SI, 
         
+        # moving average
         ( 
             with      => 'lines', 
             dashtype  => 1,
