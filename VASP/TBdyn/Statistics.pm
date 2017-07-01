@@ -16,7 +16,7 @@ use VASP::TBdyn::Color;
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
     block_analysis
-    coarsed_grain
+    coarse_grained
     write_SI
     plot_SI
 ); 
@@ -46,27 +46,26 @@ sub block_analysis ( $tserie, $bsize, $bvar, $SI ) {
     $$bsize->inplace->sqrt; 
 }
 
-sub coarsed_grain ( $cc, $z_12, $tserie, $output ) { 
+sub coarse_grained ( $cc, $z_12, $tserie, $output ) { 
     my $fh = IO::KISS->new( $output, 'w' ); 
 
-    printf "=> Statistical ineffeciency (%s): ", $output; 
+    printf "=> Coarse-graining (%s): ", $output; 
     chomp ( my $SI = <STDIN> );  
 
     # round-up
     $SI = sprintf "%.0f", $SI; 
     
     # one value per rela;
-    my $CS_tserie = $$tserie( :-1:$SI );  
     my $CS_z_12   =   $$z_12( :-1:$SI );  
+    my $CS_tserie = $$tserie( :-1:$SI );  
     my $CS_grad   = $CS_tserie / $CS_z_12; 
 
     # the stderr of z_12 is small, and can be ignored
     $fh->printf( 
-        "%.3f  %4d %10.5f %10.5f\n", 
+        "%7.3f  %10.5f  %10.5f\n", 
         $$cc->at(0), 
-        $SI, 
         $CS_grad->avg,
-        $CS_tserie->se 
+        $CS_tserie->se
     ); 
 
     $fh->close; 
@@ -77,7 +76,7 @@ sub write_SI ( $bsize, $bvar, $SI, $output ) {
     
     for ( 0..$$SI->nelem -1 ) { 
         $fh->printf( 
-            "%10.5f %10.5f %10.5f\n", 
+            "%7.3f  %10.5f  %10.5f\n", 
             $$bsize->at($_), 
              $$bvar->at($_), 
                $$SI->at($_) 
@@ -89,7 +88,7 @@ sub write_SI ( $bsize, $bvar, $SI, $output ) {
 
 sub plot_SI ( $cc, $bsize, $SI, $type ) { 
     my %plot = ( 
-        'grad' => { 
+        'pmf' => { 
             title => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
             color => 'red',   
             pt    => 4, 
@@ -133,7 +132,7 @@ sub plot_SI ( $cc, $bsize, $SI, $type ) {
             dashtype  => 1,
             linewidth => 3, 
             linecolor => [ rgb => $hcolor{ white } ], 
-        ), $$bsize, $$SI->filter_ma( 5 ), 
+        ), $$bsize, $$SI->filter_ma( 3 ), 
     );  
 } 
 

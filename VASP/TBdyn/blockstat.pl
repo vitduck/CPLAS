@@ -34,19 +34,19 @@ for my $dir ( @dirs ) {
     my ( $z_12xEpot, $epot_bsize, $epot_bvar, $epot_SI );  
 
     # parse REPORT 
-    read_report   ( \$cc, \$z_12, \$z_12xlGkT, \$z_12xEpot, 1000 ); 
+    read_report    ( \$cc, \$z_12, \$z_12xlGkT, \$z_12xEpot, 500 ); 
 
     # gradient 
-    block_analysis( \$z_12xlGkT, \$grad_bsize, \$grad_bvar, \$grad_SI );  
-    plot_SI       ( \$cc, \$grad_bsize, \$grad_SI, 'grad' );  
-    write_SI      ( \$grad_bsize, \$grad_bvar, \$grad_SI => 'SI_grad.dat' ); 
-    coarsed_grain ( \$cc, \$z_12, \$z_12xlGkT => 'CS_grad.dat' ); 
+    block_analysis ( \$z_12xlGkT, \$grad_bsize, \$grad_bvar, \$grad_SI );  
+    plot_SI        ( \$cc, \$grad_bsize, \$grad_SI, 'pmf' );  
+    write_SI       ( \$grad_bsize, \$grad_bvar, \$grad_SI => 'SI_pmf.dat' ); 
+    coarse_grained ( \$cc, \$z_12, \$z_12xlGkT => 'CS_pmf.dat' ); 
     
     # potential 
-    block_analysis( \$z_12xEpot, \$epot_bsize, \$epot_bvar, \$epot_SI );  
-    plot_SI       ( \$cc, \$epot_bsize, \$epot_SI, 'epot' );  
-    write_SI      ( \$epot_bsize, \$epot_bvar, \$epot_SI => 'SI_epot.dat' ); 
-    coarsed_grain ( \$cc, \$z_12, \$z_12xEpot => 'CS_epot.dat' ); 
+    block_analysis ( \$z_12xEpot, \$epot_bsize, \$epot_bvar, \$epot_SI );  
+    plot_SI        ( \$cc, \$epot_bsize, \$epot_SI, 'epot' );  
+    write_SI       ( \$epot_bsize, \$epot_bvar, \$epot_SI => 'SI_epot.dat' ); 
+    coarse_grained ( \$cc, \$z_12, \$z_12xEpot => 'CS_epot.dat' ); 
    
     # return 
     chdir $top_dir; 
