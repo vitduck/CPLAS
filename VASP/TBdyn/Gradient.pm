@@ -24,7 +24,7 @@ sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {
     $$gradient = $$z_12xlGkT / $$z_12; 
 }
 
-sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 50 ) { 
+sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 150 ) { 
     $$avg_gradient = $$z_12xlGkT->filter_ma( $period ) / $$z_12->filter_ma( $period );   
 }
 

@@ -15,78 +15,67 @@ use VASP::TBdyn::Color;
 
 our @ISA    = 'Exporter'; 
 our @EXPORT = qw( 
-    block_analysis
-    coarse_grained
-    write_SI
-    plot_SI
+    block_average
+    write_stat
+    write_stderr
+    plot_stderr
 ); 
 
-sub block_analysis ( $tserie, $bsize, $bvar, $SI ) { 
-    my ( @block_sizes, @block_vars ); 
+sub block_average ( $thermo, $bse ) { 
+    my @bses; 
 
-    for my $size ( 2 .. int( $$tserie->nelem / 4 ) ) { 
-        my $nblock = int( $$tserie->nelem / $size ); 
+    # minimum of 20 blocks data is requires
+    # if the plateur doesn't appear, the simulation is to short
+    for my $size ( 1 .. int( $$thermo->nelem / 20 ) ) { 
+        my $nblock = int( $$thermo->nelem / $size ); 
 
         # work on a 'copy' of the original time serie
-        # reshape is equivalent to bloking operation 
-        my $block_avg = $$tserie->copy->reshape($size, $nblock)->daverage; 
+        # reshape(n,m) is equivalent to blocking: 
+        # -n: block size 
+        # -m: number of block 
+        my $bavg = $$thermo->copy->reshape($size, $nblock)->daverage; 
 
-        push @block_sizes, $size; 
-        push @block_vars, $block_avg->var; 
+        push @bses, $bavg->se;  
     }
 
     # deref
-    $$bsize = PDL->new( @block_sizes );  
-    $$bvar  = PDL->new( @block_vars );  
-
-    # statistical ineffeciency 
-    $$SI = $$bsize * $$bvar / $$tserie->var; 
-
-    # convenient coordinate: sqrt(n_b)
-    $$bsize->inplace->sqrt; 
+    $$bse   = PDL->new( @bses );  
 }
 
-sub coarse_grained ( $cc, $z_12, $tserie, $output ) { 
+sub write_stderr ( $pmf_stderr, $epot_stderr, $output ) { 
+    # sanity check
+    die "Mismatch between pmf and potential\n"
+        unless $$pmf_stderr->nelem == $$epot_stderr->nelem; 
+
+    my $fh = IO::KISS->new( $output, 'w' ); 
+    for ( 0..$$pmf_stderr->nelem -1 ) { 
+        $fh->printf( "%d  %10.5f  %10.5f\n", $_+1, $$pmf_stderr->at($_), $$epot_stderr->at($_) )
+    }
+    $fh->close; 
+} 
+
+sub write_stat ( $cc, $z_12, $thermo, $stderr, $output ) {   
     my $fh = IO::KISS->new( $output, 'w' ); 
 
-    printf "=> Coarse-graining (%s): ", $output; 
-    chomp ( my $SI = <STDIN> );  
+    print "=> Block length for $output: "; 
+    chomp ( my $nblock = <STDIN> ); 
 
-    # round-up
-    $SI = sprintf "%.0f", $SI; 
-    
-    # one value per rela;
-    my $CS_z_12   =   $$z_12( :-1:$SI );  
-    my $CS_tserie = $$tserie( :-1:$SI );  
-    my $CS_grad   = $CS_tserie / $CS_z_12; 
-
-    # the stderr of z_12 is small, and can be ignored
     $fh->printf( 
-        "%7.3f  %10.5f  %10.5f\n", 
+        "%7.3f  %d  %7.3f  %7.3f\n", 
         $$cc->at(0), 
-        $CS_grad->avg,
-        $CS_tserie->se
+        $nblock, 
+        $$thermo->avg / $$z_12->avg, 
+        $$stderr->at( $nblock -1 )
     ); 
 
     $fh->close; 
 } 
 
-sub write_SI ( $bsize, $bvar, $SI, $output ) { 
-    my $fh = IO::KISS->new( $output, 'w' ); 
-    
-    for ( 0..$$SI->nelem -1 ) { 
-        $fh->printf( 
-            "%7.3f  %10.5f  %10.5f\n", 
-            $$bsize->at($_), 
-             $$bvar->at($_), 
-               $$SI->at($_) 
-        ) 
-    }
+sub plot_stderr ( $cc, $stderr, $type ) { 
+    # x-axis
+    my $bsize = PDL->new( 1..$$stderr->nelem ); 
 
-    $fh->close; 
-} 
-
-sub plot_SI ( $cc, $bsize, $SI, $type ) { 
+    # type table
     my %plot = ( 
         'pmf' => { 
             title => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
@@ -112,19 +101,21 @@ sub plot_SI ( $cc, $bsize, $SI, $type ) {
         { 
             key    => 'top left spacing 2',
             title  => sprintf( "$plot{ $type }{ title }  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
-            xrange => [ $$bsize->min, $$bsize->max ],
-            xlabel => '{/Symbol=\326}n_b',
-            ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
+            #xlabel => '{/Symbol=\326}n_b',
+            #ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
+            xlabel => 'n_b',
+            ylabel => 'standard error', 
             size   => 'ratio 0.75', 
             grid   => 1
         }, 
 
-        # statistical inefficiency
+        # standard error 
         ( 
             with      => 'point', 
+            linewidth => 2,
             pointtype => $plot{ $type }{ pt }, 
             linecolor => [ rgb => $hcolor{ $plot{ $type }{ color } } ], 
-        ), $$bsize, $$SI, 
+        ), $bsize, $$stderr, 
         
         # moving average
         ( 
@@ -132,7 +123,7 @@ sub plot_SI ( $cc, $bsize, $SI, $type ) {
             dashtype  => 1,
             linewidth => 3, 
             linecolor => [ rgb => $hcolor{ white } ], 
-        ), $$bsize, $$SI->filter_ma( 3 ), 
+        ), $bsize, $$stderr->filter_ma( 3 ), 
     );  
 } 
 

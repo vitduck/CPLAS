@@ -25,7 +25,7 @@ sub read_data ( $input, $cc, $thermo, $variance ) {
     for ( IO::KISS->new( $input, 'r' )->get_lines ) { 
         next if /#/; 
 
-        my ( $cc, $thermo, $se ) = split; 
+        my ( $cc, undef, $thermo, $se ) = split; 
 
         push @cc, $cc; 
         push @thermos, $thermo; 
