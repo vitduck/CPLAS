@@ -5,8 +5,8 @@ use strict;
 use warnings; 
 use experimental 'signatures'; 
 
-our @ISA       = 'Exporter'; 
-our @EXPORT    = qw( %hcolor ); 
+our @ISA    = qw( Exporter ); 
+our @EXPORT = qw( %hcolor  ); 
 
 our %hcolor = ( 
     blue   => '#94bff3',  

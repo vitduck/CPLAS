@@ -8,10 +8,8 @@ use experimental 'signatures';
 use PDL; 
 use IO::KISS; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    read_report 
-); 
+our @ISA    = qw( Exporter    ); 
+our @EXPORT = qw( read_report ); 
 
 sub read_report ( $cc, $z_12, $z_12xlGkT, $z_12xEpot, $equilibration = 0 ) { 
     my ( @cc, @z_12, @z_12xlGkT, @Epot );  
@@ -20,14 +18,14 @@ sub read_report ( $cc, $z_12, $z_12xlGkT, $z_12xEpot, $equilibration = 0 ) {
 
     while ( local $_ = $report->get_line ) { 
         # constraints
-        if ( /cc>/  ) { 
+        if ( /cc>/ ) { 
             push @cc, (split)[2] 
         } 
 
         # bluemoon statistics
         if ( /b_m>/ ) {  
             my @bm = split; 
-            push @z_12,  $bm[ 2]; 
+            push @z_12,      $bm[ 2]; 
             push @z_12xlGkT, $bm[-1]; 
         }
 
@@ -35,7 +33,6 @@ sub read_report ( $cc, $z_12, $z_12xlGkT, $z_12xEpot, $equilibration = 0 ) {
         if ( /e_b>/ ) {  
             push @Epot, (split)[2]
         }
-
     } 
 
     $report->close; 
@@ -44,10 +41,10 @@ sub read_report ( $cc, $z_12, $z_12xlGkT, $z_12xEpot, $equilibration = 0 ) {
     map { splice @$_, 0, $equilibration } ( \@cc, \@z_12, \@z_12xlGkT, \@Epot ); 
 
     # deref the piddle
-    $$cc        = PDL->new( @cc    ); 
-    $$z_12      = PDL->new( @z_12  ); 
+    $$cc        = PDL->new( @cc        ); 
+    $$z_12      = PDL->new( @z_12      ); 
     $$z_12xlGkT = PDL->new( @z_12xlGkT ); 
-    $$z_12xEpot = PDL->new( @Epot ) * $$z_12; 
+    $$z_12xEpot = PDL->new( @Epot      ) * $$z_12; 
 }
 
 1; 

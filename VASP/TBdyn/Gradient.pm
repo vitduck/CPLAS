@@ -6,44 +6,13 @@ use warnings;
 use experimental 'signatures'; 
 
 use PDL; 
-use PDL::Stats::TS; 
 use PDL::Graphics::Gnuplot; 
-
-use IO::KISS;  
 use VASP::TBdyn::Color; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    get_gradient
-    get_avg_gradient
-    write_avg_gradient
-    plot_avg_gradient
-); 
+our @ISA    = qw( Exporter );  
+our @EXPORT = qw( pl_grad_avg pl_grad_err ); 
 
-sub get_gradient ( $z_12, $z_12xlGkT, $gradient ) {  
-    $$gradient = $$z_12xlGkT / $$z_12; 
-}
-
-sub get_avg_gradient ( $z_12, $z_12xlGkT, $avg_gradient, $period = 150 ) { 
-    $$avg_gradient = $$z_12xlGkT->filter_ma( $period ) / $$z_12->filter_ma( $period );   
-}
-
-sub write_avg_gradient ( $gradient, $avg_gradient, $output ) {  
-    my $fh = IO::KISS->new( $output, 'w' ); 
-
-    for ( 0..$$gradient->nelem - 1 ) { 
-        $fh->printf( 
-            "%d %15.8f %15.8f\n", 
-            $_+1,
-            $$gradient->at($_), 
-            $$avg_gradient->at($_)
-        )
-    }
-
-    $fh->close; 
-} 
-
-sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) { 
+sub pl_grad_avg ( $cc, $gradient ) { 
     my $figure = gpwin( 
         'x11', 
         persist  => 1, 
@@ -54,29 +23,54 @@ sub plot_avg_gradient ( $cc, $gradient, $avg_gradient ) {
     $figure->plot( 
         # plot options
         { 
-            title  => sprintf( "Free Energy Gradient  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
+            grid   => 1, 
+            size   => 'ratio 0.75', 
+            key    => 'top right', 
+            title  => sprintf( "Free Energy Gradient ({/Symbol x} = %.3f)", $$cc->at(0) ),  
             xlabel => 'MD step', 
             ylabel => '{/Symbol \266}A / {/Symbol \266}{/Symbol x}', 
-            key    => 'top right spacing 1.5',
-            size   => 'ratio 0.75', 
-            grid   => 1
+            xrange => '[250:]', 
         }, 
 
         # gradient
         ( 
             with      => 'lines', 
             dashtype  => 1,  
-            linewidth => 2, 
+            linewidth => 4, 
             linecolor => [ rgb => $hcolor{ red } ], 
         ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
-        
-        # avg_gradient
-        ( 
-            with      => 'lines', 
-            dashtype  => 1,  
-            linewidth => 3, 
-            linecolor => [ rgb => $hcolor{ white } ], 
-            legend    => 'Moving average', 
-        ), PDL->new( 1.. $$cc->nelem ), $$avg_gradient, 
     )
 }
+
+sub pl_grad_err ( $cc, $grad_error ) { 
+    # x-axis: block size
+    my $bsize = PDL->new( 1..$$grad_error->nelem ); 
+
+    my $figure = gpwin( 
+        'x11', 
+        persist  => 1, 
+        raise    => 1, 
+        enhanced => 1, 
+    ); 
+
+    $figure->plot( 
+        # plot options
+        { 
+            key    => 'top left spacing 2',
+            title  => sprintf( "|z|^{-1/2} * ({/Symbol l} + GkT)' ({/Symbol x} = %.3f)", $$cc->at(0) ),  
+            xlabel => 'N_b',
+            ylabel => 'standard error', 
+            size   => 'ratio 0.75', 
+            grid   => 1
+        }, 
+
+        ( 
+            with      => 'point', 
+            linewidth => 2,
+            pointtype => 6, 
+            linecolor => [ rgb => $hcolor{ 'red' } ], 
+        ), $bsize, $$grad_error
+    )
+} 
+
+1

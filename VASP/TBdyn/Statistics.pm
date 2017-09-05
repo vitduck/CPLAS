@@ -8,21 +8,53 @@ use experimental 'signatures';
 use PDL; 
 use PDL::Stats::Basic; 
 use PDL::NiceSlice;
-use PDL::Stats::TS; 
 use PDL::Graphics::Gnuplot; 
 
+use IO::KISS; 
 use VASP::TBdyn::Color; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    block_average
-    write_stat
-    write_stderr
-    plot_stderr
-); 
+our @ISA    = qw( Exporter ); 
+our @EXPORT = qw( unbiased_avg block_err ensemble ); 
 
-sub block_average ( $thermo, $bse ) { 
-    my @bses; 
+# ratio of two ensemble averages 
+# here the term 1/N simply cancels out
+sub unbiased_avg ( $z_12, $biased, $unbiased, $output ) { 
+    my @unbiased;
+
+    # sanity check
+    die "Dimensional mismatch between z_12 and biased quantity\n" 
+        unless $$z_12->nelem == $$biased->nelem; 
+    
+    my $Sz_12   = 0;  
+    my $Sbiased = 0; 
+    my $fh      = IO::KISS->new( $output, 'w' ); 
+    
+    for ( 0 .. $$z_12->nelem - 1 ) { 
+        my $average; 
+
+        $Sz_12   += $$z_12->at( $_ ); 
+        $Sbiased += $$biased->at( $_ ); 
+        $average  = $Sbiased / $Sz_12;  
+
+        push @unbiased, $average; 
+
+        $fh->printf( 
+            "%d\t%10.7e\n", 
+            $_+1, 
+            $average 
+        ); 
+    }
+
+    $fh->close; 
+
+    # deref
+    $$unbiased = PDL->new( @unbiased )
+} 
+
+sub block_err ( $thermo, $stderr, $output ) { 
+    my @errs; 
+
+    my $fh = IO::KISS->new( $output, 'w' ); 
 
     # minimum of 20 blocks data is requires
     # if the plateur doesn't appear, the simulation is to short
@@ -33,98 +65,35 @@ sub block_average ( $thermo, $bse ) {
         # reshape(n,m) is equivalent to blocking: 
         # -n: block size 
         # -m: number of block 
-        my $bavg = $$thermo->copy->reshape($size, $nblock)->daverage; 
+        my $err = $$thermo->copy->reshape($size, $nblock)->daverage->se; 
+        
+        # print to file 
+        $fh->printf( "%.5e\n", $err ); 
 
-        push @bses, $bavg->se;  
+        push @errs, $err
     }
+
+    $fh->close; 
 
     # deref
-    $$bse   = PDL->new( @bses );  
+    $$stderr = PDL->new( @errs );  
 }
 
-sub write_stderr ( $pmf_stderr, $epot_stderr, $output ) { 
-    # sanity check
-    die "Mismatch between pmf and potential\n"
-        unless $$pmf_stderr->nelem == $$epot_stderr->nelem; 
-
-    my $fh = IO::KISS->new( $output, 'w' ); 
-    for ( 0..$$pmf_stderr->nelem -1 ) { 
-        $fh->printf( "%d  %10.5f  %10.5f\n", $_+1, $$pmf_stderr->at($_), $$epot_stderr->at($_) )
-    }
-    $fh->close; 
-} 
-
-sub write_stat ( $cc, $z_12, $thermo, $stderr, $output ) {   
+sub ensemble ( $cc, $z_12, $thermo, $stderr, $output ) {   
     my $fh = IO::KISS->new( $output, 'w' ); 
 
-    print "=> Block length for $output: "; 
+    print "=> Correlation length for $output: "; 
     chomp ( my $nblock = <STDIN> ); 
 
     $fh->printf( 
-        "%7.3f  %d  %7.3f  %7.3f\n", 
+        "%7.3f  %7.3f  %7.3f  %d\n", 
         $$cc->at(0), 
-        $nblock, 
         $$thermo->avg / $$z_12->avg, 
-        $$stderr->at( $nblock -1 )
+        $$stderr->at( $nblock -1 ), 
+        $nblock, 
     ); 
 
     $fh->close; 
-} 
-
-sub plot_stderr ( $cc, $stderr, $type ) { 
-    # x-axis
-    my $bsize = PDL->new( 1..$$stderr->nelem ); 
-
-    # type table
-    my %plot = ( 
-        'pmf' => { 
-            title => '|z|^{-1/2} * ({/Symbol l} + GkT)', 
-            color => 'red',   
-            pt    => 4, 
-        }, 
-        'epot' => { 
-            title => '|z|^{-1/2} * E_{pot}',  
-            color => 'blue', 
-            pt    => 6, 
-        }, 
-    ); 
-
-    my $figure = gpwin( 
-        'x11', 
-        persist  => 1, 
-        raise    => 1, 
-        enhanced => 1, 
-    ); 
-    
-    $figure->plot( 
-        # plot options
-        { 
-            key    => 'top left spacing 2',
-            title  => sprintf( "$plot{ $type }{ title }  ({/Symbol x} = %.3f)", $$cc->at(0) ),  
-            #xlabel => '{/Symbol=\326}n_b',
-            #ylabel => 'n_b{/Symbol s}_n / {/Symbol s}_1', 
-            xlabel => 'n_b',
-            ylabel => 'standard error', 
-            size   => 'ratio 0.75', 
-            grid   => 1
-        }, 
-
-        # standard error 
-        ( 
-            with      => 'point', 
-            linewidth => 2,
-            pointtype => $plot{ $type }{ pt }, 
-            linecolor => [ rgb => $hcolor{ $plot{ $type }{ color } } ], 
-        ), $bsize, $$stderr, 
-        
-        # moving average
-        ( 
-            with      => 'lines', 
-            dashtype  => 1,
-            linewidth => 3, 
-            linecolor => [ rgb => $hcolor{ white } ], 
-        ), $bsize, $$stderr->filter_ma( 3 ), 
-    );  
 } 
 
 1

@@ -6,17 +6,13 @@ use warnings;
 use experimental 'signatures'; 
 
 use PDL; 
-use PDL::Graphics::Gnuplot; 
-use Data::Printer; 
-
 use IO::KISS;  
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    integ_trapz
-);  
+our @ISA    = qw( Exporter  );  
+our @EXPORT = qw( helmholtz ); 
 
-sub integ_trapz ( $cc, $gradient, $variance, $dA, $dA_var ) { 
+# trapezoidal integration
+sub helmholtz ( $cc, $gradient, $variance, $dA, $dA_var ) { 
     my ( @free_enes, @prop_errs ); 
 
     # reference point 
@@ -28,12 +24,12 @@ sub integ_trapz ( $cc, $gradient, $variance, $dA, $dA_var ) {
     for my $i ( 1 .. $$cc->nelem - 1 ) { 
         # first and last point
         $free_enes[$i] = 
-            0.50 * $$gradient->at(0)  * ( $$cc->at(1)  - $$cc->at(0) ) + 
+            0.50 * $$gradient->at(0)  * ( $$cc->at(1)  - $$cc->at(0)    ) + 
             0.50 * $$gradient->at($i) * ( $$cc->at($i) - $$cc->at($i-1) ); 
 
         $prop_errs[$i] = 
-            0.25 * $$variance->at(0)  * ( $$cc->at(1)  - $$cc->at(0) )**2 + 
-            0.25 * $$variance->at($i) * ( $$cc->at($i)  - $$cc->at($i-1) )**2; 
+            0.25 * $$variance->at(0)  * ( $$cc->at(1)  - $$cc->at(0)    )**2 + 
+            0.25 * $$variance->at($i) * ( $$cc->at($i) - $$cc->at($i-1) )**2; 
             
         # middle point with cancellation
         for my $j ( 1..$i - 1 ) { 
@@ -43,7 +39,6 @@ sub integ_trapz ( $cc, $gradient, $variance, $dA, $dA_var ) {
             $prop_errs[$i] += 
                 0.25 * $$variance->at($j) * ( $$cc->at($j+1) - $$cc->at($j-1) )**2 
         } 
-
     }
 
     # deref PDL piddle 

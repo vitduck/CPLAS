@@ -9,32 +9,27 @@ use PDL;
 use PDL::Graphics::Gnuplot; 
 
 use IO::KISS; 
-
 use VASP::TBdyn::Color; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    read_data
-    print_thermo
-    plot_thermo
-); 
+our @ISA    = qw( Exporter ); 
+our @EXPORT = qw( read_thermo print_thermo plot_thermo ); 
 
-sub read_data ( $input, $cc, $thermo, $variance ) { 
+sub read_thermo ( $input, $cc, $thermo, $variance ) { 
     my ( @cc, @thermos, @variances ); 
 
     for ( IO::KISS->new( $input, 'r' )->get_lines ) { 
         next if /#/; 
 
-        my ( $cc, undef, $thermo, $se ) = split; 
+        my ( $cc, $thermo, $se ) = split; 
 
-        push @cc, $cc; 
-        push @thermos, $thermo; 
+        push @cc       , $cc; 
+        push @thermos  , $thermo; 
         push @variances, $se**2; 
     } 
 
     # deref PDL piddle
-    $$cc       = PDL->new( @cc ); 
-    $$thermo   = PDL->new( @thermos ); 
+    $$cc       = PDL->new( @cc        ); 
+    $$thermo   = PDL->new( @thermos   ); 
     $$variance = PDL->new( @variances ); 
 } 
 

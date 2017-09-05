@@ -11,12 +11,8 @@ use PDL::Graphics::Gnuplot;
 use IO::KISS;  
 use VASP::TBdyn::Color; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    integ_slow_growth 
-    write_slow_growth
-    plot_slow_growth
-); 
+our @ISA    = qw( Exporter ); 
+our @EXPORT = qw( integ_slow_growth write_slow_growth plot_slow_growth ); 
 
 sub integ_slow_growth ( $cc, $gradient, $free_ene) { 
     # not the most elegant, but ... 

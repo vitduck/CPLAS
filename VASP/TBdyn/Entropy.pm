@@ -6,12 +6,9 @@ use warnings;
 use experimental 'signatures'; 
 
 use PDL; 
-use Data::Printer; 
 
-our @ISA    = 'Exporter'; 
-our @EXPORT = qw( 
-    entropy
-);  
+our @ISA    = qw( Exporter );  
+our @EXPORT = qw( entropy  );
 
 sub entropy ( $dA, $dU, $TdS, $dA_var, $dU_var, $TdS_var ) { 
     # sanity check
