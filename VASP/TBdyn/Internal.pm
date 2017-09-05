@@ -7,6 +7,7 @@ use experimental 'signatures';
 
 use PDL; 
 use PDL::Graphics::Gnuplot; 
+use PDL::Stats::TS;
 use VASP::TBdyn::Color; 
 
 our @ISA    = qw( Exporter   ); 
@@ -43,7 +44,16 @@ sub pl_epot_avg ( $cc, $internal ) {
             dashtype  => 1,  
             linewidth => 4, 
             linecolor => [ rgb => $hcolor{ blue } ], 
-        ), PDL->new( 1.. $$cc->nelem ), $$internal 
+        ), PDL->new( 1.. $$cc->nelem ), $$internal, 
+
+        # moving average 
+        ( 
+            with      => 'lines', 
+            dashtype  => 2,  
+            linewidth => 3, 
+            linecolor => [ rgb => $hcolor{ white } ], 
+            legend    => 'Moving average', 
+        ), PDL->new( 1.. $$cc->nelem ), $$internal->filter_ma( 100 )
     )
 }
 

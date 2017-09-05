@@ -12,7 +12,7 @@ use VASP::TBdyn::Statistics;
 my ( $cc, $z_12, $z_12xlGkT, $z_12xEpot );
 my ( $grad, $epot ); 
 
-read_report  ( \$cc, \$z_12, \$z_12xlGkT, \$z_12xEpot ); 
+read_report  ( \$cc, \$z_12, \$z_12xlGkT, \$z_12xEpot, 0 ); 
 unbiased_avg ( \$z_12, \$z_12xlGkT, \$grad => 'grad_avg.dat' ); 
 unbiased_avg ( \$z_12, \$z_12xEpot, \$epot => 'epot_avg.dat' ); 
 pl_grad_avg  ( \$cc, \$grad ); 

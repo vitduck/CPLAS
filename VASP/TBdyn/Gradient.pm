@@ -7,6 +7,7 @@ use experimental 'signatures';
 
 use PDL; 
 use PDL::Graphics::Gnuplot; 
+use PDL::Stats::TS;
 use VASP::TBdyn::Color; 
 
 our @ISA    = qw( Exporter );  
@@ -38,7 +39,16 @@ sub pl_grad_avg ( $cc, $gradient ) {
             dashtype  => 1,  
             linewidth => 4, 
             linecolor => [ rgb => $hcolor{ red } ], 
-        ), PDL->new( 1.. $$cc->nelem ), $$gradient, 
+        ), PDL->new( 1.. $$cc->nelem ), $$gradient,  
+
+        # moving average 
+        ( 
+            with      => 'lines', 
+            dashtype  => 2,  
+            linewidth => 3, 
+            linecolor => [ rgb => $hcolor{ white } ], 
+            legend    => 'Moving average', 
+        ), PDL->new( 1.. $$cc->nelem ), $$gradient->filter_ma( 100 )
     )
 }
 
