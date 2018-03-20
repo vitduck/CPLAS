@@ -14,9 +14,10 @@ has '+input', (
 
 has '+cache', ( 
     handles   => { 
-        get_magmom_tag => [ get => 'MAGMOM' ], 
-        get_mdalgo_tag => [ get => 'MDALGO' ], 
-        get_neb_tag    => [ get => 'ICHAIN' ] 
+        get_magmom_tag => [ get => 'MAGMOM'  ], 
+        get_mdalgo_tag => [ get => 'MDALGO'  ], 
+        get_neb_tag    => [ get => 'ICHAIN'  ],  
+        get_lsorbit    => [ get => 'LSORBIT' ], 
     } 
 ); 
 
